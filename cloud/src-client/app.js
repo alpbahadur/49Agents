@@ -11593,6 +11593,49 @@ import { initGitGraphDeps, renderGitGraphPane, fetchGitGraphData } from './modul
       lastMouseY = e.clientY;
     });
 
+    // Cmd+C (macOS) / Ctrl+Shift+C (other): copy current terminal selection.
+    // Document-level capture phase so it survives the canvas-embed focus race
+    // (xterm.js's own key handlers only fire when the helper textarea is focused).
+    // Plain Ctrl+C is left alone — that is SIGINT for the TUI.
+    const isMac = navigator.platform.toUpperCase().includes('MAC');
+    document.addEventListener('keydown', (e) => {
+      const isCopyCombo = e.key === 'c' && !e.altKey &&
+        ((isMac && e.metaKey && !e.shiftKey) || (!isMac && e.ctrlKey && e.shiftKey));
+      if (!isCopyCombo) return;
+      if (isExternalInputFocused()) return; // don't steal copy from text inputs
+
+      // Find the active terminal pane via lastFocusedPaneId (same reliability path
+      // the paste handler uses).
+      const paneId = (typeof lastFocusedPaneId !== 'undefined' && lastFocusedPaneId) || null;
+      if (!paneId) return;
+      const termInfo = terminals.get(paneId);
+      if (!termInfo || !termInfo.xterm) return;
+      if (!termInfo.xterm.hasSelection()) return;
+      const sel = termInfo.xterm.getSelection();
+      if (!sel) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Dual path: navigator.clipboard for HTTPS/secure contexts, execCommand fallback
+      // for plain HTTP. Matches the right-click copy path at the terminal pane setup.
+      const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = sel;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(sel).catch(fallback);
+      } else {
+        fallback();
+      }
+    }, true);
+
     // Track Ctrl+V vs Ctrl+Shift+V when unfocused, so the paste handler knows
     // whether to create a note or route to the last focused terminal.
     let unfocusedPasteMode = null; // 'note' | 'terminal' | null
@@ -12612,24 +12655,29 @@ import { initGitGraphDeps, renderGitGraphPane, fetchGitGraphData } from './modul
   // Right mouse button pan — works even over panes (terminals, editors, etc.)
   function handleRightMousePan(e) {
     if (e.button !== 2) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    isPanning = true;
-    let didMove = false;
-    panStartX = e.clientX - state.panX;
-    panStartY = e.clientY - state.panY;
-    document.body.style.cursor = 'grabbing';
-    showIframeOverlays();
-
-    // Suppress context menu while dragging
-    const suppressContextMenu = (ce) => { ce.preventDefault(); };
-    document.addEventListener('contextmenu', suppressContextMenu, true);
+    // Don't preventDefault/stopPropagation yet — wait to see if user actually drags.
+    // A pure right-click (no drag) must reach the pane's own contextmenu handler
+    // (e.g. xterm pane's right-click-copy at terminal-pane setup).
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const DRAG_THRESHOLD = 4;
+    let panActive = false;
+    let suppressContextMenu = null;
 
     const moveHandler = (moveE) => {
-      if (!isPanning) return;
+      if (!panActive) {
+        if (Math.hypot(moveE.clientX - startX, moveE.clientY - startY) < DRAG_THRESHOLD) return;
+        panActive = true;
+        isPanning = true;
+        panStartX = startX - state.panX;
+        panStartY = startY - state.panY;
+        document.body.style.cursor = 'grabbing';
+        showIframeOverlays();
+        // Now that drag has started, suppress the trailing contextmenu
+        suppressContextMenu = (ce) => { ce.preventDefault(); };
+        document.addEventListener('contextmenu', suppressContextMenu, true);
+      }
       moveE.preventDefault();
-      didMove = true;
       state.panX = moveE.clientX - panStartX;
       state.panY = moveE.clientY - panStartY;
       updateCanvasTransform();
@@ -12637,16 +12685,17 @@ import { initGitGraphDeps, renderGitGraphPane, fetchGitGraphData } from './modul
 
     const endHandler = (upE) => {
       if (upE.button !== 2) return;
+      document.removeEventListener('mousemove', moveHandler);
+      document.removeEventListener('mouseup', endHandler);
+      if (!panActive) return; // pure right-click — let contextmenu fire on target
       isPanning = false;
       document.body.style.cursor = '';
       hideIframeOverlays();
       saveViewState();
-      document.removeEventListener('mousemove', moveHandler);
-      document.removeEventListener('mouseup', endHandler);
-      // Remove context menu suppression after a tick (so the mouseup's contextmenu is still caught)
-      setTimeout(() => {
-        document.removeEventListener('contextmenu', suppressContextMenu, true);
-      }, 0);
+      if (suppressContextMenu) {
+        const sup = suppressContextMenu;
+        setTimeout(() => document.removeEventListener('contextmenu', sup, true), 0);
+      }
     };
 
     document.addEventListener('mousemove', moveHandler);
