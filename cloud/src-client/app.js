@@ -7782,6 +7782,63 @@ import { initGitGraphDeps, renderGitGraphPane, fetchGitGraphData } from './modul
     // Paste: xterm handles natively — its hidden textarea receives paste events,
     // which fire onData and send through WebSocket.
 
+    // --- Drag-and-drop image support ---
+    // Dropped image files are replayed as synthetic clipboard pastes onto
+    // xterm's hidden textarea, so they go through the same native paste path
+    // (and whatever CLI-side image protocol) as a real ctrl+v.
+    if (xtermTextarea) {
+      let dragDepth = 0;
+
+      const isFileDrag = (e) =>
+        e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+
+      container.addEventListener('dragenter', (e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        dragDepth++;
+        paneEl.classList.add('terminal-drop-target');
+      });
+
+      container.addEventListener('dragover', (e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      });
+
+      container.addEventListener('dragleave', (e) => {
+        if (!isFileDrag(e)) return;
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) paneEl.classList.remove('terminal-drop-target');
+      });
+
+      container.addEventListener('drop', async (e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        dragDepth = 0;
+        paneEl.classList.remove('terminal-drop-target');
+
+        const imageFiles = Array.from(e.dataTransfer.files || [])
+          .filter(f => f.type.startsWith('image/'));
+        if (imageFiles.length === 0) return;
+
+        xtermTextarea.focus();
+
+        for (const file of imageFiles) {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          const pasteEvent = new ClipboardEvent('paste', {
+            clipboardData: dt,
+            bubbles: true,
+            cancelable: true,
+          });
+          xtermTextarea.dispatchEvent(pasteEvent);
+          // Let each paste round-trip before firing the next one, so
+          // multi-image drops don't race the CLI's image protocol.
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      });
+    }
+
     // Track last selection — right-click clears xterm selection before contextmenu fires
     let lastTerminalSelection = '';
     xterm.onSelectionChange(() => {
