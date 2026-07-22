@@ -7783,9 +7783,14 @@ import { initGitGraphDeps, renderGitGraphPane, fetchGitGraphData } from './modul
     // which fire onData and send through WebSocket.
 
     // --- Drag-and-drop image support ---
-    // Dropped image files are replayed as synthetic clipboard pastes onto
-    // xterm's hidden textarea, so they go through the same native paste path
-    // (and whatever CLI-side image protocol) as a real ctrl+v.
+    // xterm's paste path only ever forwards text/plain (bracketed-paste
+    // wraps whatever getData('text/plain') returns), so image bytes can't
+    // ride through a synthesized paste event — Chrome also won't let a
+    // script-constructed ClipboardEvent carry real clipboardData anyway.
+    // Instead we ship the raw bytes to the agent over the existing
+    // websocket; the agent writes a temp file and types its path, which
+    // Claude Code's own path auto-detection picks up as an image — the
+    // same mechanism a real OS-level drag-drop onto a native terminal uses.
     if (xtermTextarea) {
       let dragDepth = 0;
 
@@ -7821,19 +7826,23 @@ import { initGitGraphDeps, renderGitGraphPane, fetchGitGraphData } from './modul
           .filter(f => f.type.startsWith('image/'));
         if (imageFiles.length === 0) return;
 
-        xtermTextarea.focus();
-
         for (const file of imageFiles) {
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          const pasteEvent = new ClipboardEvent('paste', {
-            clipboardData: dt,
-            bubbles: true,
-            cancelable: true,
-          });
-          xtermTextarea.dispatchEvent(pasteEvent);
-          // Let each paste round-trip before firing the next one, so
-          // multi-image drops don't race the CLI's image protocol.
+          const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1] || '');
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          }).catch(() => null);
+          if (!base64) continue;
+
+          sendWs('terminal:pasteImage', {
+            terminalId: paneData.id,
+            imageData: base64,
+            mimeType: file.type,
+          }, paneData.agentId);
+
+          // Space each drop apart so the agent's temp-file writes and the
+          // typed paths land in the pty in a sane order for multi-image drops.
           await new Promise(resolve => setTimeout(resolve, 50));
         }
       });
