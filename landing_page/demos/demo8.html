@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>49Agents — Infinite canvas for parallel AI agents</title>
+  <meta name="description" content="Run Claude Code and other AI agents across multiple machines from a single infinite 2D canvas. Manage terminals, git, notes, and resource monitoring in one place." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Design tokens ─────────────────────────────────────── */
+    :root {
+      --bg:            #050509;
+      --bg-surface:    #0a0a12;
+      --accent:        #2dd4bf;
+      --accent-rgb:    45, 212, 191;
+      --accent-dim:    rgba(45, 212, 191, 0.15);
+      --accent-border: rgba(45, 212, 191, 0.35);
+      --accent-glow:   rgba(45, 212, 191, 0.4);
+      --border:        rgba(255, 255, 255, 0.06);
+      --border-hover:  rgba(255, 255, 255, 0.12);
+      --text-high:     rgba(255, 255, 255, 0.90);
+      --text-mid:      rgba(255, 255, 255, 0.55);
+      --text-low:      rgba(255, 255, 255, 0.30);
+      --card-radius:   8px;
+      --card-padding:  24px;
+      --card-border:   1px solid var(--border);
+      --section-gap:   96px;
+      --inner-width:   640px;
+      --font-body:     'Inter', system-ui, sans-serif;
+      --font-mono:     'JetBrains Mono', 'Courier New', monospace;
+      --font-brand:    'Montserrat', sans-serif;
+    }
+
+    /* ─── Reset & base ──────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-high);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Layout helpers ────────────────────────────────────── */
+    .inner {
+      max-width: var(--inner-width);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section {
+      padding: var(--section-gap) 0;
+      border-top: 1px solid var(--border);
+    }
+
+    section:first-of-type {
+      border-top: none;
+    }
+
+    /* ─── Section label ─────────────────────────────────────── */
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    /* ─── Typography ────────────────────────────────────────── */
+    h1 {
+      font-family: var(--font-brand);
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--text-high);
+    }
+
+    h2 {
+      font-family: var(--font-brand);
+      font-size: clamp(22px, 3.5vw, 30px);
+      font-weight: 600;
+      line-height: 1.25;
+      letter-spacing: -0.015em;
+      color: var(--text-high);
+    }
+
+    h3 {
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--text-high);
+    }
+
+    p {
+      color: var(--text-mid);
+      line-height: 1.7;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* ─── Nav ───────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(5, 5, 9, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: var(--inner-width);
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-high);
+      letter-spacing: 0.04em;
+    }
+
+    .nav-logo span {
+      color: var(--accent);
+    }
+
+    .nav-cta {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+      padding: 6px 14px;
+      border-radius: var(--card-radius);
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+
+    .nav-cta:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+
+    /* ─── Hero ──────────────────────────────────────────────── */
+    #hero {
+      padding: 80px 0 96px;
+      border-top: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      border-radius: 100px;
+      padding: 5px 12px;
+      margin-bottom: 28px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    #hero h1 {
+      margin-bottom: 20px;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--text-mid);
+      margin-bottom: 36px;
+      max-width: 520px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 11px 22px;
+      border-radius: var(--card-radius);
+      border: 1px solid transparent;
+      transition: opacity 0.15s, transform 0.1s;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.88;
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-mid);
+      padding: 11px 0;
+      border: none;
+      background: none;
+      transition: color 0.15s;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn-ghost:hover {
+      color: var(--text-high);
+    }
+
+    .hero-canvas-hint {
+      margin-top: 52px;
+      background: var(--bg-surface);
+      border: var(--card-border);
+      border-radius: var(--card-radius);
+      padding: var(--card-padding);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.8;
+      color: var(--text-low);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-canvas-hint::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(var(--accent-rgb), 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .canvas-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .canvas-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .canvas-tile {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 10px 14px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .tile-label {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-low);
+      margin-bottom: 6px;
+    }
+
+    .tile-content {
+      color: var(--text-mid);
+      font-size: 11px;
+    }
+
+    .tile-content .running {
+      color: #4ade80;
+    }
+
+    .tile-content .pending {
+      color: var(--accent);
+    }
+
+    /* ─── What is it ────────────────────────────────────────── */
+    #what .section-label { margin-bottom: 12px; }
+    #what h2 { margin-bottom: 16px; }
+    #what > .inner > p { margin-bottom: 0; }
+
+    .what-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 36px;
+    }
+
+    .what-card {
+      background: var(--bg-surface);
+      border: var(--card-border);
+      border-radius: var(--card-radius);
+      padding: var(--card-padding);
+    }
+
+    .what-card h3 {
+      margin-bottom: 8px;
+    }
+
+    .what-card p {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ─── Who it's for ──────────────────────────────────────── */
+    #who h2 { margin-bottom: 16px; }
+    #who > .inner > p { margin-bottom: 36px; }
+
+    .who-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .who-item {
+      background: var(--bg-surface);
+      border: var(--card-border);
+      border-radius: var(--card-radius);
+      padding: var(--card-padding);
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .who-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+
+    .who-text h3 {
+      margin-bottom: 4px;
+    }
+
+    .who-text p {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ─── How it works ──────────────────────────────────────── */
+    #how h2 { margin-bottom: 16px; }
+    #how > .inner > p { margin-bottom: 36px; }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      left: 17px;
+      top: 36px;
+      bottom: 36px;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      padding: 20px 0;
+    }
+
+    .step-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg-surface);
+      border: var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent);
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-body h3 {
+      margin-bottom: 4px;
+      padding-top: 6px;
+    }
+
+    .step-body p {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .step-body code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--text-mid);
+    }
+
+    /* ─── Features ──────────────────────────────────────────── */
+    #features h2 { margin-bottom: 16px; }
+    #features > .inner > p { margin-bottom: 36px; }
+
+    .features-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .feature-card {
+      background: var(--bg-surface);
+      border: var(--card-border);
+      border-radius: var(--card-radius);
+      padding: var(--card-padding);
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      transition: border-color 0.15s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-hover);
+    }
+
+    .feature-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+
+    .feature-text h3 {
+      margin-bottom: 4px;
+    }
+
+    .feature-text p {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ─── Pricing ───────────────────────────────────────────── */
+    #pricing h2 { margin-bottom: 16px; }
+    #pricing > .inner > p { margin-bottom: 36px; }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    .pricing-card {
+      background: var(--bg-surface);
+      border: var(--card-border);
+      border-radius: var(--card-radius);
+      padding: var(--card-padding);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .pricing-card.featured {
+      border-color: var(--accent-border);
+      background: rgba(var(--accent-rgb), 0.05);
+    }
+
+    .pricing-tier {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-mid);
+      margin-bottom: 16px;
+    }
+
+    .pricing-card.featured .pricing-tier {
+      color: var(--accent);
+    }
+
+    .pricing-price {
+      font-family: var(--font-brand);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-high);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .pricing-price sup {
+      font-size: 14px;
+      font-weight: 600;
+      vertical-align: super;
+      line-height: 0;
+    }
+
+    .pricing-cadence {
+      font-size: 12px;
+      color: var(--text-low);
+      margin-bottom: 20px;
+    }
+
+    .pricing-divider {
+      height: 1px;
+      background: var(--border);
+      margin-bottom: 20px;
+    }
+
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .pricing-features li {
+      font-size: 13px;
+      color: var(--text-mid);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+
+    .pricing-features li::before {
+      content: '—';
+      color: var(--text-low);
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    /* ─── CTA section ───────────────────────────────────────── */
+    #cta {
+      padding: var(--section-gap) 0;
+    }
+
+    #cta h2 {
+      margin-bottom: 16px;
+    }
+
+    #cta p {
+      margin-bottom: 32px;
+    }
+
+    .cta-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .cta-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-low);
+      letter-spacing: 0.04em;
+    }
+
+    /* ─── Footer ────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 0;
+    }
+
+    .footer-inner {
+      max-width: var(--inner-width);
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-logo {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-low);
+      letter-spacing: 0.04em;
+    }
+
+    .footer-logo span {
+      color: var(--accent);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-low);
+      letter-spacing: 0.04em;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-mid);
+    }
+
+    /* ─── Floating "Try it" button ──────────────────────────── */
+    #float-cta {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 200;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: none;
+    }
+
+    #float-cta.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .float-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: 100px;
+      box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.35);
+      animation: float-pulse 3s ease-in-out infinite;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .float-btn:hover {
+      opacity: 0.9;
+    }
+
+    @keyframes float-pulse {
+      0%, 100% { box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.35); }
+      50%       { box-shadow: 0 4px 28px rgba(var(--accent-rgb), 0.55); }
+    }
+
+    /* ─── Fade-in animations ────────────────────────────────── */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .fade-in.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ─── Theme picker ──────────────────────────────────────── */
+    .theme-picker {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+      background: rgba(10, 10, 18, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .theme-picker.collapsed .theme-swatches {
+      display: none;
+    }
+
+    .theme-picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .theme-picker-label {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.35);
+      user-select: none;
+    }
+
+    .theme-picker-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.25);
+      padding: 0;
+      font-size: 0.65rem;
+      line-height: 1;
+      transition: color 0.15s ease;
+    }
+
+    .theme-picker-toggle:hover {
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .theme-swatches {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .theme-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+      transition: outline-color 0.15s ease, transform 0.1s ease;
+      flex-shrink: 0;
+    }
+
+    .theme-swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .theme-swatch.active {
+      outline-color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* ─── Mobile ────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      :root {
+        --section-gap: 64px;
+        --card-padding: 18px;
+      }
+
+      .what-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .pricing-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #float-cta {
+        bottom: 20px;
+        right: 16px;
+        left: 16px;
+      }
+
+      .float-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .steps::before {
+        display: none;
+      }
+    }
+
+    @media (max-width: 420px) {
+      h1 { font-size: 26px; }
+      .hero-sub { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Nav ──────────────────────────────────────────────── -->
+  <nav>
+    <div class="nav-inner">
+      <span class="nav-logo">49<span>Agents</span></span>
+      <a href="https://app.49agents.com" class="nav-cta">Start using →</a>
+    </div>
+  </nav>
+
+  <!-- ─── Hero ─────────────────────────────────────────────── -->
+  <section id="hero">
+    <div class="inner">
+      <span class="hero-badge">Open source &amp; self-hostable</span>
+      <h1>One canvas.<br>Every AI agent,<br>every machine.</h1>
+      <p class="hero-sub">
+        Run Claude Code and other AI coding agents across multiple machines simultaneously — from a single infinite 2D workspace. Manage terminals, git, notes, and resource monitoring without switching tabs.
+      </p>
+      <div class="hero-actions">
+        <a href="https://app.49agents.com" class="btn-primary">Start using 49Agents</a>
+        <a href="https://github.com/49agents" class="btn-ghost">View on GitHub →</a>
+      </div>
+
+      <div class="hero-canvas-hint fade-in" style="transition-delay: 0.1s">
+        <div class="canvas-row">
+          <div class="canvas-tile">
+            <div class="tile-label">Agent / machine-1</div>
+            <div class="tile-content">
+              <span class="running">● running</span> &nbsp;claude-code: refactor auth module<br>
+              Branch: feat/auth-v2 &nbsp;·&nbsp; 14 files changed
+            </div>
+          </div>
+          <div class="canvas-tile">
+            <div class="tile-label">Agent / machine-2</div>
+            <div class="tile-content">
+              <span class="running">● running</span> &nbsp;claude-code: write tests<br>
+              Branch: feat/auth-v2 &nbsp;·&nbsp; 38 tests passing
+            </div>
+          </div>
+        </div>
+        <div class="canvas-row">
+          <div class="canvas-tile">
+            <div class="tile-label">Agent / machine-3</div>
+            <div class="tile-content">
+              <span class="pending">◌ queued</span> &nbsp;claude-code: update docs<br>
+              Waiting for machine-2 to finish
+            </div>
+          </div>
+          <div class="canvas-tile">
+            <div class="tile-label">Resources</div>
+            <div class="tile-content">
+              CPU: 42% &nbsp;·&nbsp; RAM: 6.1 GB<br>
+              3 active agents &nbsp;·&nbsp; 1 queued
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── What is it ────────────────────────────────────────── -->
+  <section id="what">
+    <div class="inner">
+      <span class="section-label">What is it</span>
+      <h2>A shared workspace for parallel AI work</h2>
+      <p>
+        49Agents gives you an infinite 2D canvas where each tile is a live agent session, terminal, git view, or notepad. You arrange them however you want, across as many machines as you have.
+      </p>
+      <div class="what-grid">
+        <div class="what-card fade-in">
+          <h3>Infinite canvas</h3>
+          <p>Pan and zoom to see all your agents at once. No more hunting across terminal tabs.</p>
+        </div>
+        <div class="what-card fade-in" style="transition-delay: 0.05s">
+          <h3>Multi-machine</h3>
+          <p>Connect any number of machines. Each runs its own agents. One canvas sees all of them.</p>
+        </div>
+        <div class="what-card fade-in" style="transition-delay: 0.10s">
+          <h3>Open source</h3>
+          <p>Self-host on your own infra. The agent runner, canvas server, and UI are all open source.</p>
+        </div>
+        <div class="what-card fade-in" style="transition-delay: 0.15s">
+          <h3>Cloud option</h3>
+          <p>Use <a href="https://app.49agents.com" style="color: var(--accent)">app.49agents.com</a> if you'd rather not manage infra. Same features, no setup.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Who it's for ──────────────────────────────────────── -->
+  <section id="who">
+    <div class="inner">
+      <span class="section-label">Who it's for</span>
+      <h2>Built for engineers who run AI agents at scale</h2>
+      <p>
+        If you're already using Claude Code or similar tools, you know the problem: agents are useful one at a time, and chaos at five.
+      </p>
+      <div class="who-list">
+        <div class="who-item fade-in">
+          <div class="who-icon">💻</div>
+          <div class="who-text">
+            <h3>Solo developers with multiple machines</h3>
+            <p>Your laptop, a cloud VM, and a beefy desktop can all run agents in parallel — and you can watch them from one screen.</p>
+          </div>
+        </div>
+        <div class="who-item fade-in" style="transition-delay: 0.05s">
+          <div class="who-icon">👥</div>
+          <div class="who-text">
+            <h3>Small engineering teams</h3>
+            <p>Share a canvas with teammates. Everyone sees the same live agent sessions, terminals, and git state.</p>
+          </div>
+        </div>
+        <div class="who-item fade-in" style="transition-delay: 0.10s">
+          <div class="who-icon">⚙️</div>
+          <div class="who-text">
+            <h3>Teams running automated AI pipelines</h3>
+            <p>Dispatch batches of tasks to agent workers across machines and monitor them without writing custom dashboards.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── How it works ──────────────────────────────────────── -->
+  <section id="how">
+    <div class="inner">
+      <span class="section-label">How it works</span>
+      <h2>Up and running in three steps</h2>
+      <p>
+        Self-hosting takes about five minutes. Cloud is instant.
+      </p>
+      <div class="steps">
+        <div class="step fade-in">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Install the agent runner on each machine</h3>
+            <p>Run <code>npx 49agents connect</code> on every machine you want to include. It registers the machine and starts accepting task dispatches.</p>
+          </div>
+        </div>
+        <div class="step fade-in" style="transition-delay: 0.07s">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Open your canvas</h3>
+            <p>Log in at <a href="https://app.49agents.com" style="color: var(--accent)">app.49agents.com</a> or open your self-hosted instance. All connected machines appear as available nodes.</p>
+          </div>
+        </div>
+        <div class="step fade-in" style="transition-delay: 0.14s">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Launch agents and arrange tiles</h3>
+            <p>Spawn a Claude Code session, drop a terminal tile next to it, and add a git diff view alongside. Arrange everything spatially — the canvas remembers your layout.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Features ─────────────────────────────────────────── -->
+  <section id="features">
+    <div class="inner">
+      <span class="section-label">Features</span>
+      <h2>Everything you need to manage parallel agents</h2>
+      <p>
+        No external dashboards, no duct-tape scripts. It's all built into the canvas.
+      </p>
+      <div class="features-grid">
+        <div class="feature-card fade-in">
+          <div class="feature-icon">🖥</div>
+          <div class="feature-text">
+            <h3>Live terminal tiles</h3>
+            <p>Real terminal sessions embedded directly in the canvas. Run commands, watch output, scroll history — without leaving the view.</p>
+          </div>
+        </div>
+        <div class="feature-card fade-in" style="transition-delay: 0.05s">
+          <div class="feature-icon">🌿</div>
+          <div class="feature-text">
+            <h3>Git panel</h3>
+            <p>See branch, diff, and commit status for any repository on any connected machine. All in the canvas, updated live.</p>
+          </div>
+        </div>
+        <div class="feature-card fade-in" style="transition-delay: 0.10s">
+          <div class="feature-icon">📋</div>
+          <div class="feature-text">
+            <h3>Notepad tiles</h3>
+            <p>Drop a markdown notepad anywhere on the canvas. Use it for task context, agent prompts, or quick notes shared with your team.</p>
+          </div>
+        </div>
+        <div class="feature-card fade-in" style="transition-delay: 0.15s">
+          <div class="feature-icon">📊</div>
+          <div class="feature-text">
+            <h3>Resource monitoring</h3>
+            <p>CPU, RAM, and agent load for each connected machine. Pin a resource tile next to any agent session to catch runaway processes immediately.</p>
+          </div>
+        </div>
+        <div class="feature-card fade-in" style="transition-delay: 0.20s">
+          <div class="feature-icon">🔁</div>
+          <div class="feature-text">
+            <h3>Task dispatch</h3>
+            <p>Send a prompt to one agent or fan it out to five machines in parallel. Results come back in their own tiles, side by side.</p>
+          </div>
+        </div>
+        <div class="feature-card fade-in" style="transition-delay: 0.25s">
+          <div class="feature-icon">🔒</div>
+          <div class="feature-text">
+            <h3>Runs on your infra</h3>
+            <p>Self-hosted means your code, keys, and agent sessions never leave your machines. Cloud mode encrypts everything in transit and at rest.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Pricing ───────────────────────────────────────────── -->
+  <section id="pricing">
+    <div class="inner">
+      <span class="section-label">Pricing</span>
+      <h2>Simple, honest pricing</h2>
+      <p>
+        Self-host for free forever. Pay only if you want cloud hosting and team features.
+      </p>
+      <div class="pricing-grid">
+        <div class="pricing-card fade-in">
+          <div class="pricing-tier">Free</div>
+          <div class="pricing-price">$0</div>
+          <div class="pricing-cadence">self-hosted, forever</div>
+          <div class="pricing-divider"></div>
+          <ul class="pricing-features">
+            <li>Full canvas, all tile types</li>
+            <li>Unlimited machines</li>
+            <li>Unlimited agents</li>
+            <li>Open source (MIT)</li>
+            <li>Community support</li>
+          </ul>
+        </div>
+        <div class="pricing-card featured fade-in" style="transition-delay: 0.07s">
+          <div class="pricing-tier">Pro</div>
+          <div class="pricing-price"><sup>$</sup>8</div>
+          <div class="pricing-cadence">per month, cloud-hosted</div>
+          <div class="pricing-divider"></div>
+          <ul class="pricing-features">
+            <li>Everything in Free</li>
+            <li>Cloud-hosted canvas</li>
+            <li>Canvas sharing &amp; links</li>
+            <li>90-day canvas history</li>
+            <li>Email support</li>
+          </ul>
+        </div>
+        <div class="pricing-card fade-in" style="transition-delay: 0.14s">
+          <div class="pricing-tier">Team</div>
+          <div class="pricing-price"><sup>$</sup>6</div>
+          <div class="pricing-cadence">per seat / month</div>
+          <div class="pricing-divider"></div>
+          <ul class="pricing-features">
+            <li>Everything in Pro</li>
+            <li>Shared team canvases</li>
+            <li>Role-based access</li>
+            <li>SSO (SAML)</li>
+            <li>Priority support</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA ───────────────────────────────────────────────── -->
+  <section id="cta">
+    <div class="inner">
+      <span class="section-label">Get started</span>
+      <h2>Start managing agents the way they should be managed</h2>
+      <p>
+        Free to self-host. Cloud ready in under a minute. No credit card for the free tier.
+      </p>
+      <div class="cta-links">
+        <a href="https://app.49agents.com" class="btn-primary">Start using 49Agents</a>
+        <span class="cta-meta">or &nbsp;<a href="https://github.com/49agents" style="color: var(--text-mid); text-decoration: underline; text-underline-offset: 3px;">self-host on GitHub →</a></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Footer ────────────────────────────────────────────── -->
+  <footer>
+    <div class="footer-inner">
+      <span class="footer-logo">49<span>Agents</span></span>
+      <nav class="footer-links">
+        <a href="https://github.com/49agents">GitHub</a>
+        <a href="/security_privacy.html">Privacy</a>
+        <a href="/changelogs.html">Changelog</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- ─── Floating CTA ──────────────────────────────────────── -->
+  <div id="float-cta">
+    <a href="https://app.49agents.com" class="float-btn">Try it out →</a>
+  </div>
+
+  <!-- ─── Theme picker ──────────────────────────────────────── -->
+  <div class="theme-picker" id="themePicker">
+    <div class="theme-picker-header">
+      <span class="theme-picker-label">Theme</span>
+      <button class="theme-picker-toggle" id="themeToggle" aria-label="Toggle theme picker">−</button>
+    </div>
+    <div class="theme-swatches" id="themeSwatches">
+      <button class="theme-swatch" data-theme="teal"    data-accent="#2dd4bf" data-rgb="45, 212, 191"   style="background:#2dd4bf"  title="Teal"    aria-label="Teal theme"></button>
+      <button class="theme-swatch" data-theme="amber"   data-accent="#f59e0b" data-rgb="245, 158, 11"   style="background:#f59e0b"  title="Amber"   aria-label="Amber theme"></button>
+      <button class="theme-swatch" data-theme="rose"    data-accent="#f43f5e" data-rgb="244, 63, 94"    style="background:#f43f5e"  title="Rose"    aria-label="Rose theme"></button>
+      <button class="theme-swatch" data-theme="sky"     data-accent="#38bdf8" data-rgb="56, 189, 248"   style="background:#38bdf8"  title="Sky"     aria-label="Sky theme"></button>
+      <button class="theme-swatch" data-theme="emerald" data-accent="#34d399" data-rgb="52, 211, 153"   style="background:#34d399"  title="Emerald" aria-label="Emerald theme"></button>
+      <button class="theme-swatch" data-theme="orange"  data-accent="#fb923c" data-rgb="251, 146, 60"   style="background:#fb923c"  title="Orange"  aria-label="Orange theme"></button>
+    </div>
+  </div>
+
+  <!-- ─── Scripts ───────────────────────────────────────────── -->
+  <script>
+    // ─── Theme picker ───
+    (function() {
+      var root = document.documentElement;
+      var swatches = document.querySelectorAll('.theme-swatch');
+      var picker = document.getElementById('themePicker');
+      var toggle = document.getElementById('themeToggle');
+
+      function applyTheme(accent, rgb) {
+        root.style.setProperty('--accent', accent);
+        root.style.setProperty('--accent-rgb', rgb);
+        root.style.setProperty('--accent-dim', 'rgba(' + rgb + ', 0.15)');
+        root.style.setProperty('--accent-border', 'rgba(' + rgb + ', 0.35)');
+        root.style.setProperty('--accent-glow', 'rgba(' + rgb + ', 0.4)');
+      }
+
+      function setActive(themeName) {
+        swatches.forEach(function(s) {
+          s.classList.toggle('active', s.dataset.theme === themeName);
+        });
+      }
+
+      // Load saved theme
+      var saved = localStorage.getItem('demo8-theme') || 'teal';
+      var savedSwatch = document.querySelector('[data-theme="' + saved + '"]');
+      if (savedSwatch) {
+        applyTheme(savedSwatch.dataset.accent, savedSwatch.dataset.rgb);
+        setActive(saved);
+      } else {
+        setActive('teal');
+      }
+
+      // Load collapsed state
+      if (localStorage.getItem('demo8-theme-picker-collapsed') === '1') {
+        picker.classList.add('collapsed');
+        toggle.textContent = '+';
+      }
+
+      swatches.forEach(function(swatch) {
+        swatch.addEventListener('click', function() {
+          var accent = this.dataset.accent;
+          var rgb = this.dataset.rgb;
+          var theme = this.dataset.theme;
+          applyTheme(accent, rgb);
+          setActive(theme);
+          localStorage.setItem('demo8-theme', theme);
+        });
+      });
+
+      toggle.addEventListener('click', function() {
+        var collapsed = picker.classList.toggle('collapsed');
+        toggle.textContent = collapsed ? '+' : '−';
+        localStorage.setItem('demo8-theme-picker-collapsed', collapsed ? '1' : '0');
+      });
+    })();
+
+    // Fade-in via IntersectionObserver
+    const fadeEls = document.querySelectorAll('.fade-in');
+    const fadeObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+          fadeObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    fadeEls.forEach(el => fadeObserver.observe(el));
+
+    // Floating CTA: appear after #features is visible
+    const featuresSection = document.getElementById('features');
+    const floatCta = document.getElementById('float-cta');
+
+    const floatObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          floatCta.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.2 });
+
+    if (featuresSection) {
+      floatObserver.observe(featuresSection);
+    }
+
+    // Hide floating CTA once final CTA section is in view
+    const ctaSection = document.getElementById('cta');
+    const hideFloatObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        floatCta.classList.toggle('visible', !entry.isIntersecting);
+      });
+    }, { threshold: 0.4 });
+
+    if (ctaSection) {
+      hideFloatObserver.observe(ctaSection);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>49Agents — Infinite canvas for parallel AI agents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=JetBrains+Mono:wght@300;400&family=Montserrat:wght@200;300&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --bg:        #050509;
+      --surface:   #0d0d14;
+      --border:    rgba(255, 255, 255, 0.08);
+      --accent:    #2dd4bf;
+      --accent-rgb: 45, 212, 191;
+      --accent-dim: rgba(45, 212, 191, 0.45);
+      --accent-glow: rgba(45, 212, 191, 0.12);
+      --text:      rgba(255, 255, 255, 0.85);
+      --text-muted: rgba(255, 255, 255, 0.40);
+      --text-dim:  rgba(255, 255, 255, 0.25);
+
+      --radius:    8px;
+      --sp-1:      8px;
+      --sp-2:      16px;
+      --sp-3:      24px;
+      --sp-4:      32px;
+      --sp-5:      40px;
+      --sp-6:      48px;
+      --sp-12:     96px;
+
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-brand: 'Montserrat', sans-serif;
+    }
+
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      font-weight: 300;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Typography ── */
+    h1 {
+      font-family: var(--font-brand);
+      font-size: 2.5rem;
+      font-weight: 200;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    h2 {
+      font-family: var(--font-brand);
+      font-size: 1.8rem;
+      font-weight: 200;
+      letter-spacing: -0.015em;
+      line-height: 1.2;
+    }
+    h3 {
+      font-family: var(--font-body);
+      font-size: 1.1rem;
+      font-weight: 300;
+      letter-spacing: -0.01em;
+    }
+    small, .small {
+      font-size: 0.8rem;
+      font-weight: 300;
+    }
+    .mono {
+      font-family: var(--font-mono);
+      font-weight: 300;
+    }
+
+    /* ── Layout helpers ── */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 var(--sp-4);
+    }
+    .container--narrow {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 var(--sp-4);
+    }
+    section {
+      padding: var(--sp-12) 0;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: var(--sp-2) var(--sp-4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-brand {
+      font-family: var(--font-brand);
+      font-weight: 200;
+      font-size: 1rem;
+      color: var(--text);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+      list-style: none;
+    }
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 300;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 300;
+      color: var(--accent) !important;
+      border: 1px solid var(--accent);
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-cta:hover {
+      background: var(--accent);
+      color: #fff !important;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: var(--sp-12) 0;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 300;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: var(--sp-3);
+    }
+    .hero h1 {
+      margin-bottom: var(--sp-3);
+      color: rgba(255, 255, 255, 0.92);
+    }
+    .hero h1 span {
+      color: var(--accent);
+    }
+    .hero-sub {
+      font-size: 1.05rem;
+      font-weight: 300;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto var(--sp-6);
+      line-height: 1.7;
+    }
+    .btn-primary {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 300;
+      padding: 14px 32px;
+      border-radius: var(--radius);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .hero-meta {
+      margin-top: var(--sp-3);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+    .hero-meta a {
+      color: var(--text-muted);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      transition: color 0.15s;
+    }
+    .hero-meta a:hover { color: var(--text); }
+
+    /* ── Canvas preview placeholder ── */
+    .canvas-preview {
+      margin-top: var(--sp-12);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      height: 360px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .canvas-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.6;
+    }
+    .canvas-nodes {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      gap: var(--sp-4);
+      align-items: flex-start;
+    }
+    .canvas-node {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--sp-2) var(--sp-3);
+      min-width: 160px;
+    }
+    .canvas-node-label {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: var(--sp-1);
+    }
+    .canvas-node-title {
+      font-size: 0.85rem;
+      font-weight: 300;
+      color: var(--text);
+      margin-bottom: var(--sp-2);
+    }
+    .canvas-node-status {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+    }
+    .canvas-node--running .canvas-node-status::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .canvas-node--terminal .canvas-node-status {
+      color: rgba(100, 220, 100, 0.8);
+    }
+    .canvas-node--terminal .canvas-node-status::before {
+      background: rgba(100, 220, 100, 0.8);
+    }
+    .canvas-node--dim {
+      opacity: 0.45;
+      transform: translateY(24px);
+    }
+    .canvas-line {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      height: 1px;
+      background: var(--border);
+      z-index: 0;
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 300;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: var(--sp-2);
+    }
+    .section-heading {
+      margin-bottom: var(--sp-2);
+    }
+    .section-sub {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      max-width: 480px;
+      margin-bottom: var(--sp-6);
+    }
+
+    /* ── Features grid ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-3);
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--sp-4);
+    }
+    .feature-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: calc(var(--radius) / 2);
+      background: rgba(var(--accent-rgb), 0.1);
+      border: 1px solid rgba(var(--accent-rgb), 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--sp-3);
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+    .feature-card h3 {
+      margin-bottom: var(--sp-1);
+    }
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    /* ── How it works ── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-6);
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: var(--sp-4);
+      align-items: start;
+    }
+    .step-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 300;
+      color: var(--accent);
+      border: 1px solid rgba(var(--accent-rgb), 0.3);
+      border-radius: var(--radius);
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-body h3 {
+      margin-bottom: 4px;
+    }
+    .step-body p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* ── Pricing ── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-3);
+      margin-top: var(--sp-6);
+    }
+    .pricing-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--sp-4);
+      display: flex;
+      flex-direction: column;
+    }
+    .pricing-card--featured {
+      border-color: rgba(var(--accent-rgb), 0.4);
+      background: rgba(var(--accent-rgb), 0.04);
+    }
+    .pricing-tier {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: var(--sp-2);
+    }
+    .pricing-card--featured .pricing-tier {
+      color: var(--accent);
+    }
+    .pricing-price {
+      font-family: var(--font-brand);
+      font-weight: 200;
+      font-size: 2rem;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: var(--sp-1);
+    }
+    .pricing-price-unit {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: var(--sp-4);
+    }
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+      flex: 1;
+      margin-bottom: var(--sp-4);
+    }
+    .pricing-features li {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--sp-2);
+    }
+    .pricing-features li::before {
+      content: '—';
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .btn-outline {
+      display: block;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 300;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-outline:hover {
+      border-color: var(--text-muted);
+      color: var(--text);
+    }
+    .btn-accent {
+      display: block;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 300;
+      color: var(--accent);
+      border: 1px solid rgba(var(--accent-rgb), 0.4);
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-accent:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ── Open source callout ── */
+    .oss-callout {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--sp-6);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: var(--sp-6);
+      align-items: center;
+    }
+    .oss-callout h3 {
+      font-family: var(--font-brand);
+      font-size: 1.2rem;
+      font-weight: 200;
+      margin-bottom: var(--sp-1);
+    }
+    .oss-callout p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: var(--sp-6) 0;
+      border-top: 1px solid var(--border);
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .footer-brand {
+      font-family: var(--font-brand);
+      font-weight: 200;
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      text-decoration: none;
+    }
+    .footer-links {
+      display: flex;
+      gap: var(--sp-4);
+      list-style: none;
+    }
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer-links a:hover { color: var(--text-muted); }
+
+    /* ── Floating CTA ── */
+    .floating-cta {
+      position: fixed;
+      bottom: var(--sp-4);
+      right: var(--sp-4);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .floating-cta.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .floating-cta a {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-1);
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 300;
+      padding: 12px 20px;
+      border-radius: 40px;
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      animation: subtlePulse 3s ease-in-out infinite;
+    }
+    @keyframes subtlePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.82; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Theme picker ── */
+    #theme-picker {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+      font-family: var(--font-mono);
+    }
+
+    #theme-picker-panel {
+      background: rgba(10, 10, 18, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    #theme-picker-panel.collapsed {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px) scale(0.97);
+    }
+
+    #theme-picker-label {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      user-select: none;
+    }
+
+    .theme-swatches {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .theme-swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, transform 0.15s;
+      flex-shrink: 0;
+    }
+
+    .theme-swatch:hover { transform: scale(1.15); }
+
+    .theme-swatch.active {
+      border-color: rgba(255, 255, 255, 0.85);
+    }
+
+    #theme-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 2px 4px;
+      line-height: 1;
+      transition: color 0.15s;
+      user-select: none;
+    }
+
+    #theme-toggle:hover { color: var(--text-muted); }
+
+    /* ── Sentinel for IntersectionObserver ── */
+    #features-sentinel {
+      height: 1px;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 680px) {
+      h1 { font-size: 1.9rem; }
+      h2 { font-size: 1.4rem; }
+      .nav-links { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .pricing-grid { grid-template-columns: 1fr; }
+      .canvas-preview { height: 220px; }
+      .canvas-nodes { flex-direction: column; gap: var(--sp-2); }
+      .canvas-node--dim { display: none; }
+      .oss-callout {
+        grid-template-columns: 1fr;
+        gap: var(--sp-4);
+      }
+      .footer-inner { flex-direction: column; gap: var(--sp-3); text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Theme picker -->
+  <div id="theme-picker">
+    <div id="theme-picker-panel">
+      <span id="theme-picker-label">Theme</span>
+      <div class="theme-swatches">
+        <div class="theme-swatch active" data-accent="#2dd4bf" data-rgb="45, 212, 191" style="background:#2dd4bf" title="Teal"></div>
+        <div class="theme-swatch" data-accent="#f59e0b" data-rgb="245, 158, 11" style="background:#f59e0b" title="Amber"></div>
+        <div class="theme-swatch" data-accent="#f43f5e" data-rgb="244, 63, 94" style="background:#f43f5e" title="Rose"></div>
+        <div class="theme-swatch" data-accent="#38bdf8" data-rgb="56, 189, 248" style="background:#38bdf8" title="Sky"></div>
+        <div class="theme-swatch" data-accent="#34d399" data-rgb="52, 211, 153" style="background:#34d399" title="Emerald"></div>
+        <div class="theme-swatch" data-accent="#fb923c" data-rgb="251, 146, 60" style="background:#fb923c" title="Orange"></div>
+      </div>
+      <button id="theme-toggle" title="Collapse theme picker">—</button>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav>
+    <a class="nav-brand" href="https://49agents.com">49Agents</a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="https://github.com/49agents" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a class="nav-cta" href="https://app.49agents.com">Start free</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container--narrow">
+      <p class="hero-eyebrow">Open source · Self-hostable · Cloud available</p>
+      <h1>An infinite canvas for <span>parallel AI agents</span></h1>
+      <p class="hero-sub">
+        Run Claude Code, terminals, and git across multiple machines — all managed from one spatial surface. No tabs. No context switching.
+      </p>
+      <a class="btn-primary" href="https://app.49agents.com">Start using 49Agents</a>
+      <p class="hero-meta">
+        Free to start. <a href="https://github.com/49agents" target="_blank" rel="noopener">Open source on GitHub</a> — self-host on your own infra.
+      </p>
+    </div>
+
+    <!-- Canvas illustration -->
+    <div class="container">
+      <div class="canvas-preview">
+        <div class="canvas-grid"></div>
+        <div class="canvas-nodes">
+          <div class="canvas-node canvas-node--running">
+            <div class="canvas-node-label">agent · machine-01</div>
+            <div class="canvas-node-title">Claude Code</div>
+            <div class="canvas-node-status">running</div>
+          </div>
+          <div class="canvas-node canvas-node--terminal">
+            <div class="canvas-node-label">terminal · machine-02</div>
+            <div class="canvas-node-title">bash session</div>
+            <div class="canvas-node-status">active</div>
+          </div>
+          <div class="canvas-node canvas-node--running">
+            <div class="canvas-node-label">agent · machine-03</div>
+            <div class="canvas-node-title">Claude Code</div>
+            <div class="canvas-node-status">running</div>
+          </div>
+          <div class="canvas-node canvas-node--dim canvas-node--running">
+            <div class="canvas-node-label">agent · machine-04</div>
+            <div class="canvas-node-title">Claude Code</div>
+            <div class="canvas-node-status">running</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+  <div id="features-sentinel"></div>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="container">
+      <p class="section-label">Features</p>
+      <h2 class="section-heading">Everything you need, nothing you don't</h2>
+      <p class="section-sub">A focused toolset built around the way AI-assisted development actually works.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon mono">∞</div>
+          <h3>Infinite 2D canvas</h3>
+          <p>Pan and zoom across all your agents, terminals, and notes. No tab management — spatial layout instead.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon mono">⇢</div>
+          <h3>Parallel agents</h3>
+          <p>Run Claude Code (or any AI CLI) across multiple machines simultaneously and watch them work side-by-side.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon mono">$</div>
+          <h3>Integrated terminals</h3>
+          <p>Full shell sessions embedded directly on the canvas. Connect to remote machines without leaving your workspace.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon mono">⎇</div>
+          <h3>Git management</h3>
+          <p>Review diffs, stage changes, and create commits from within the canvas. No switching to a separate tool.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon mono">◈</div>
+          <h3>Resource monitoring</h3>
+          <p>Per-machine CPU, memory, and network at a glance. Know what each agent is consuming in real time.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon mono">✎</div>
+          <h3>Spatial notes</h3>
+          <p>Pin markdown notes anywhere on the canvas — next to the agent they describe, or wherever makes sense.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- How it works -->
+  <section id="how-it-works">
+    <div class="container--narrow">
+      <p class="section-label">How it works</p>
+      <h2 class="section-heading">Up and running in minutes</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-body">
+            <h3>Connect your machines</h3>
+            <p>Install the lightweight agent binary on each machine you want to control. It connects back to your 49Agents instance over a secure WebSocket.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-body">
+            <h3>Open the canvas</h3>
+            <p>Your machines appear as nodes on an infinite 2D surface. Drag them into an arrangement that mirrors your mental model of the work.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-body">
+            <h3>Spawn agents</h3>
+            <p>Launch Claude Code sessions on any connected machine. Each agent gets its own card — you watch them all run in parallel.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-body">
+            <h3>Review and ship</h3>
+            <p>Open inline diffs, run tests in the terminal, and commit — all without leaving the canvas surface.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- Pricing -->
+  <section id="pricing">
+    <div class="container">
+      <p class="section-label">Pricing</p>
+      <h2 class="section-heading">Simple, transparent pricing</h2>
+      <p class="section-sub">All plans include the full canvas. You bring your own API keys for Claude.</p>
+
+      <div class="pricing-grid">
+        <div class="pricing-card">
+          <div class="pricing-tier">Free</div>
+          <div class="pricing-price">$0</div>
+          <div class="pricing-price-unit">forever</div>
+          <ul class="pricing-features">
+            <li>Up to 2 connected machines</li>
+            <li>Unlimited canvas nodes</li>
+            <li>Terminal &amp; git integration</li>
+            <li>Community support</li>
+          </ul>
+          <a class="btn-outline" href="https://app.49agents.com">Get started</a>
+        </div>
+
+        <div class="pricing-card pricing-card--featured">
+          <div class="pricing-tier">Pro</div>
+          <div class="pricing-price">$8</div>
+          <div class="pricing-price-unit">per month</div>
+          <ul class="pricing-features">
+            <li>Unlimited connected machines</li>
+            <li>Resource monitoring dashboard</li>
+            <li>Persistent canvas state</li>
+            <li>Priority support</li>
+          </ul>
+          <a class="btn-accent" href="https://app.49agents.com">Start Pro</a>
+        </div>
+
+        <div class="pricing-card">
+          <div class="pricing-tier">Team</div>
+          <div class="pricing-price">$6</div>
+          <div class="pricing-price-unit">per seat / month</div>
+          <ul class="pricing-features">
+            <li>Everything in Pro</li>
+            <li>Shared canvas workspaces</li>
+            <li>Team permissions &amp; roles</li>
+            <li>Dedicated support</li>
+          </ul>
+          <a class="btn-outline" href="https://app.49agents.com">Start Team trial</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- Open source callout -->
+  <section>
+    <div class="container">
+      <div class="oss-callout">
+        <div>
+          <h3>Prefer to self-host?</h3>
+          <p>49Agents is open source. Run the entire stack on your own infrastructure — your machines, your data, no phone-home. Docker compose and bare-metal docs included.</p>
+        </div>
+        <a class="btn-outline" href="https://github.com/49agents" target="_blank" rel="noopener" style="white-space:nowrap;">View on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container footer-inner">
+      <a class="footer-brand" href="https://49agents.com">49Agents</a>
+      <ul class="footer-links">
+        <li><a href="/security_privacy.html">Security &amp; Privacy</a></li>
+        <li><a href="https://github.com/49agents" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="https://app.49agents.com">Sign in</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- Floating CTA (appears after scrolling past features) -->
+  <div class="floating-cta" id="floatingCta">
+    <a href="https://app.49agents.com">Try it out</a>
+  </div>
+
+  <script>
+    (function () {
+      // ── Theme picker ──
+      var root = document.documentElement;
+      var swatches = document.querySelectorAll('.theme-swatch');
+      var panel = document.getElementById('theme-picker-panel');
+      var toggleBtn = document.getElementById('theme-toggle');
+      var collapsed = false;
+
+      function applyTheme(accent, rgb) {
+        root.style.setProperty('--accent', accent);
+        root.style.setProperty('--accent-rgb', rgb);
+        root.style.setProperty('--accent-dim', 'rgba(' + rgb + ', 0.45)');
+        root.style.setProperty('--accent-glow', 'rgba(' + rgb + ', 0.12)');
+      }
+
+      function setActiveSwatch(el) {
+        swatches.forEach(function (s) { s.classList.remove('active'); });
+        el.classList.add('active');
+      }
+
+      swatches.forEach(function (swatch) {
+        swatch.addEventListener('click', function () {
+          var accent = swatch.getAttribute('data-accent');
+          var rgb = swatch.getAttribute('data-rgb');
+          applyTheme(accent, rgb);
+          setActiveSwatch(swatch);
+          localStorage.setItem('49agents-theme-accent', accent);
+          localStorage.setItem('49agents-theme-rgb', rgb);
+        });
+      });
+
+      toggleBtn.addEventListener('click', function () {
+        collapsed = !collapsed;
+        panel.classList.toggle('collapsed', collapsed);
+        toggleBtn.textContent = collapsed ? '+' : '—';
+      });
+
+      // Restore saved theme
+      var savedAccent = localStorage.getItem('49agents-theme-accent');
+      var savedRgb = localStorage.getItem('49agents-theme-rgb');
+      if (savedAccent && savedRgb) {
+        applyTheme(savedAccent, savedRgb);
+        swatches.forEach(function (s) {
+          if (s.getAttribute('data-accent') === savedAccent) {
+            setActiveSwatch(s);
+          }
+        });
+      }
+    }());
+  </script>
+
+  <script>
+    (function () {
+      var sentinel = document.getElementById('features-sentinel');
+      var cta = document.getElementById('floatingCta');
+      if (!sentinel || !cta || !window.IntersectionObserver) return;
+
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) {
+            cta.classList.add('visible');
+          } else {
+            cta.classList.remove('visible');
+          }
+        });
+      }, { threshold: 0 });
+
+      observer.observe(sentinel);
+    })();
+  </script>
+
+</body>
+</html>

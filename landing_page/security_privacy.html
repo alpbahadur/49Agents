@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security & Privacy — 49Agents</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&family=Montserrat:wght@200;300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 1px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.4); }
+  html { scrollbar-width: thin; scrollbar-color: rgba(139, 92, 246, 0.4) transparent; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #050509;
+    color: #fff;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ─── NAV ─── */
+
+  .site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(5, 5, 9, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .site-nav-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-brand {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-brand:hover { color: #fff; }
+  .nav-logo { width: 22px; height: auto; opacity: 0.85; }
+  .nav-brand:hover .nav-logo { opacity: 1; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.2s ease;
+    letter-spacing: -0.01em;
+  }
+  .nav-links a:hover { color: rgba(255, 255, 255, 0.75); }
+  .nav-links a.nav-active { color: rgba(255, 255, 255, 0.6); }
+  .nav-links .nav-cta {
+    display: inline-block;
+    background: #8b5cf6;
+    color: #fff;
+    font-weight: 500;
+    font-size: 0.82rem;
+    font-family: 'Inter', sans-serif;
+    padding: 8px 22px;
+    border-radius: 999px;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+  }
+  .nav-links .nav-cta:hover {
+    color: #fff;
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), 0 0 40px rgba(139, 92, 246, 0.1);
+    transform: translateY(-1px);
+  }
+
+  /* ─── HERO ─── */
+
+  .hero {
+    padding: 100px 24px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.8rem, 4.5vw, 2.6rem);
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.92);
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+  }
+
+  .hero p {
+    font-size: 1.05rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.5);
+    max-width: 540px;
+    line-height: 1.75;
+  }
+
+  /* ─── SECTIONS ─── */
+
+  .section {
+    padding: 60px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .section-inner {
+    max-width: 640px;
+    width: 100%;
+  }
+
+  .section-title {
+    font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.88);
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+
+  .section-desc {
+    font-size: 0.88rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.42);
+    line-height: 1.7;
+    margin-bottom: 40px;
+    max-width: 520px;
+  }
+
+  /* ─── ARCHITECTURE DIAGRAM ─── */
+
+  .arch {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+    padding: 32px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+  }
+
+  .arch-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .arch-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .arch-icon svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+  }
+
+  .arch-node-label {
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .arch-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 20px;
+  }
+
+  .arch-connector-line {
+    width: 48px;
+    height: 1px;
+    background: linear-gradient(to right, rgba(139, 92, 246, 0.3), rgba(139, 92, 246, 0.1));
+  }
+
+  .arch-connector-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: rgba(139, 92, 246, 0.5);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── DATA ROWS ─── */
+
+  .data-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .data-row:first-child {
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .data-label {
+    font-size: 0.88rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    min-width: 160px;
+    flex-shrink: 0;
+  }
+
+  .data-detail {
+    font-size: 0.82rem;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.38);
+    line-height: 1.5;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .badge-relay {
+    background: rgba(6, 182, 212, 0.1);
+    color: rgba(6, 182, 212, 0.7);
+    border: 1px solid rgba(6, 182, 212, 0.15);
+  }
+
+  .badge-stored {
+    background: rgba(139, 92, 246, 0.1);
+    color: rgba(139, 92, 246, 0.7);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+  }
+
+  .badge-local {
+    background: rgba(34, 197, 94, 0.1);
+    color: rgba(34, 197, 94, 0.7);
+    border: 1px solid rgba(34, 197, 94, 0.15);
+  }
+
+  /* ─── CHECK LIST ─── */
+
+  .check-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .check-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 0.88rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.6;
+  }
+
+  .check-list li strong {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  .check-icon {
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+    color: rgba(34, 197, 94, 0.7);
+    font-size: 0.85rem;
+    margin-top: 2px;
+  }
+
+  /* ─── SECURITY POINTS ─── */
+
+  .sec-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .sec-point {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  .sec-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .sec-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke: #8b5cf6;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sec-text h4 {
+    font-size: clamp(1rem, 2.2vw, 1.2rem);
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.88);
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+
+  .sec-text p {
+    font-size: 0.82rem;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.42);
+    line-height: 1.6;
+  }
+
+  .sec-text code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  /* ─── AGENT DEPS ─── */
+
+  .dep-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .dep-item {
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+  }
+
+  .dep-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: #8b5cf6;
+    margin-bottom: 4px;
+  }
+
+  .dep-desc {
+    font-size: 0.75rem;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.38);
+  }
+
+  /* ─── DIVIDER ─── */
+
+  .divider {
+    width: 100%;
+    max-width: 640px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.04);
+    margin: 0 auto;
+  }
+
+  /* ─── CTA ─── */
+
+  .bottom-cta {
+    padding: 80px 24px 100px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .bottom-cta-text {
+    font-size: clamp(1.3rem, 3vw, 1.7rem);
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 40px;
+    letter-spacing: -0.01em;
+  }
+
+  .cta-button {
+    display: inline-block;
+    background: #8b5cf6;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 14px 40px;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: box-shadow 0.35s ease, transform 0.2s ease;
+  }
+
+  .cta-button:hover {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.35), 0 0 60px rgba(139, 92, 246, 0.15);
+    transform: translateY(-1px);
+  }
+
+  .cta-sub {
+    margin-top: 20px;
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  /* ─── FOOTER ─── */
+
+  .footer {
+    padding: 0 24px 32px;
+    text-align: center;
+  }
+
+  .footer-inner {
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .footer a {
+    color: rgba(255, 255, 255, 0.25);
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+
+  .footer a:hover { color: rgba(255, 255, 255, 0.45); }
+
+  .footer-dot {
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  /* ─── RESPONSIVE ─── */
+
+  @media (max-width: 600px) {
+    .site-nav-inner {
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px 20px;
+    }
+    .nav-links {
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .nav-links a { font-size: 0.65rem; }
+    .nav-links .nav-cta { font-size: 0.75rem; padding: 6px 18px; }
+    .hero { padding: 60px 20px 40px; }
+    .hero h1 { font-size: 1.5rem; }
+    .hero p { font-size: 0.92rem; }
+    .section { padding: 40px 20px; }
+    .section-title { font-size: 1.1rem; }
+    .arch { flex-direction: column; gap: 16px; }
+    .arch-connector { padding: 0; }
+    .arch-connector-line { width: 1px; height: 24px; }
+    .data-row { flex-direction: column; gap: 4px; }
+    .data-label { min-width: 0; }
+    .dep-grid { grid-template-columns: 1fr; }
+    .glance-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
+    .sec-point { flex-direction: column; gap: 12px; }
+    .bottom-cta { padding: 56px 20px 72px; }
+    .bottom-cta-text { font-size: 1.2rem; }
+    .footer-inner { flex-direction: column; gap: 8px; }
+    .footer-dot { display: none; }
+    .warning-banner { margin-left: 16px !important; margin-right: 16px !important; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a href="/" class="nav-brand"><svg xmlns="http://www.w3.org/2000/svg" class="nav-logo" viewBox="0 0 458.88 474.75" preserveAspectRatio="xMidYMid meet"><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,253.155772,231.198275)" fill="none" stroke-linejoin="miter" d="M28.498 28.5L277.238 28.5" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.052098,219.438914)" fill="none" stroke-linejoin="miter" d="M28.501 28.498L261.551 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,454.490567,42.727497)" fill="none" stroke-linejoin="miter" d="M28.502 28.501L238.498 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,447.849521,233.072727)" fill="none" stroke-linejoin="miter" d="M28.502 28.503L229.623 28.503" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.05205,417.175326)" fill="none" stroke-linejoin="miter" d="M28.499 28.498L317.797 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749562,0.008078,-0.008078,-0.749562,458.13727,423.052735)" fill="none" stroke-linejoin="miter" d="M28.502 28.498L236.691 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,295.246661,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,0.0549757,300.003188)" fill="none" stroke-linejoin="miter" d="M28.498 28.499L369.032 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,212.005521,303.92377)" fill="none" stroke-linejoin="miter" d="M28.502 28.502L253.641 28.502" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,125.175704,420.96948)" fill="none" stroke-linejoin="miter" d="M28.5 28.499L404.198 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,136.194843,142.632712)" fill="none" stroke-linejoin="miter" d="M28.499 28.501L90.352 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,165.332583,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/></svg> Agents</a>
+    <div class="nav-links">
+      <a href="/">~/home</a>
+      <a href="/security_privacy.html" class="nav-active">../security_privacy</a>
+      <a href="/claude-setup.html">../claude.md <span style="font-size:0.55rem;color:rgba(139,92,246,0.5);">soon</span></a>
+      <a href="/changelogs.html">../changelogs <span style="font-size:0.55rem;color:rgba(139,92,246,0.5);">soon</span></a>
+      <a href="https://app.49agents.com" class="nav-cta">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── WARNING ─── -->
+<div class="warning-banner" style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.25);border-radius:8px;max-width:640px;margin:32px auto 0;padding:16px 24px;display:flex;align-items:flex-start;gap:12px;">
+  <span style="font-size:1.2rem;flex-shrink:0;margin-top:1px;">&#x26A0;</span>
+  <p style="font-size:0.85rem;font-weight:400;color:rgba(234,179,8,0.9);line-height:1.55;">E2E Encryption is on the roadmap and <strong style="color:#eab308;">not yet implemented.</strong> All connections are encrypted in transit (TLS/WSS), but the relay can theoretically read messages passing through it.</p>
+</div>
+
+<!-- ─── HERO ─── -->
+<section class="hero">
+  <h1>Security & Privacy</h1>
+  <p>We built 49Agents as a relay, not a vault. Your terminal data and file contents pass through — they are never stored on our servers.</p>
+</section>
+
+<!-- ─── ARCHITECTURE ─── -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title">Architecture</h2>
+    <p class="section-desc">Every connection uses WebSocket Secure (WSS) with TLS encryption. The cloud server is a stateless relay — it routes messages but never inspects or stores them.</p>
+
+    <div class="arch">
+      <div class="arch-node">
+        <div class="arch-icon" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2);">
+          <svg viewBox="0 0 24 24" stroke="#22c55e"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <span class="arch-node-label">Your machine</span>
+      </div>
+
+      <div class="arch-connector">
+        <span class="arch-connector-label">wss://</span>
+        <div class="arch-connector-line"></div>
+      </div>
+
+      <div class="arch-node">
+        <div class="arch-icon" style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2);">
+          <svg viewBox="0 0 24 24" stroke="#8b5cf6"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <span class="arch-node-label">Cloud relay</span>
+      </div>
+
+      <div class="arch-connector">
+        <span class="arch-connector-label">wss://</span>
+        <div class="arch-connector-line"></div>
+      </div>
+
+      <div class="arch-node">
+        <div class="arch-icon" style="background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.2);">
+          <svg viewBox="0 0 24 24" stroke="#f87171"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2"/></svg>
+        </div>
+        <span class="arch-node-label">Your browser</span>
+      </div>
+    </div>
+
+    <p class="section-desc" style="margin-bottom:0;">The relay never decrypts, parses, or logs the content of messages flowing between your agent and your browser.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ─── WHAT GOES WHERE ─── -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title">What goes where</h2>
+    <p class="section-desc">Here's exactly what data lives where. No surprises.</p>
+
+    <div class="data-row">
+      <span class="data-label">Terminal output</span>
+      <span class="data-detail">Streamed in real time, never written to disk on the server <span class="badge badge-relay">relay only</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">File contents</span>
+      <span class="data-detail">Read on your machine, passed through to browser on demand <span class="badge badge-relay">relay only</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Git data</span>
+      <span class="data-detail">Branches, diffs, and commit history — relayed, not stored <span class="badge badge-relay">relay only</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">System metrics</span>
+      <span class="data-detail">CPU, memory, disk — relayed to your browser in real time <span class="badge badge-relay">relay only</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">User profile</span>
+      <span class="data-detail">Display name, email, avatar URL (via GitHub or Google OAuth) <span class="badge badge-stored">stored</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Agent metadata</span>
+      <span class="data-detail">Hostname, OS, last connected timestamp <span class="badge badge-stored">stored</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Auth tokens</span>
+      <span class="data-detail">Signed JWTs (HMAC-SHA256), stored locally at <code style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:rgba(255,255,255,0.5);">~/.49agents/</code> with 0600 permissions <span class="badge badge-local">local</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Pane layout</span>
+      <span class="data-detail">Your canvas arrangement, synced for multi-device access <span class="badge badge-stored">stored</span></span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ─── AT A GLANCE ─── -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title">At a glance</h2>
+    <p class="section-desc">What we never touch vs. the small amount of metadata we store.</p>
+
+    <div class="glance-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+          <span style="color:rgba(34,197,94,0.8);font-size:0.85rem;">&#x2713;</span>
+          <span style="font-size:0.82rem;font-weight:500;color:rgba(34,197,94,0.8);">Never stored</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0;">
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">Terminal input & output</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">File contents</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">AI conversations</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">Source code & git diffs</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">Passwords (OAuth only)</div>
+          <div style="padding:10px 0;font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">API keys & secrets</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+          <span style="color:rgba(139,92,246,0.7);font-size:0.85rem;">&#x25CB;</span>
+          <span style="font-size:0.82rem;font-weight:500;color:rgba(139,92,246,0.7);">Stored (metadata)</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0;">
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">Canvas layout positions</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">Note content & images</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">User preferences</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">Agent hostname & OS</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">OAuth profile (email, name)</div>
+          <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">Signed JWT tokens</div>
+          <div style="padding:10px 0;font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.55);">Usage analytics & events</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ─── ENCRYPTION ─── -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title">Encryption & transport</h2>
+    <p class="section-desc">Everything in transit is encrypted. Everything at rest is hashed or stored server-side with restricted access.</p>
+
+    <ul class="check-list">
+      <li><span class="check-icon">&#x2713;</span> All connections use <strong>TLS encryption</strong> — WSS for WebSocket, HTTPS for API calls</li>
+      <li><span class="check-icon">&#x2713;</span> Agent authentication tokens are signed with <strong>HMAC-SHA256</strong> (JWT)</li>
+      <li><span class="check-icon">&#x2713;</span> Agent tokens are <strong>signed JWTs</strong> with 1-year expiry, stored locally with restricted permissions</li>
+      <li><span class="check-icon">&#x2713;</span> Authentication cookies are <strong>httpOnly</strong> and <strong>secure</strong> with <code style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:rgba(255,255,255,0.5);">sameSite=lax</code></li>
+      <li><span class="check-icon">&#x2713;</span> Short-lived access tokens (1 hour) with longer refresh tokens (7 days)</li>
+    </ul>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ─── SECURITY ─── -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title">Security</h2>
+    <p class="section-desc">We designed the system so you don't have to trust us with your code.</p>
+
+    <div class="sec-grid">
+      <div class="sec-point">
+        <div class="sec-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="sec-text">
+          <h4>Stateless relay</h4>
+          <p>Terminal output and file contents pass through the relay and are immediately forwarded — never buffered, logged, or written to disk. If the relay restarts, there is nothing to leak.</p>
+        </div>
+      </div>
+
+      <div class="sec-point">
+        <div class="sec-icon">
+          <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        </div>
+        <div class="sec-text">
+          <h4>No passwords</h4>
+          <p>You authenticate with GitHub or Google OAuth — no passwords to manage. Guest sessions are available for trying the product before signing up. Browser sessions use short-lived JWT tokens (1 hour) with automatic refresh.</p>
+        </div>
+      </div>
+
+      <div class="sec-point">
+        <div class="sec-icon">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <div class="sec-text">
+          <h4>Your machine, your control</h4>
+          <p>The agent runs as your local user with no elevated privileges. Auth tokens stored at <code>~/.49agents/</code> with restricted file permissions (0600). Uninstall anytime.</p>
+        </div>
+      </div>
+
+      <div class="sec-point">
+        <div class="sec-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="sec-text">
+          <h4>Token security</h4>
+          <p>Agent tokens are signed JWTs stored only on your machine with restricted file permissions (0600). Browser sessions use short-lived access tokens (1 hour) with longer refresh tokens (7 days). Pairing codes expire in 10 minutes.</p>
+        </div>
+      </div>
+
+      <div class="sec-point">
+        <div class="sec-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <div class="sec-text">
+          <h4>Isolation</h4>
+          <p>Browsers never see agent tokens. Agents don't know about browser sessions. The relay routes by user ID — one user's traffic can never reach another user's agents or browser.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ─── THE AGENT ─── -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title">What runs on your machine</h2>
+    <p class="section-desc">A lightweight Node.js process that manages your terminal sessions and relays them to the cloud. Minimal footprint.</p>
+
+    <h3 style="font-size:0.88rem;font-weight:400;color:rgba(255,255,255,0.7);margin-bottom:12px;">Dependencies (just 2)</h3>
+    <div class="dep-grid">
+      <div class="dep-item">
+        <div class="dep-name">ws</div>
+        <div class="dep-desc">WebSocket client for relay communication</div>
+      </div>
+      <div class="dep-item">
+        <div class="dep-name">uuid</div>
+        <div class="dep-desc">UUID generation for identifiers</div>
+      </div>
+    </div>
+
+    <ul class="check-list" style="margin-top:24px;">
+      <li><span class="check-icon" style="color:rgba(139,92,246,0.6);">&#x25CB;</span> Manages <code style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:rgba(255,255,255,0.5);">tmux</code> sessions and exposes them via <code style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:rgba(255,255,255,0.5);">ttyd</code> on local ports</li>
+      <li><span class="check-icon" style="color:rgba(139,92,246,0.6);">&#x25CB;</span> Sends system metrics (CPU, RAM, GPU) every 5 seconds</li>
+      <li><span class="check-icon" style="color:rgba(139,92,246,0.6);">&#x25CB;</span> Detects Claude Code state (idle / working / permission) by reading terminal screen content</li>
+      <li><span class="check-icon" style="color:rgba(139,92,246,0.6);">&#x25CB;</span> Serves file and git data on demand when you open panes in the browser</li>
+    </ul>
+
+    <p style="font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.38);line-height:1.6;margin-top:24px;">The agent does not install background services, browser extensions, or kernel modules. It runs as a single user-space process that you can start and stop at any time.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ─── ANALYTICS ─── -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title">Analytics & telemetry</h2>
+    <p class="section-desc">We collect usage analytics to improve the product. Here's exactly what we track.</p>
+
+    <div class="data-row">
+      <span class="data-label">Page views</span>
+      <span class="data-detail">Landing page visits with referrer, UTM parameters, browser, OS, and screen size <span class="badge badge-stored">stored</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Session events</span>
+      <span class="data-detail">Login, signup, guest session start, and account conversion events <span class="badge badge-stored">stored</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Connection events</span>
+      <span class="data-detail">Agent/browser connect and disconnect timestamps with session duration <span class="badge badge-stored">stored</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Agent metadata</span>
+      <span class="data-detail">Hostname, OS, agent version on connect <span class="badge badge-stored">stored</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">Relay counts</span>
+      <span class="data-detail">Number of messages relayed per user (batched, no content) <span class="badge badge-stored">stored</span></span>
+    </div>
+    <div class="data-row">
+      <span class="data-label">IP addresses</span>
+      <span class="data-detail">Collected with page view events for geographic analytics <span class="badge badge-stored">stored</span></span>
+    </div>
+
+    <p style="font-size:0.82rem;font-weight:200;color:rgba(255,255,255,0.38);line-height:1.6;margin-top:24px;">We never track terminal content, file contents, keystrokes, or AI conversations. Analytics data is used only for product improvement and is not shared with third parties.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ─── CTA ─── -->
+<section class="bottom-cta">
+  <p class="bottom-cta-text">Ready to try it?</p>
+  <a href="https://app.49agents.com" class="cta-button">Get Started</a>
+  <p class="cta-sub">Free to start. No credit card.</p>
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <a href="https://49agents.com">49agents.com</a>
+    <div class="footer-dot"></div>
+    <a href="/security_privacy.html">Security & Privacy</a>
+  </div>
+</footer>
+
+</body>
+</html>

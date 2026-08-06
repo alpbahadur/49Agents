@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>49Agents — Run all your AI coding agents from one screen</title>
+<meta name="description" content="Developers running Claude Code across multiple machines: stop losing track of terminals, tabs, and sessions. 49Agents puts every agent, terminal, and repo on one infinite canvas.">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&family=Montserrat:wght@200;300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #2dd4bf;
+    --accent-rgb: 45, 212, 191;
+    --accent-dim: rgba(45, 212, 191, 0.5);
+    --accent-glow: rgba(45, 212, 191, 0.3);
+  }
+
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: #050509;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* ─── NAV ─── */
+
+  .site-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(5, 5, 9, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .site-nav-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+  }
+
+  .nav-brand {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.82);
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: color 0.2s ease;
+  }
+
+  .nav-brand:hover {
+    color: #fff;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.2s ease;
+    letter-spacing: -0.01em;
+  }
+
+  .nav-links a:hover {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .nav-links .nav-cta {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 500;
+    font-size: 0.82rem;
+    padding: 8px 22px;
+    border-radius: 999px;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0;
+  }
+
+  .nav-links .nav-cta:hover {
+    color: #fff;
+    box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.3), 0 0 40px rgba(var(--accent-rgb), 0.1);
+    transform: translateY(-1px);
+  }
+
+  /* ─── HERO ─── */
+
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 120px 24px 80px;
+    position: relative;
+    text-align: center;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 700px;
+    height: 500px;
+    background: radial-gradient(ellipse at center top, rgba(var(--accent-rgb), 0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    opacity: 0.9;
+  }
+
+  .hero-headline {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.95);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    margin-bottom: 28px;
+    max-width: 780px;
+  }
+
+  .hero-headline strong {
+    font-weight: 500;
+    color: #fff;
+  }
+
+  .hero-sub {
+    font-size: clamp(0.95rem, 2vw, 1.1rem);
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.48);
+    line-height: 1.65;
+    max-width: 560px;
+    margin: 0 auto 48px;
+  }
+
+  .hero-cta-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .btn-primary {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 16px 48px;
+    border-radius: 999px;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: box-shadow 0.35s ease, transform 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.45), 0 0 70px rgba(var(--accent-rgb), 0.2);
+    transform: translateY(-2px);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .hero-note {
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.28);
+  }
+
+  .hero-note a {
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.2s ease;
+  }
+
+  .hero-note a:hover {
+    color: rgba(255, 255, 255, 0.65);
+  }
+
+  /* ─── CANVAS DIAGRAM ─── */
+
+  .hero-diagram {
+    margin-top: 64px;
+    width: 100%;
+    max-width: 860px;
+    border-radius: 16px;
+    border: 1px solid rgba(var(--accent-rgb), 0.15);
+    box-shadow: 0 0 60px rgba(var(--accent-rgb), 0.07), 0 32px 80px rgba(0, 0, 0, 0.6);
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .diagram-bar {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .diagram-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .diagram-dot.red   { background: rgba(255, 95,  86,  0.5); }
+  .diagram-dot.yel   { background: rgba(255, 189, 46,  0.5); }
+  .diagram-dot.grn   { background: rgba(39,  201, 63,  0.5); }
+
+  .diagram-label {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.18);
+    letter-spacing: 0.05em;
+  }
+
+  .diagram-canvas {
+    padding: 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto auto;
+    gap: 12px;
+    min-height: 240px;
+  }
+
+  .diagram-pane {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.35);
+    line-height: 1.7;
+    overflow: hidden;
+  }
+
+  .diagram-pane-title {
+    font-size: 0.58rem;
+    color: rgba(var(--accent-rgb), 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .diagram-pane.active {
+    border-color: rgba(var(--accent-rgb), 0.25);
+    background: rgba(var(--accent-rgb), 0.04);
+  }
+
+  .diagram-pane.wide {
+    grid-column: span 2;
+  }
+
+  .cursor-blink {
+    display: inline-block;
+    width: 6px;
+    height: 10px;
+    background: var(--accent);
+    opacity: 0.8;
+    animation: blink 1.1s step-end infinite;
+    vertical-align: middle;
+    margin-left: 1px;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 0; }
+  }
+
+  /* ─── SECTION LABEL ─── */
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 400;
+    color: rgba(var(--accent-rgb), 0.65);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* ─── FEATURES ─── */
+
+  .features {
+    background: #050509;
+    padding: 100px 24px 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .features-inner {
+    max-width: 640px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 64px;
+  }
+
+  .features-heading {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.82);
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+
+  .features-sub {
+    font-size: 0.88rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.35);
+    line-height: 1.6;
+  }
+
+  .feature {
+    display: flex;
+    gap: 20px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .feature.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .feature-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(var(--accent-rgb), 0.08);
+    border: 1px solid rgba(var(--accent-rgb), 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .feature-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke: var(--accent);
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .feature-text h3 {
+    font-size: clamp(1rem, 2.2vw, 1.15rem);
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.35;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .feature-text p {
+    font-size: 0.82rem;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.42);
+    line-height: 1.6;
+  }
+
+  /* ─── OPEN SOURCE SECTION ─── */
+
+  .open-source {
+    background: #050509;
+    padding: 80px 24px 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .open-source-inner {
+    max-width: 640px;
+    width: 100%;
+  }
+
+  .open-source h2 {
+    font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: -0.025em;
+    margin-bottom: 16px;
+    line-height: 1.25;
+  }
+
+  .open-source .body-copy {
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.42);
+    line-height: 1.7;
+    margin-bottom: 40px;
+    max-width: 480px;
+  }
+
+  .setup-steps {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    margin-bottom: 36px;
+  }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 18px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .step-text {
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.68);
+    line-height: 1.6;
+  }
+
+  .step-code {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    background: rgba(var(--accent-rgb), 0.07);
+    border: 1px solid rgba(var(--accent-rgb), 0.12);
+    border-radius: 4px;
+    padding: 3px 8px;
+    color: rgba(200, 235, 255, 0.85);
+    margin-top: 6px;
+  }
+
+  .step-link {
+    color: var(--accent);
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .step-link:hover {
+    opacity: 0.7;
+  }
+
+  .step-subtext {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.72em;
+    color: rgba(var(--accent-rgb), 0.4);
+    font-style: italic;
+  }
+
+  .github-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.82rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+
+  .github-link svg {
+    width: 18px;
+    height: 18px;
+    fill: rgba(255, 255, 255, 0.3);
+    transition: fill 0.25s ease;
+    flex-shrink: 0;
+  }
+
+  .github-link:hover {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .github-link:hover svg {
+    fill: rgba(255, 255, 255, 0.55);
+  }
+
+  /* ─── PRICING ─── */
+
+  .pricing {
+    background: #050509;
+    padding: 80px 24px 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .pricing-inner {
+    max-width: 480px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .pricing-tier {
+    padding: 28px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .pricing-tier.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .pricing-tier:last-child {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .pricing-tier.pro {
+    background: rgba(var(--accent-rgb), 0.04);
+    margin: 0 -20px;
+    padding: 28px 20px;
+    border-radius: 8px;
+    border-top: none;
+    border-bottom: none;
+  }
+
+  .pricing-tier.pro + .pricing-tier {
+    border-top: none;
+  }
+
+  .tier-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .tier-name {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .pro .tier-name {
+    color: var(--accent);
+  }
+
+  .tier-price {
+    font-size: 0.95rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .tier-desc {
+    font-size: 0.85rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.35);
+    line-height: 1.5;
+  }
+
+  /* ─── BOTTOM CTA ─── */
+
+  .bottom-cta {
+    background: #050509;
+    padding: 80px 24px 100px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .bottom-cta h2 {
+    font-size: clamp(1.4rem, 3.5vw, 2rem);
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.82);
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    margin-bottom: 32px;
+  }
+
+  .bottom-cta .cta-sub {
+    margin-top: 20px;
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  .bottom-cta .cta-sub a {
+    color: rgba(255, 255, 255, 0.45);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.2s ease;
+  }
+
+  .bottom-cta .cta-sub a:hover {
+    color: rgba(255, 255, 255, 0.65);
+  }
+
+  /* ─── FOOTER ─── */
+
+  .footer {
+    background: #050509;
+    padding: 0 24px 32px;
+    text-align: center;
+  }
+
+  .footer-inner {
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .footer a {
+    color: rgba(255, 255, 255, 0.25);
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+
+  .footer a:hover {
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .footer-dot {
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  /* ─── FLOATING "TRY IT OUT" BUTTON ─── */
+
+  .floating-try {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    z-index: 200;
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+  }
+
+  .floating-try.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .floating-try.pulse {
+    animation: float-pulse 2.5s ease-in-out 1.2s infinite;
+  }
+
+  @keyframes float-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0);
+    }
+  }
+
+  .floating-try-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 13px 28px;
+    border-radius: 999px;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    box-shadow: 0 4px 24px rgba(var(--accent-rgb), 0.45), 0 1px 4px rgba(0, 0, 0, 0.4);
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    animation: glow-pulse 2.5s ease-in-out 1.2s infinite;
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 4px 24px rgba(var(--accent-rgb), 0.45), 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+    50% {
+      box-shadow: 0 4px 40px rgba(var(--accent-rgb), 0.75), 0 0 60px rgba(var(--accent-rgb), 0.25), 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  .floating-try-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 40px rgba(var(--accent-rgb), 0.65), 0 2px 6px rgba(0, 0, 0, 0.4);
+    animation: none;
+  }
+
+  .floating-try-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: rgba(255, 255, 255, 0.8);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ─── PARTICLES ─── */
+
+  #particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .features, .open-source, .pricing, .bottom-cta, .footer {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── THEME PICKER ─── */
+
+  .theme-picker {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .theme-picker-panel {
+    background: rgba(10, 10, 18, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform-origin: top right;
+  }
+
+  .theme-picker-panel.collapsed {
+    opacity: 0;
+    transform: scale(0.9);
+    pointer-events: none;
+  }
+
+  .theme-picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .theme-swatches {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .theme-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+    outline: none;
+    flex-shrink: 0;
+  }
+
+  .theme-swatch:hover {
+    transform: scale(1.15);
+  }
+
+  .theme-swatch.active {
+    border-color: rgba(255, 255, 255, 0.9);
+  }
+
+  .theme-toggle {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.06em;
+    transition: background 0.2s ease, color 0.2s ease;
+    align-self: flex-end;
+  }
+
+  .theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  /* ─── RESPONSIVE ─── */
+
+  @media (max-width: 600px) {
+    .site-nav-inner {
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 16px;
+    }
+
+    .nav-links {
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .nav-links a {
+      font-size: 0.68rem;
+      padding: 4px 0;
+    }
+
+    .nav-links .nav-cta {
+      font-size: 0.75rem;
+      padding: 8px 20px;
+    }
+
+    .hero {
+      padding: 140px 20px 60px;
+    }
+
+    .hero-headline {
+      font-size: 2rem;
+      letter-spacing: -0.025em;
+    }
+
+    .hero-sub {
+      font-size: 0.9rem;
+    }
+
+    .btn-primary {
+      padding: 14px 36px;
+      font-size: 0.95rem;
+    }
+
+    .diagram-canvas {
+      grid-template-columns: repeat(2, 1fr);
+      padding: 16px;
+      gap: 8px;
+      min-height: 180px;
+    }
+
+    .diagram-pane.wide {
+      grid-column: span 2;
+    }
+
+    .features {
+      padding: 60px 20px 80px;
+    }
+
+    .features-inner {
+      gap: 48px;
+    }
+
+    .open-source {
+      padding: 60px 20px 80px;
+    }
+
+    .pricing {
+      padding: 60px 20px 80px;
+    }
+
+    .pricing-tier.pro {
+      margin: 0 -12px;
+      padding: 24px 12px;
+    }
+
+    .tier-header {
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .floating-try {
+      bottom: 20px;
+      right: 20px;
+    }
+
+    .floating-try-btn {
+      font-size: 0.82rem;
+      padding: 11px 22px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<!-- ─── THEME PICKER ─── -->
+<div class="theme-picker" id="themePicker">
+  <button class="theme-toggle" id="themeToggle">THEME</button>
+  <div class="theme-picker-panel" id="themePanel">
+    <span class="theme-picker-label">Theme</span>
+    <div class="theme-swatches" id="themeSwatches">
+      <button class="theme-swatch active" data-accent="#2dd4bf" data-rgb="45, 212, 191" style="background:#2dd4bf" title="Teal" aria-label="Teal"></button>
+      <button class="theme-swatch" data-accent="#f59e0b" data-rgb="245, 158, 11" style="background:#f59e0b" title="Amber" aria-label="Amber"></button>
+      <button class="theme-swatch" data-accent="#f43f5e" data-rgb="244, 63, 94" style="background:#f43f5e" title="Rose" aria-label="Rose"></button>
+      <button class="theme-swatch" data-accent="#38bdf8" data-rgb="56, 189, 248" style="background:#38bdf8" title="Sky" aria-label="Sky"></button>
+      <button class="theme-swatch" data-accent="#34d399" data-rgb="52, 211, 153" style="background:#34d399" title="Emerald" aria-label="Emerald"></button>
+      <button class="theme-swatch" data-accent="#fb923c" data-rgb="251, 146, 60" style="background:#fb923c" title="Orange" aria-label="Orange"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── NAV ─── -->
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a href="https://49agents.com" class="nav-brand">49Agents</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/49agents/49agents" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://app.49agents.com" class="nav-cta">Try it free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── HERO ─── -->
+<section class="hero">
+  <p class="hero-eyebrow">Open source &middot; Self-hostable &middot; Cloud at app.49agents.com</p>
+  <h1 class="hero-headline">
+    Run all your AI coding agents<br><strong>from one screen</strong>
+  </h1>
+  <p class="hero-sub">
+    You're running Claude Code across three repos, two machines, and five terminal tabs. It's chaos.
+    49Agents gives every agent, terminal, and git repo its own pane on an infinite 2D canvas &mdash;
+    so you can see and control everything at once, from any device.
+  </p>
+  <div class="hero-cta-group">
+    <a href="https://app.49agents.com" class="btn-primary">Try it free</a>
+    <p class="hero-note">No credit card needed &mdash; or <a href="https://github.com/49agents/49agents" target="_blank" rel="noopener">self-host it</a> for free.</p>
+  </div>
+
+  <!-- Canvas diagram — literal product representation -->
+  <div class="hero-diagram">
+    <div class="diagram-bar">
+      <div class="diagram-dot red"></div>
+      <div class="diagram-dot yel"></div>
+      <div class="diagram-dot grn"></div>
+      <span class="diagram-label">49Agents &mdash; infinite canvas</span>
+    </div>
+    <div class="diagram-canvas">
+      <div class="diagram-pane active wide">
+        <div class="diagram-pane-title">Claude Code &mdash; repo/api-server</div>
+        <div>Running tests on AuthController...</div>
+        <div class="diagram-inline-accent">? Allow file write? (y/n)</div>
+        <div><span class="cursor-blink"></span></div>
+      </div>
+      <div class="diagram-pane">
+        <div class="diagram-pane-title">Machine 2 &mdash; worker</div>
+        <div>Indexing 1,204 files</div>
+        <div style="color:rgba(255,255,255,0.2)">CPU 34% MEM 1.2GB</div>
+      </div>
+      <div class="diagram-pane">
+        <div class="diagram-pane-title">Claude Code &mdash; repo/frontend</div>
+        <div>Refactoring Canvas.tsx</div>
+        <div style="color:rgba(255,255,255,0.2)">3 files changed</div>
+      </div>
+      <div class="diagram-pane">
+        <div class="diagram-pane-title">Git &mdash; api-server</div>
+        <div>main &bull; 4 ahead</div>
+        <div class="diagram-inline-accent-dim">Push ready</div>
+      </div>
+      <div class="diagram-pane">
+        <div class="diagram-pane-title">Notes</div>
+        <div style="color:rgba(255,255,255,0.25)">- Fix rate limiting</div>
+        <div style="color:rgba(255,255,255,0.25)">- Deploy staging</div>
+      </div>
+      <div class="diagram-pane">
+        <div class="diagram-pane-title">Usage</div>
+        <div>Claude API: 68%</div>
+        <div style="color:rgba(255,255,255,0.2)">$3.42 this session</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FEATURES ─── -->
+<section class="features" id="features">
+  <div class="features-inner">
+
+    <div>
+      <p class="section-label">What you get</p>
+      <h2 class="features-heading">Everything in one place.<br>Nothing hidden in a tab.</h2>
+      <p class="features-sub">Each tool you already use — terminals, git, notes, resource monitors — becomes a pane on the canvas. Drag, resize, arrange.</p>
+    </div>
+
+    <div class="feature" id="features-sentinel">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="9" y1="2" x2="9" y2="22"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Infinite 2D canvas</h3>
+        <p>All terminals, one surface. No more tab hell.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Unintrusive notifications</h3>
+        <p>Never miss a permission request or question from a running agent.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><rect x="1" y="4" width="8" height="14" rx="1.5"/><rect x="15" y="4" width="8" height="14" rx="1.5"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Multi-machine. Not SSH.</h3>
+        <p>Connect multiple machines to one canvas. No forwarding ports, no juggling remote sessions.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Git graphs and one-click push</h3>
+        <p>Branches, diffs, commits. Push instantly without leaving the canvas.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Editor, notes, issue tracking</h3>
+        <p>Edit files, store thoughts, track progress — all pinned to the canvas alongside your agents.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Monitor API and subscription usage</h3>
+        <p>Track your Claude Code remaining credits in real time, so you never hit a surprise limit mid-session.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M6 10h.01M10 10h.01" stroke-width="2"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Resource usage across all machines</h3>
+        <p>CPU, memory, disk &mdash; every machine you're running agents on, visible at a glance.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Conversations preserved across restarts</h3>
+        <p>Reboot your machine. Your terminal history is still there when you come back.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2"/></svg>
+      </div>
+      <div class="feature-text">
+        <h3>Works from mobile</h3>
+        <p>Check on a running agent from your phone. Respond to a permission prompt. Keep going.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── OPEN SOURCE / SELF-HOST ─── -->
+<section class="open-source" id="self-host">
+  <div class="open-source-inner">
+    <p class="section-label">Open source</p>
+    <h2>Self-host it. Own it.</h2>
+    <p class="body-copy">
+      49Agents is fully open source. Clone it, run it on your own hardware, and no data ever leaves your machine.
+      No account, no subscription required.
+    </p>
+    <div class="setup-steps">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span class="step-text">
+          Clone the repo<br>
+          <code class="step-code">git clone https://github.com/49Agents/49Agents.git</code>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span class="step-text">
+          Run the setup script<br>
+          <code class="step-code">cd 49Agents &amp;&amp; ./start.sh</code>
+          <span class="step-subtext">Installs deps, builds assets, asks single vs. multi-machine, starts everything.</span>
+        </span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span class="step-text">Open <a href="http://localhost:1071" class="step-link" target="_blank">localhost:1071</a> in your browser</span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span class="step-text">Start coding.</span>
+      </div>
+    </div>
+    <a href="https://github.com/49agents/49agents" target="_blank" rel="noopener" class="github-link">
+      <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      View on GitHub &mdash; leave a star if it helps
+    </a>
+  </div>
+</section>
+
+<!-- ─── PRICING ─── -->
+<section class="pricing" id="pricing">
+  <div class="pricing-inner">
+    <p class="section-label" style="margin-bottom: 32px;">Pricing</p>
+
+    <div class="pricing-tier">
+      <div class="tier-header">
+        <span class="tier-name">Free</span>
+      </div>
+      <p class="tier-desc">6 terminals, 20 panes. Forever free.</p>
+    </div>
+
+    <div class="pricing-tier pro">
+      <div class="tier-header">
+        <span class="tier-name">Pro</span>
+        <span class="tier-price">$8/mo</span>
+      </div>
+      <p class="tier-desc">20 terminals, 100 panes. Multi-machine, git graphs.</p>
+    </div>
+
+    <div class="pricing-tier">
+      <div class="tier-header">
+        <span class="tier-name">Team</span>
+        <span class="tier-price">$6/seat/mo</span>
+      </div>
+      <p class="tier-desc">Shared canvases, admin controls, audit logs.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── BOTTOM CTA ─── -->
+<section class="bottom-cta">
+  <h2>One screen.<br>Every agent you're running.</h2>
+  <a href="https://app.49agents.com" class="btn-primary">Try it free</a>
+  <p class="cta-sub">Or <a href="https://github.com/49agents/49agents" target="_blank" rel="noopener">self-host it</a> &mdash; open source, forever free.</p>
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <a href="https://49agents.com">49agents.com</a>
+    <div class="footer-dot"></div>
+    <a href="/security_privacy.html">Security &amp; Privacy</a>
+  </div>
+</footer>
+
+<!-- ─── FLOATING "TRY IT OUT" BUTTON ─── -->
+<div class="floating-try" id="floating-try">
+  <a href="https://app.49agents.com" class="floating-try-btn">
+    <svg viewBox="0 0 24 24"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+    Try it out
+  </a>
+</div>
+
+<style>
+  .diagram-inline-accent { color: rgba(var(--accent-rgb), 0.75); }
+  .diagram-inline-accent-dim { color: rgba(var(--accent-rgb), 0.5); }
+</style>
+
+<script>
+  // ─── Theme Picker ───
+  (function() {
+    var themes = {
+      teal:    { accent: '#2dd4bf', rgb: '45, 212, 191' },
+      amber:   { accent: '#f59e0b', rgb: '245, 158, 11' },
+      rose:    { accent: '#f43f5e', rgb: '244, 63, 94' },
+      sky:     { accent: '#38bdf8', rgb: '56, 189, 248' },
+      emerald: { accent: '#34d399', rgb: '52, 211, 153' },
+      orange:  { accent: '#fb923c', rgb: '251, 146, 60' }
+    };
+
+    var root = document.documentElement;
+    var swatches = document.querySelectorAll('.theme-swatch');
+    var panel = document.getElementById('themePanel');
+    var toggle = document.getElementById('themeToggle');
+    var collapsed = false;
+
+    function applyTheme(accent, rgb) {
+      root.style.setProperty('--accent', accent);
+      root.style.setProperty('--accent-rgb', rgb);
+      root.style.setProperty('--accent-dim', 'rgba(' + rgb + ', 0.5)');
+      root.style.setProperty('--accent-glow', 'rgba(' + rgb + ', 0.3)');
+    }
+
+    function setActive(swatch) {
+      swatches.forEach(function(s) { s.classList.remove('active'); });
+      swatch.classList.add('active');
+    }
+
+    // Restore saved theme
+    var saved = localStorage.getItem('demo1-theme');
+    if (saved) {
+      try {
+        var t = JSON.parse(saved);
+        applyTheme(t.accent, t.rgb);
+        swatches.forEach(function(s) {
+          if (s.dataset.accent === t.accent) { s.classList.add('active'); }
+          else { s.classList.remove('active'); }
+        });
+      } catch(e) {}
+    }
+
+    swatches.forEach(function(swatch) {
+      swatch.addEventListener('click', function() {
+        var accent = swatch.dataset.accent;
+        var rgb = swatch.dataset.rgb;
+        applyTheme(accent, rgb);
+        setActive(swatch);
+        localStorage.setItem('demo1-theme', JSON.stringify({ accent: accent, rgb: rgb }));
+      });
+    });
+
+    toggle.addEventListener('click', function() {
+      collapsed = !collapsed;
+      if (collapsed) {
+        panel.classList.add('collapsed');
+        toggle.textContent = 'THEME';
+      } else {
+        panel.classList.remove('collapsed');
+        toggle.textContent = 'CLOSE';
+      }
+    });
+  })();
+
+  // ─── Particles ───
+  (function() {
+    var canvas = document.getElementById('particles');
+    var ctx = canvas.getContext('2d');
+    var particles = [];
+    var W, H;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    for (var i = 0; i < 60; i++) {
+      particles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        r: Math.random() * 1.2 + 0.3,
+        dx: (Math.random() - 0.5) * 0.18,
+        dy: (Math.random() - 0.5) * 0.18,
+        o: Math.random() * 0.25 + 0.05
+      });
+    }
+
+    function getAccentRgb() {
+      return getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '45, 212, 191';
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      var rgb = getAccentRgb();
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        p.x += p.dx;
+        p.y += p.dy;
+        if (p.x < 0) p.x = W;
+        if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H;
+        if (p.y > H) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(' + rgb + ',' + p.o + ')';
+        ctx.fill();
+      }
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  })();
+
+  // ─── Scroll-reveal for features and pricing tiers ───
+  (function() {
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.15,
+      rootMargin: '0px 0px -40px 0px'
+    });
+
+    document.querySelectorAll('.feature, .pricing-tier').forEach(function(el) {
+      observer.observe(el);
+    });
+  })();
+
+  // ─── Floating "Try it out" button — appears after features section ───
+  (function() {
+    var floatingBtn = document.getElementById('floating-try');
+    var sentinel = document.getElementById('features-sentinel');
+    var shown = false;
+
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (!entry.isIntersecting && entry.boundingClientRect.top < 0) {
+          // Scrolled past the features section start
+          if (!shown) {
+            shown = true;
+            floatingBtn.classList.add('visible');
+            // Start pulse after a short delay for subtlety
+            setTimeout(function() {
+              floatingBtn.classList.add('pulse');
+            }, 800);
+          }
+        }
+      });
+    }, { threshold: 0 });
+
+    if (sentinel) {
+      observer.observe(sentinel);
+    }
+  })();
+
+  // ─── Forward UTM params to app links ───
+  (function() {
+    var params = new URLSearchParams(location.search);
+    var utm = {};
+    ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function(k) {
+      var v = params.get(k);
+      if (v) utm[k] = v;
+    });
+    if (Object.keys(utm).length === 0) return;
+    document.querySelectorAll('a[href*="app.49agents.com"]').forEach(function(a) {
+      var url = new URL(a.href);
+      Object.keys(utm).forEach(function(k) { url.searchParams.set(k, utm[k]); });
+      a.href = url.toString();
+    });
+  })();
+</script>
+</body>
+</html>

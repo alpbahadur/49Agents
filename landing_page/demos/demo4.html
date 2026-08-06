@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>49Agents — Infinite Canvas for Parallel AI Agents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #050509;
+      --bg-surface: #0d0d14;
+      --bg-card:   #111119;
+      --border:    rgba(255,255,255,0.08);
+      --accent:    #2dd4bf;
+      --accent-rgb: 45, 212, 191;
+      --accent-dim: rgba(45,212,191,0.15);
+      --accent-glow: rgba(45,212,191,0.4);
+      --text-hi:   rgba(255,255,255,0.92);
+      --text-mid:  rgba(255,255,255,0.55);
+      --text-lo:   rgba(255,255,255,0.30);
+      --green:     #22c55e;
+      --amber:     #f59e0b;
+      --blue:      #3b82f6;
+      --red:       #ef4444;
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --font-brand:'Montserrat', sans-serif;
+      --radius:    8px;
+      --radius-lg: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-hi);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ─────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 56px;
+      background: rgba(5,5,9,0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand {
+      font-family: var(--font-brand);
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-hi);
+      text-decoration: none;
+    }
+    .nav-brand span { color: var(--accent); }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      list-style: none;
+    }
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-mid);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text-hi); }
+    .nav-cta {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 6px 16px;
+      border-radius: var(--radius);
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: opacity 0.15s !important;
+    }
+    .nav-cta:hover { opacity: 0.85; }
+
+    /* ── LAYOUT HELPERS ───────────────────────────── */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+    .section {
+      padding: 6rem 0;
+    }
+    .section + .section {
+      border-top: 1px solid var(--border);
+    }
+    .label {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      font-family: var(--font-brand);
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-hi);
+      line-height: 1.2;
+      margin-bottom: 0.75rem;
+    }
+    .section-sub {
+      font-size: 1rem;
+      color: var(--text-mid);
+      max-width: 560px;
+      line-height: 1.7;
+    }
+
+    /* ── HERO ─────────────────────────────────────── */
+    .hero {
+      padding: 5rem 0 3rem;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-mid);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 14px;
+      margin-bottom: 2rem;
+    }
+    .hero-eyebrow .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+    }
+    .hero-h1 {
+      font-family: var(--font-brand);
+      font-size: clamp(2.2rem, 5.5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      color: var(--text-hi);
+      max-width: 800px;
+      margin: 0 auto 1.25rem;
+    }
+    .hero-h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+    .hero-sub {
+      font-size: 1.1rem;
+      color: var(--text-mid);
+      max-width: 600px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.75;
+    }
+    .hero-sub strong { color: var(--text-hi); font-weight: 600; }
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 4rem;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 12px 28px;
+      border-radius: var(--radius);
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: transparent;
+      color: var(--text-mid);
+      font-size: 0.9rem;
+      padding: 12px 22px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      text-decoration: none;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-ghost:hover { color: var(--text-hi); border-color: rgba(255,255,255,0.2); }
+
+    /* ── HERO PRODUCT SCREENSHOT (CSS art) ──────────── */
+    .hero-screenshot-wrap {
+      position: relative;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .screenshot-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-lo);
+      text-align: left;
+      margin-bottom: 0.5rem;
+      padding-left: 0.25rem;
+    }
+    .hero-canvas {
+      background: #080810;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      position: relative;
+      height: 420px;
+      box-shadow: 0 0 0 1px rgba(var(--accent-rgb),0.1), 0 32px 80px rgba(0,0,0,0.6);
+    }
+
+    /* canvas grid dots */
+    .hero-canvas::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    /* canvas toolbar */
+    .canvas-toolbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 36px;
+      background: rgba(13,13,20,0.95);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+      z-index: 5;
+    }
+    .toolbar-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .toolbar-dot.red   { background: #ef4444; }
+    .toolbar-dot.amber { background: #f59e0b; }
+    .toolbar-dot.green { background: #22c55e; }
+    .toolbar-title {
+      flex: 1;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-lo);
+      letter-spacing: 0.05em;
+    }
+    .toolbar-zoom {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--text-lo);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+
+    /* terminal windows on canvas */
+    .terminal-window {
+      position: absolute;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+    }
+    .terminal-header {
+      height: 24px;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      gap: 6px;
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    .terminal-header .th-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+    }
+    .terminal-header .th-name {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .terminal-header .th-badge {
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 0.55rem;
+      font-weight: 700;
+    }
+    .terminal-body {
+      padding: 8px;
+      line-height: 1.5;
+      color: var(--text-mid);
+    }
+    .terminal-body .line { display: flex; gap: 6px; }
+    .terminal-body .prompt { color: var(--accent); flex-shrink: 0; }
+    .terminal-body .cmd   { color: var(--text-hi); }
+    .terminal-body .out   { color: var(--text-lo); padding-left: 12px; }
+    .terminal-body .ok    { color: var(--green); }
+    .terminal-body .warn  { color: var(--amber); }
+    .terminal-body .cursor {
+      display: inline-block;
+      width: 6px; height: 11px;
+      background: var(--accent);
+      vertical-align: middle;
+      animation: blink 1.1s step-end infinite;
+    }
+
+    /* agent-1: main task, top-left */
+    .tw-agent1 {
+      top: 52px; left: 28px;
+      width: 240px;
+    }
+    .tw-agent1 .terminal-header {
+      background: rgba(var(--accent-rgb),0.18);
+      color: var(--accent);
+    }
+
+    /* agent-2: tests, bottom-left */
+    .tw-agent2 {
+      top: 52px; left: 292px;
+      width: 230px;
+    }
+    .tw-agent2 .terminal-header {
+      background: rgba(34,197,94,0.15);
+      color: #86efac;
+    }
+
+    /* agent-3: build, right */
+    .tw-agent3 {
+      top: 52px; left: 548px;
+      width: 220px;
+    }
+    .tw-agent3 .terminal-header {
+      background: rgba(59,130,246,0.15);
+      color: #93c5fd;
+    }
+
+    /* notes panel, bottom */
+    .tw-notes {
+      bottom: 12px; left: 28px;
+      width: 740px;
+      height: 88px;
+    }
+    .tw-notes .terminal-header {
+      background: rgba(245,158,11,0.12);
+      color: #fcd34d;
+    }
+
+    /* resource monitor, top right */
+    .tw-monitor {
+      top: 52px; right: 28px;
+      width: 130px;
+    }
+    .tw-monitor .terminal-header {
+      background: rgba(239,68,68,0.12);
+      color: #fca5a5;
+    }
+
+    /* connection lines between terminals */
+    .canvas-connections {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* annotation callouts */
+    .canvas-anno {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      color: var(--text-lo);
+      white-space: nowrap;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .canvas-anno::before {
+      content: '';
+      display: block;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .canvas-anno.a-canvas { top: 42px; right: 172px; color: var(--text-lo); }
+    .canvas-anno.a-multi  { bottom: 106px; right: 28px; color: rgba(var(--accent-rgb),0.6); }
+
+    /* resource bars */
+    .res-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .res-label { color: var(--text-lo); font-size: 0.58rem; }
+    .res-val   { color: var(--text-hi); font-size: 0.6rem; }
+    .res-bar-wrap { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; margin-bottom: 6px; }
+    .res-bar { height: 3px; border-radius: 2px; }
+
+    /* notes lines */
+    .note-line { color: var(--text-lo); display: block; }
+    .note-line.active { color: rgba(245,158,11,0.8); }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    /* ── WHAT IS 49AGENTS callout ──────────────────── */
+    .product-callout {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem 2.5rem;
+      margin-top: 2.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2rem;
+    }
+    .callout-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .callout-item .ci-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-lo);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .callout-item .ci-value {
+      font-size: 0.9rem;
+      color: var(--text-hi);
+      font-weight: 500;
+    }
+
+    /* ── FEATURES ─────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 3rem;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .feature-card:hover {
+      border-color: rgba(var(--accent-rgb),0.25);
+    }
+    .feature-visual {
+      height: 120px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .feature-visual-caption {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--text-lo);
+      margin-top: 0.4rem;
+      text-align: center;
+    }
+    .feature-title {
+      font-family: var(--font-brand);
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text-hi);
+      letter-spacing: -0.02em;
+    }
+    .feature-desc {
+      font-size: 0.88rem;
+      color: var(--text-mid);
+      line-height: 1.7;
+    }
+    .feature-why {
+      font-size: 0.82rem;
+      color: var(--accent);
+      font-style: italic;
+      padding-top: 0.25rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ─ Feature visual: Infinite Canvas ─ */
+    .fv-canvas {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .fv-canvas .dot-grid {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+      background-size: 14px 14px;
+    }
+    .fv-canvas .mini-window {
+      position: absolute;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.5rem;
+      color: var(--text-lo);
+    }
+    .fv-canvas .mw-header {
+      height: 10px;
+      border-radius: 4px 4px 0 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .fv-canvas .mw-body { padding: 3px 4px; }
+    .fv-canvas .zoom-indicator {
+      position: absolute;
+      bottom: 8px; right: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.55rem;
+      color: var(--text-lo);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 2px 6px;
+    }
+    .fv-canvas .viewport-box {
+      position: absolute;
+      border: 1px dashed rgba(var(--accent-rgb),0.4);
+      border-radius: 3px;
+      background: rgba(var(--accent-rgb),0.04);
+    }
+
+    /* ─ Feature visual: Multi-machine ─ */
+    .fv-machines {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      position: relative;
+      padding: 0 1rem;
+    }
+    .machine-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      color: var(--text-mid);
+      text-align: center;
+      min-width: 80px;
+    }
+    .machine-box .mb-icon { font-size: 1.2rem; margin-bottom: 2px; display: block; }
+    .machine-box .mb-label { color: var(--text-lo); }
+    .machine-box .mb-status { color: var(--green); font-size: 0.5rem; }
+    .machine-connector {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 0 4px;
+    }
+    .mc-line {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), rgba(var(--accent-rgb),0.4), var(--border));
+      position: relative;
+    }
+    .mc-label {
+      font-family: var(--font-mono);
+      font-size: 0.5rem;
+      color: var(--text-lo);
+      white-space: nowrap;
+    }
+
+    /* ─ Feature visual: Git graph ─ */
+    .fv-git {
+      padding: 12px 16px;
+      position: relative;
+    }
+    .git-svg { width: 100%; height: 96px; }
+
+    /* ─ Feature visual: Resource monitor ─ */
+    .fv-resources {
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+    }
+    .res-machine-label {
+      color: var(--text-lo);
+      font-size: 0.55rem;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .res-machine-label .online { color: var(--green); }
+
+    /* ── HOW IT WORKS ─────────────────────────────── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 3rem;
+      position: relative;
+    }
+    .steps::before {
+      content: '';
+      position: absolute;
+      left: 19px; top: 0; bottom: 0;
+      width: 1px;
+      background: var(--border);
+    }
+    .step {
+      display: flex;
+      gap: 1.5rem;
+      padding: 1.75rem 0;
+    }
+    .step + .step { border-top: 1px solid var(--border); }
+    .step-num {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--accent);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .step-content { flex: 1; }
+    .step-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text-hi);
+      margin-bottom: 0.35rem;
+    }
+    .step-desc {
+      font-size: 0.875rem;
+      color: var(--text-mid);
+      line-height: 1.65;
+    }
+
+    /* ── PRICING ──────────────────────────────────── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.25rem;
+      margin-top: 3rem;
+    }
+    .price-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .price-card.featured {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-glow);
+    }
+    .price-tier {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-lo);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .price-amount {
+      font-family: var(--font-brand);
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text-hi);
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+    .price-amount span {
+      font-size: 0.9rem;
+      font-weight: 400;
+      color: var(--text-lo);
+      letter-spacing: 0;
+    }
+    .price-desc {
+      font-size: 0.82rem;
+      color: var(--text-mid);
+      line-height: 1.6;
+    }
+    .price-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+    }
+    .price-features li {
+      font-size: 0.82rem;
+      color: var(--text-mid);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    .price-features li::before {
+      content: '';
+      display: block;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+      margin-top: 3px;
+      opacity: 0.8;
+    }
+    .price-cta {
+      display: block;
+      text-align: center;
+      padding: 10px;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .price-cta:hover { opacity: 0.85; }
+    .price-cta.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .price-cta.ghost {
+      border: 1px solid var(--border);
+      color: var(--text-mid);
+    }
+    .price-cta.ghost:hover { border-color: rgba(255,255,255,0.2); color: var(--text-hi); }
+
+    /* ── OPEN SOURCE CALLOUT ─────────────────────── */
+    .oss-banner {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+    .oss-text { max-width: 600px; }
+    .oss-title {
+      font-family: var(--font-brand);
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-hi);
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.02em;
+    }
+    .oss-sub {
+      font-size: 0.875rem;
+      color: var(--text-mid);
+    }
+
+    /* ── FOOTER ───────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer-brand {
+      font-family: var(--font-brand);
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text-mid);
+    }
+    .footer-brand span { color: var(--accent); }
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-lo);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer-links a:hover { color: var(--text-mid); }
+    .footer-copy {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-lo);
+    }
+
+    /* ── FLOATING CTA ─────────────────────────────── */
+    .floating-cta {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 200;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .floating-cta.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .floating-cta a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      padding: 12px 24px;
+      border-radius: 999px;
+      text-decoration: none;
+      box-shadow: 0 0 0 0 var(--accent-glow);
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow), 0 8px 24px rgba(0,0,0,0.4); }
+      50%       { box-shadow: 0 0 0 8px rgba(var(--accent-rgb),0), 0 8px 24px rgba(0,0,0,0.4); }
+    }
+
+    /* ── SCROLL ANIMATIONS ────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .reveal.in-view {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── MOBILE ───────────────────────────────────── */
+    @media (max-width: 768px) {
+      nav { padding: 0 1rem; }
+      .nav-links { display: none; }
+      .hero { padding: 3rem 0 2rem; }
+      .hero-canvas { height: 280px; }
+      .tw-agent3, .tw-monitor { display: none; }
+      .tw-notes { left: 28px; right: 28px; width: auto; }
+      .features-grid { grid-template-columns: 1fr; }
+      .pricing-grid  { grid-template-columns: 1fr; }
+      .product-callout { grid-template-columns: 1fr; gap: 1rem; }
+      .oss-banner { flex-direction: column; }
+      .footer-inner { flex-direction: column; align-items: flex-start; gap: 1rem; }
+      .floating-cta { right: 1rem; bottom: 1.5rem; }
+    }
+
+    @media (max-width: 640px) {
+      .hero-h1 { font-size: 2rem; }
+      .hero-sub { font-size: 0.95rem; }
+      .section { padding: 4rem 0; }
+    }
+
+    /* ── SVG ACCENT CLASSES (theme-aware) ─────────── */
+    .svg-accent-stroke-low  { stroke: rgba(var(--accent-rgb),0.2); }
+    .svg-accent-stroke-half { stroke: rgba(var(--accent-rgb),0.5); }
+    .svg-accent-stroke-med  { stroke: rgba(var(--accent-rgb),0.6); }
+    .svg-accent-stroke-full { stroke: var(--accent); }
+    .svg-accent-fill-dim    { fill:   rgba(var(--accent-rgb),0.3); }
+    .svg-accent-fill-hi     { fill:   rgba(var(--accent-rgb),0.7); }
+    .svg-accent-fill-half   { fill:   rgba(var(--accent-rgb),0.5); }
+    .svg-accent-fill-full   { fill:   var(--accent); }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-brand"><span>49</span>Agents</a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how-it-works">How it works</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="https://github.com/49agents" target="_blank" rel="noopener">GitHub</a></li>
+    <li><a href="https://app.49agents.com" class="nav-cta">Try it free</a></li>
+  </ul>
+</nav>
+
+<!-- FLOATING CTA -->
+<div class="floating-cta" id="floatingCta">
+  <a href="https://app.49agents.com">Try it out &rarr;</a>
+</div>
+
+<!-- HERO -->
+<section class="hero section">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span class="dot"></span>
+      Open source · Self-hostable · Cloud at app.49agents.com
+    </div>
+
+    <h1 class="hero-h1">
+      Run <em>49 AI agents</em> at once.<br />See everything. From one canvas.
+    </h1>
+
+    <p class="hero-sub">
+      49Agents is an <strong>infinite 2D canvas</strong> where you open
+      terminals, run Claude Code agents across <strong>multiple machines</strong>,
+      track git branches, write notes, and watch CPU/RAM — all
+      without switching windows or losing context.
+    </p>
+
+    <div class="hero-actions">
+      <a href="https://app.49agents.com" class="btn-primary">Try it free &rarr;</a>
+      <a href="https://github.com/49agents" class="btn-ghost" target="_blank" rel="noopener">View source on GitHub</a>
+    </div>
+
+    <!-- PRODUCT SCREENSHOT -->
+    <div class="hero-screenshot-wrap">
+      <p class="screenshot-label">49Agents canvas — four agents running in parallel across two machines</p>
+      <div class="hero-canvas">
+
+        <!-- toolbar -->
+        <div class="canvas-toolbar">
+          <div class="toolbar-dot red"></div>
+          <div class="toolbar-dot amber"></div>
+          <div class="toolbar-dot green"></div>
+          <div class="toolbar-title">49agents — workspace: refactor-auth</div>
+          <div class="toolbar-zoom">68%</div>
+        </div>
+
+        <!-- SVG connections -->
+        <svg class="canvas-connections" viewBox="0 0 860 420" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- agent1 to agent2 -->
+          <line class="svg-accent-stroke-low" x1="268" y1="110" x2="292" y2="110" stroke-width="1" stroke-dasharray="4 3"/>
+          <!-- agent2 to agent3 -->
+          <line x1="522" y1="110" x2="548" y2="110" stroke="rgba(34,197,94,0.2)" stroke-width="1" stroke-dasharray="4 3"/>
+          <!-- agent3 to monitor -->
+          <line x1="768" y1="110" x2="802" y2="110" stroke="rgba(59,130,246,0.15)" stroke-width="1" stroke-dasharray="4 3"/>
+        </svg>
+
+        <!-- AGENT 1: main coding task -->
+        <div class="terminal-window tw-agent1">
+          <div class="terminal-header">
+            <span class="th-dot"></span>
+            <span class="th-name" style="color:var(--accent);">claude-1 · machine-a</span>
+            <span class="th-badge" style="background:rgba(var(--accent-rgb),0.25);color:var(--accent);">running</span>
+          </div>
+          <div class="terminal-body">
+            <div class="line"><span class="prompt">$</span><span class="cmd">claude --task "refactor auth module"</span></div>
+            <div class="line"><span class="out ok">✓ Reading src/auth/index.ts</span></div>
+            <div class="line"><span class="out">Analyzing 847 lines...</span></div>
+            <div class="line"><span class="out ok">✓ Extracting JWT helpers</span></div>
+            <div class="line"><span class="out warn">! Session store uses globals</span></div>
+            <div class="line"><span class="prompt">$</span><span class="cmd"> <span class="cursor"></span></span></div>
+          </div>
+        </div>
+
+        <!-- AGENT 2: running tests -->
+        <div class="terminal-window tw-agent2">
+          <div class="terminal-header">
+            <span class="th-dot"></span>
+            <span class="th-name" style="color:#86efac;">claude-2 · machine-a</span>
+            <span class="th-badge" style="background:rgba(34,197,94,0.2);color:#86efac;">testing</span>
+          </div>
+          <div class="terminal-body">
+            <div class="line"><span class="prompt">$</span><span class="cmd">npm run test:auth</span></div>
+            <div class="line"><span class="out ok">PASS auth/login.test.ts</span></div>
+            <div class="line"><span class="out ok">PASS auth/token.test.ts</span></div>
+            <div class="line"><span class="out warn">FAIL auth/session.test.ts</span></div>
+            <div class="line"><span class="out" style="color:rgba(239,68,68,0.7);">  × session.destroy()</span></div>
+            <div class="line"><span class="out">14 passed, 1 failed</span></div>
+          </div>
+        </div>
+
+        <!-- AGENT 3: build on machine-b -->
+        <div class="terminal-window tw-agent3">
+          <div class="terminal-header">
+            <span class="th-dot"></span>
+            <span class="th-name" style="color:#93c5fd;">claude-3 · machine-b</span>
+            <span class="th-badge" style="background:rgba(59,130,246,0.2);color:#93c5fd;">building</span>
+          </div>
+          <div class="terminal-body">
+            <div class="line"><span class="prompt">$</span><span class="cmd">npm run build</span></div>
+            <div class="line"><span class="out">Bundling 231 modules...</span></div>
+            <div class="line"><span class="out ok">✓ dist/server.js  482kb</span></div>
+            <div class="line"><span class="out ok">✓ dist/client.js  91kb</span></div>
+            <div class="line"><span class="out" style="color:rgba(34,197,94,0.5);">Build complete in 4.2s</span></div>
+          </div>
+        </div>
+
+        <!-- RESOURCE MONITOR -->
+        <div class="terminal-window tw-monitor">
+          <div class="terminal-header">
+            <span class="th-dot"></span>
+            <span class="th-name" style="color:#fca5a5;">resources</span>
+          </div>
+          <div class="terminal-body">
+            <div class="res-machine-label"><span class="online">●</span> machine-a</div>
+            <div class="res-row"><span class="res-label">CPU</span><span class="res-val">38%</span></div>
+            <div class="res-bar-wrap"><div class="res-bar" style="width:38%;background:#22c55e;"></div></div>
+            <div class="res-row"><span class="res-label">RAM</span><span class="res-val">6.1G</span></div>
+            <div class="res-bar-wrap"><div class="res-bar" style="width:61%;background:#f59e0b;"></div></div>
+            <div class="res-machine-label" style="margin-top:6px;"><span class="online">●</span> machine-b</div>
+            <div class="res-row"><span class="res-label">CPU</span><span class="res-val">71%</span></div>
+            <div class="res-bar-wrap"><div class="res-bar" style="width:71%;background:#ef4444;"></div></div>
+            <div class="res-row"><span class="res-label">RAM</span><span class="res-val">3.8G</span></div>
+            <div class="res-bar-wrap"><div class="res-bar" style="width:38%;background:#22c55e;"></div></div>
+          </div>
+        </div>
+
+        <!-- NOTES PANEL -->
+        <div class="terminal-window tw-notes">
+          <div class="terminal-header">
+            <span class="th-dot"></span>
+            <span class="th-name" style="color:#fcd34d;">notes — refactor-auth plan</span>
+            <span class="th-badge" style="background:rgba(245,158,11,0.15);color:#fcd34d;">shared</span>
+          </div>
+          <div class="terminal-body" style="padding:6px 8px;">
+            <span class="note-line active">&gt; TODO: claude-2 needs to fix session.destroy() before claude-1 can merge</span>
+            <span class="note-line">- JWT helpers → move to src/lib/jwt.ts</span>
+            <span class="note-line">- Deploy after build passes on machine-b · target: staging</span>
+          </div>
+        </div>
+
+      </div><!-- /hero-canvas -->
+
+      <!-- what you're looking at -->
+      <div class="product-callout reveal">
+        <div class="callout-item">
+          <span class="ci-label">What you're seeing</span>
+          <span class="ci-value">3 Claude Code agents running concurrently on 2 machines</span>
+        </div>
+        <div class="callout-item">
+          <span class="ci-label">Each box is</span>
+          <span class="ci-value">A real terminal you can open, move, and resize on the canvas</span>
+        </div>
+        <div class="callout-item">
+          <span class="ci-label">The canvas itself</span>
+          <span class="ci-value">Infinite — zoom out to see all agents, zoom in to read output</span>
+        </div>
+      </div>
+
+    </div><!-- /hero-screenshot-wrap -->
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+  <div class="container">
+    <span class="label">Features</span>
+    <h2 class="section-title reveal">Everything in one place, arranged how your brain works</h2>
+    <p class="section-sub reveal">
+      Most engineers juggle six windows for a single task: editor, multiple terminals,
+      a dashboard, a git viewer, and notes. 49Agents collapses all of that into a
+      single infinite surface you can navigate spatially.
+    </p>
+
+    <div class="features-grid">
+
+      <!-- FEATURE 1: Infinite Canvas -->
+      <div class="feature-card reveal">
+        <div>
+          <div class="feature-visual fv-canvas">
+            <div class="dot-grid"></div>
+            <!-- scattered mini windows -->
+            <div class="mini-window" style="top:14px;left:18px;width:52px;">
+              <div class="mw-header" style="background:rgba(var(--accent-rgb),0.2);"></div>
+              <div class="mw-body" style="line-height:1.4;">claude-1<br/>running</div>
+            </div>
+            <div class="mini-window" style="top:14px;left:82px;width:46px;">
+              <div class="mw-header" style="background:rgba(34,197,94,0.2);"></div>
+              <div class="mw-body" style="line-height:1.4;">claude-2<br/>testing</div>
+            </div>
+            <div class="mini-window" style="top:55px;left:48px;width:58px;">
+              <div class="mw-header" style="background:rgba(245,158,11,0.2);"></div>
+              <div class="mw-body" style="line-height:1.4;">notes<br/>shared</div>
+            </div>
+            <div class="mini-window" style="top:14px;right:24px;width:44px;opacity:0.4;">
+              <div class="mw-header" style="background:rgba(59,130,246,0.2);"></div>
+              <div class="mw-body">idle</div>
+            </div>
+            <div class="mini-window" style="bottom:14px;right:36px;width:50px;opacity:0.3;">
+              <div class="mw-header" style="background:rgba(255,255,255,0.08);"></div>
+              <div class="mw-body">git log</div>
+            </div>
+            <!-- viewport box showing current view -->
+            <div class="viewport-box" style="top:8px;left:10px;width:118px;height:84px;"></div>
+            <div class="zoom-indicator">zoom 48%</div>
+          </div>
+          <p class="feature-visual-caption">Zoomed-out view — the dashed box is your current viewport, windows extend beyond it</p>
+        </div>
+        <div>
+          <div class="feature-title">Infinite 2D canvas</div>
+          <p class="feature-desc">
+            Open terminals, notes, and monitors anywhere on an unbounded surface.
+            Pan and zoom like a map. Group related agents spatially — your brain
+            remembers positions even when you're not reading text.
+          </p>
+          <p class="feature-why">
+            Why it matters: context switching between windows is the hidden tax on
+            parallel work. A spatial canvas eliminates it.
+          </p>
+        </div>
+      </div>
+
+      <!-- FEATURE 2: Multi-machine -->
+      <div class="feature-card reveal">
+        <div>
+          <div class="feature-visual fv-machines">
+            <div class="machine-box">
+              <span class="mb-icon">&#128187;</span>
+              <div style="font-weight:600;color:var(--text-hi);">machine-a</div>
+              <div class="mb-label">MacBook M3</div>
+              <div class="mb-status">● 2 agents</div>
+            </div>
+            <div class="machine-connector">
+              <div class="mc-line"></div>
+              <div class="mc-label">SSH tunnel</div>
+              <div class="mc-line"></div>
+            </div>
+            <div class="machine-box">
+              <span class="mb-icon">&#9749;</span>
+              <div style="font-weight:600;color:var(--text-hi);">machine-b</div>
+              <div class="mb-label">AWS EC2 c6i</div>
+              <div class="mb-status">● 1 agent</div>
+            </div>
+          </div>
+          <p class="feature-visual-caption">Both machines appear on the same canvas — terminals behave identically regardless of which host they run on</p>
+        </div>
+        <div>
+          <div class="feature-title">Agents across multiple machines</div>
+          <p class="feature-desc">
+            Connect your laptop and a beefy cloud VM. Terminals on each appear
+            side-by-side on the canvas. Run CPU-heavy builds on the remote machine
+            while your local agent handles code review — all without SSH-ing manually.
+          </p>
+          <p class="feature-why">
+            Why it matters: the bottleneck in running many agents is RAM and CPU,
+            not ideas. Extra machines break that ceiling.
+          </p>
+        </div>
+      </div>
+
+      <!-- FEATURE 3: Git graph -->
+      <div class="feature-card reveal">
+        <div>
+          <div class="feature-visual fv-git">
+            <svg class="git-svg" viewBox="0 0 320 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- main branch line -->
+              <line x1="16" y1="48" x2="304" y2="48" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+              <!-- feature branch -->
+              <path class="svg-accent-stroke-half" d="M 96 48 Q 112 48 120 28 L 220 28 Q 228 28 240 48" stroke-width="1.5" fill="none"/>
+              <!-- hotfix branch -->
+              <path d="M 160 48 Q 172 48 178 68 L 220 68 Q 228 68 240 48" stroke="rgba(34,197,94,0.4)" stroke-width="1.5" fill="none"/>
+              <!-- commits on main -->
+              <circle cx="16"  cy="48" r="5" fill="#0d0d14" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+              <circle cx="64"  cy="48" r="5" fill="#0d0d14" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+              <circle class="svg-accent-stroke-med" cx="96"  cy="48" r="5" fill="#0d0d14" stroke-width="2"/>
+              <circle cx="160" cy="48" r="5" fill="#0d0d14" stroke="rgba(34,197,94,0.6)" stroke-width="2"/>
+              <circle class="svg-accent-fill-dim svg-accent-stroke-full" cx="240" cy="48" r="6" stroke-width="2"/>
+              <circle cx="304" cy="48" r="5" fill="#0d0d14" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+              <!-- commits on feature branch -->
+              <circle class="svg-accent-stroke-half" cx="148" cy="28" r="4" fill="#0d0d14" stroke-width="1.5"/>
+              <circle class="svg-accent-stroke-half" cx="192" cy="28" r="4" fill="#0d0d14" stroke-width="1.5"/>
+              <!-- commits on hotfix -->
+              <circle cx="192" cy="68" r="4" fill="#0d0d14" stroke="rgba(34,197,94,0.4)" stroke-width="1.5"/>
+              <!-- labels -->
+              <text x="12" y="44" font-family="JetBrains Mono,monospace" font-size="7" fill="rgba(255,255,255,0.3)">main</text>
+              <text class="svg-accent-fill-hi" x="122" y="24" font-family="JetBrains Mono,monospace" font-size="7">feat/auth</text>
+              <text x="155" y="82" font-family="JetBrains Mono,monospace" font-size="7" fill="rgba(34,197,94,0.6)">fix/session</text>
+              <!-- HEAD label -->
+              <text class="svg-accent-fill-full" x="232" y="43" font-family="JetBrains Mono,monospace" font-size="6">HEAD</text>
+              <!-- merge indicator -->
+              <text class="svg-accent-fill-half" x="230" y="58" font-family="JetBrains Mono,monospace" font-size="6">merge</text>
+            </svg>
+          </div>
+          <p class="feature-visual-caption">Git graph on canvas — see which agent is working on which branch at a glance</p>
+        </div>
+        <div>
+          <div class="feature-title">Git history on the canvas</div>
+          <p class="feature-desc">
+            Place a live git graph widget next to your terminals. See every branch,
+            merge, and commit your agents are making in real time. No separate
+            GitKraken window, no <code style="font-family:var(--font-mono);color:var(--accent);font-size:0.82em;">git log --graph</code> in every terminal.
+          </p>
+          <p class="feature-why">
+            Why it matters: when agents are creating and merging branches automatically,
+            you need a visual to stay oriented — text output alone doesn't cut it.
+          </p>
+        </div>
+      </div>
+
+      <!-- FEATURE 4: Resource Monitor -->
+      <div class="feature-card reveal">
+        <div>
+          <div class="feature-visual fv-resources">
+            <div class="res-machine-label"><span class="online">●</span> machine-a &nbsp; MacBook M3</div>
+            <div class="res-row"><span class="res-label">CPU</span><span class="res-val" style="color:var(--green);">38%</span></div>
+            <div class="res-bar-wrap"><div class="res-bar" style="width:38%;background:var(--green);"></div></div>
+            <div class="res-row"><span class="res-label">RAM</span><span class="res-val" style="color:var(--amber);">12.1 / 16 GB</span></div>
+            <div class="res-bar-wrap"><div class="res-bar" style="width:75%;background:var(--amber);"></div></div>
+
+            <div class="res-machine-label" style="margin-top:6px;"><span class="online">●</span> machine-b &nbsp; AWS c6i.2xl</div>
+            <div class="res-row"><span class="res-label">CPU</span><span class="res-val" style="color:var(--red);">87%</span></div>
+            <div class="res-bar-wrap"><div class="res-bar" style="width:87%;background:var(--red);"></div></div>
+            <div class="res-row"><span class="res-label">RAM</span><span class="res-val" style="color:var(--green);">6.2 / 32 GB</span></div>
+            <div class="res-bar-wrap"><div class="res-bar" style="width:19%;background:var(--green);"></div></div>
+          </div>
+          <p class="feature-visual-caption">Live resource bars for every connected machine — red means you need to slow down or add another host</p>
+        </div>
+        <div>
+          <div class="feature-title">Live resource monitoring</div>
+          <p class="feature-desc">
+            CPU and RAM bars for every connected machine update in real time on the
+            canvas. When machine-b is at 87% CPU, you can see it instantly and decide
+            whether to pause an agent or spin up another machine.
+          </p>
+          <p class="feature-why">
+            Why it matters: running 10 agents blindly will OOM your machine.
+            Visible resource pressure lets you scale intentionally instead of
+            discovering the problem from a crashed terminal.
+          </p>
+        </div>
+      </div>
+
+    </div><!-- /features-grid -->
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how-it-works">
+  <div class="container">
+    <span class="label">How it works</span>
+    <h2 class="section-title reveal">From zero to parallel agents in four steps</h2>
+    <p class="section-sub reveal">No complex infrastructure. Self-host or use the cloud version.</p>
+
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <div class="step-title">Open 49Agents (cloud or self-hosted)</div>
+          <p class="step-desc">
+            Sign in at <code style="font-family:var(--font-mono);font-size:0.82em;color:var(--accent);">app.49agents.com</code> or run
+            <code style="font-family:var(--font-mono);font-size:0.82em;color:var(--accent);">docker run 49agents/49agents</code> on your own server.
+            You get a blank infinite canvas, ready to go.
+          </p>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <div class="step-title">Connect your machines</div>
+          <p class="step-desc">
+            Add machines by pasting an SSH address or running a one-line install script.
+            Each machine appears in the sidebar. Terminals you open on the canvas are
+            routed to whichever host you choose.
+          </p>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <div class="step-title">Place terminals and start agents</div>
+          <p class="step-desc">
+            Open a terminal anywhere on the canvas with a double-click. Run
+            <code style="font-family:var(--font-mono);font-size:0.82em;color:var(--accent);">claude</code>,
+            <code style="font-family:var(--font-mono);font-size:0.82em;color:var(--accent);">aider</code>, or any shell command.
+            Drag windows around to group related agents spatially. Open a git widget
+            or resource monitor beside them.
+          </p>
+        </div>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <div class="step-title">Monitor, intervene, ship</div>
+          <p class="step-desc">
+            Zoom out to get a bird's-eye view of all running agents. Zoom into any
+            terminal to read output or type a follow-up command. Your notes panel
+            stays visible wherever you scroll so you never lose your plan.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="container">
+    <span class="label">Pricing</span>
+    <h2 class="section-title reveal">Free to start, affordable to scale</h2>
+    <p class="section-sub reveal">
+      All plans include unlimited canvas size and unlimited machines.
+      The difference is team collaboration and priority support.
+    </p>
+
+    <div class="pricing-grid">
+      <!-- FREE -->
+      <div class="price-card reveal">
+        <div class="price-tier">Free</div>
+        <div class="price-amount">$0</div>
+        <p class="price-desc">Everything you need to run agents solo. No credit card required.</p>
+        <ul class="price-features">
+          <li>Infinite canvas</li>
+          <li>Up to 3 connected machines</li>
+          <li>Unlimited terminals &amp; agents</li>
+          <li>Git graph widget</li>
+          <li>Resource monitor</li>
+          <li>Notes panel</li>
+          <li>Cloud-hosted at app.49agents.com</li>
+        </ul>
+        <a href="https://app.49agents.com" class="price-cta ghost">Get started free</a>
+      </div>
+
+      <!-- PRO -->
+      <div class="price-card featured reveal">
+        <div class="price-tier">Pro</div>
+        <div class="price-amount">$8<span>/month</span></div>
+        <p class="price-desc">For engineers who run agents daily and want persistent workspaces.</p>
+        <ul class="price-features">
+          <li>Everything in Free</li>
+          <li>Unlimited machines</li>
+          <li>Persistent workspaces (layouts saved)</li>
+          <li>Canvas snapshots &amp; history</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="https://app.49agents.com" class="price-cta primary">Try Pro free for 14 days</a>
+      </div>
+
+      <!-- TEAM -->
+      <div class="price-card reveal">
+        <div class="price-tier">Team</div>
+        <div class="price-amount">$6<span>/seat/month</span></div>
+        <p class="price-desc">Shared canvases for engineering teams running agents collaboratively.</p>
+        <ul class="price-features">
+          <li>Everything in Pro</li>
+          <li>Shared canvases (multiple editors)</li>
+          <li>SSO / SAML</li>
+          <li>Audit log</li>
+          <li>Dedicated support</li>
+        </ul>
+        <a href="mailto:team@49agents.com" class="price-cta ghost">Contact us</a>
+      </div>
+    </div>
+
+    <!-- OSS -->
+    <div class="oss-banner reveal">
+      <div class="oss-text">
+        <div class="oss-title">Or self-host for free — forever</div>
+        <p class="oss-sub">
+          49Agents is open source under MIT. Run it on your own server with
+          <code style="font-family:var(--font-mono);font-size:0.85em;color:var(--accent);">docker run 49agents/49agents</code>.
+          No license required, no usage caps, no calling home.
+          Cloud hosting is available if you'd rather not manage infra.
+        </p>
+      </div>
+      <a href="https://github.com/49agents" class="btn-ghost" target="_blank" rel="noopener" style="white-space:nowrap;flex-shrink:0;">View on GitHub &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand"><span>49</span>Agents</div>
+      <ul class="footer-links">
+        <li><a href="https://github.com/49agents" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="/security_privacy.html">Privacy</a></li>
+        <li><a href="/changelogs.html">Changelog</a></li>
+        <li><a href="mailto:hello@49agents.com">Contact</a></li>
+      </ul>
+      <div class="footer-copy">© 2025 49Agents</div>
+    </div>
+  </div>
+</footer>
+
+<!-- ─── THEME PICKER ─── -->
+<div id="theme-picker" style="
+  position: fixed;
+  top: 72px;
+  right: 20px;
+  z-index: 9999;
+  background: rgba(10, 10, 16, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.1em;color:rgba(255,255,255,0.35);text-transform:uppercase;">Theme</span>
+    <button id="theme-toggle" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.3);font-size:0.7rem;line-height:1;padding:0;" title="Collapse">&#8722;</button>
+  </div>
+  <div id="theme-swatches" style="display:flex;gap:6px;">
+    <button class="tswatch" data-accent="#2dd4bf" data-rgb="45, 212, 191" title="Teal" style="width:22px;height:22px;border-radius:50%;background:#2dd4bf;border:2px solid transparent;cursor:pointer;padding:0;transition:border-color 0.15s,transform 0.15s;flex-shrink:0;"></button>
+    <button class="tswatch" data-accent="#f59e0b" data-rgb="245, 158, 11" title="Amber" style="width:22px;height:22px;border-radius:50%;background:#f59e0b;border:2px solid transparent;cursor:pointer;padding:0;transition:border-color 0.15s,transform 0.15s;flex-shrink:0;"></button>
+    <button class="tswatch" data-accent="#f43f5e" data-rgb="244, 63, 94" title="Rose" style="width:22px;height:22px;border-radius:50%;background:#f43f5e;border:2px solid transparent;cursor:pointer;padding:0;transition:border-color 0.15s,transform 0.15s;flex-shrink:0;"></button>
+    <button class="tswatch" data-accent="#38bdf8" data-rgb="56, 189, 248" title="Sky" style="width:22px;height:22px;border-radius:50%;background:#38bdf8;border:2px solid transparent;cursor:pointer;padding:0;transition:border-color 0.15s,transform 0.15s;flex-shrink:0;"></button>
+    <button class="tswatch" data-accent="#34d399" data-rgb="52, 211, 153" title="Emerald" style="width:22px;height:22px;border-radius:50%;background:#34d399;border:2px solid transparent;cursor:pointer;padding:0;transition:border-color 0.15s,transform 0.15s;flex-shrink:0;"></button>
+    <button class="tswatch" data-accent="#fb923c" data-rgb="251, 146, 60" title="Orange" style="width:22px;height:22px;border-radius:50%;background:#fb923c;border:2px solid transparent;cursor:pointer;padding:0;transition:border-color 0.15s,transform 0.15s;flex-shrink:0;"></button>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const root = document.documentElement;
+    const swatches = document.querySelectorAll('.tswatch');
+    const toggleBtn = document.getElementById('theme-toggle');
+    const swatchWrap = document.getElementById('theme-swatches');
+
+    function applyTheme(accent, rgb) {
+      root.style.setProperty('--accent', accent);
+      root.style.setProperty('--accent-rgb', rgb);
+      root.style.setProperty('--accent-dim', 'rgba(' + rgb + ', 0.15)');
+      root.style.setProperty('--accent-glow', 'rgba(' + rgb + ', 0.4)');
+      swatches.forEach(s => {
+        s.style.borderColor = s.dataset.accent === accent ? 'rgba(255,255,255,0.85)' : 'transparent';
+        s.style.transform = s.dataset.accent === accent ? 'scale(1.15)' : 'scale(1)';
+      });
+      localStorage.setItem('49a-theme-accent', accent);
+      localStorage.setItem('49a-theme-rgb', rgb);
+    }
+
+    swatches.forEach(s => {
+      s.addEventListener('click', () => applyTheme(s.dataset.accent, s.dataset.rgb));
+    });
+
+    let collapsed = false;
+    toggleBtn.addEventListener('click', () => {
+      collapsed = !collapsed;
+      swatchWrap.style.display = collapsed ? 'none' : 'flex';
+      toggleBtn.textContent = collapsed ? '+' : '\u2212';
+    });
+
+    // Restore from localStorage or default to Teal
+    const savedAccent = localStorage.getItem('49a-theme-accent') || '#2dd4bf';
+    const savedRgb = localStorage.getItem('49a-theme-rgb') || '45, 212, 191';
+    applyTheme(savedAccent, savedRgb);
+  })();
+</script>
+
+<script>
+  // Intersection Observer: reveal animations
+  const revealEls = document.querySelectorAll('.reveal');
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  revealEls.forEach(el => revealObserver.observe(el));
+
+  // Floating CTA: show after features section is visible
+  const featuresSection = document.getElementById('features');
+  const floatingCta = document.getElementById('floatingCta');
+  const ctaObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        floatingCta.classList.add('visible');
+      } else {
+        // Hide after user scrolls back above features
+        const rect = entry.boundingClientRect;
+        if (rect.top > 0) {
+          floatingCta.classList.remove('visible');
+        }
+      }
+    });
+  }, { threshold: 0.1 });
+  ctaObserver.observe(featuresSection);
+</script>
+
+</body>
+</html>

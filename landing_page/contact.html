@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact — 49Agents</title>
+<meta name="description" content="Get in touch with the 49Agents team.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&family=Montserrat:wght@200;300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #da7756;
+    --accent-rgb: 218, 119, 86;
+    --accent-dim: rgba(218, 119, 86, 0.5);
+    --accent-glow: rgba(218, 119, 86, 0.3);
+  }
+
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  ::-webkit-scrollbar { width: 1px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb), 0.4); }
+  html { scrollbar-width: thin; scrollbar-color: rgba(var(--accent-rgb), 0.4) transparent; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #050509;
+    color: #fff;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ─── NAV ─── */
+
+  .site-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(5, 5, 9, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .site-nav-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+  }
+
+  .nav-brand {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.82);
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-brand:hover {
+    color: #fff;
+  }
+
+  .nav-logo {
+    width: 20px;
+    height: auto;
+    opacity: 0.85;
+  }
+
+  .nav-brand:hover .nav-logo {
+    opacity: 1;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .nav-links a {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .nav-links a:hover {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  /* ─── DUAL CTA ─── */
+
+  .dual-cta {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .btn-github {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0d0d14;
+    color: rgba(255,255,255,0.85);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 12px 24px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .btn-github:hover {
+    border-color: rgba(255,255,255,0.25);
+    background: #141420;
+  }
+  .btn-github svg { width: 18px; height: 18px; fill: rgba(255,255,255,0.7); flex-shrink: 0; }
+  .btn-start {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: filter 0.2s, transform 0.2s;
+    cursor: pointer;
+  }
+  .btn-start:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-start svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .site-nav .btn-github, .site-nav .btn-start { padding: 7px 16px; font-size: 0.78rem; font-weight: 600; }
+  .site-nav .btn-github svg { width: 14px; height: 14px; }
+  .site-nav .btn-start svg { width: 12px; height: 12px; }
+  .nav-links .btn-start { color: #fff; }
+
+  /* ─── PAGE LAYOUT ─── */
+
+  .page-wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 120px 24px 80px;
+  }
+
+  /* ─── PAGE HEADER ─── */
+
+  .page-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    opacity: 0.9;
+    text-align: center;
+  }
+
+  .page-title {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.92);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+
+  /* ─── CONTACT FORM ─── */
+
+  .contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .contact-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.85);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .contact-input:focus {
+    border-color: rgba(var(--accent-rgb), 0.5);
+  }
+  .contact-input::placeholder {
+    color: rgba(255,255,255,0.25);
+  }
+  .contact-textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+
+  /* ─── FOOTER ─── */
+
+  .footer {
+    background: #050509;
+    padding: 0 24px 40px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .footer-inner {
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .footer a {
+    color: rgba(255, 255, 255, 0.25);
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+
+  .footer a:hover {
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .footer-dot {
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    flex-shrink: 0;
+  }
+
+  /* ─── RESPONSIVE ─── */
+
+  @media (max-width: 600px) {
+    .site-nav-inner {
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 16px;
+    }
+
+    .nav-links {
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .nav-links a {
+      font-size: 0.68rem;
+      padding: 4px 0;
+    }
+
+    .site-nav .dual-cta { gap: 6px; }
+    .site-nav .btn-github, .site-nav .btn-start { padding: 6px 12px; font-size: 0.72rem; }
+
+    .btn-github span {
+      display: none;
+    }
+
+    .page-wrap {
+      padding: 100px 20px 60px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── NAV ─── -->
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a href="https://49agents.com" class="nav-brand">
+      <svg xmlns="http://www.w3.org/2000/svg" class="nav-logo" viewBox="0 0 458.88 474.75" preserveAspectRatio="xMidYMid meet"><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,253.155772,231.198275)" fill="none" stroke-linejoin="miter" d="M28.498 28.5L277.238 28.5" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.052098,219.438914)" fill="none" stroke-linejoin="miter" d="M28.501 28.498L261.551 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,454.490567,42.727497)" fill="none" stroke-linejoin="miter" d="M28.502 28.501L238.498 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,447.849521,233.072727)" fill="none" stroke-linejoin="miter" d="M28.502 28.503L229.623 28.503" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.05205,417.175326)" fill="none" stroke-linejoin="miter" d="M28.499 28.498L317.797 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749562,0.008078,-0.008078,-0.749562,458.13727,423.052735)" fill="none" stroke-linejoin="miter" d="M28.502 28.498L236.691 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,295.246661,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,0.0549757,300.003188)" fill="none" stroke-linejoin="miter" d="M28.498 28.499L369.032 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,212.005521,303.92377)" fill="none" stroke-linejoin="miter" d="M28.502 28.502L253.641 28.502" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,125.175704,420.96948)" fill="none" stroke-linejoin="miter" d="M28.5 28.499L404.198 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,136.194843,142.632712)" fill="none" stroke-linejoin="miter" d="M28.499 28.501L90.352 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,165.332583,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/></svg>
+    </a>
+    <div class="nav-links">
+      <a href="setup-locally.html">Setup Locally</a>
+      <a href="team.html">Team</a>
+      <a href="contact.html">Contact</a>
+      <div class="dual-cta">
+        <a href="https://github.com/49agents/49agents" target="_blank" rel="noopener" class="btn-github">
+          <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="https://app.49agents.com" class="btn-start">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 458.88 474.75" preserveAspectRatio="xMidYMid meet"><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,253.155772,231.198275)" fill="none" stroke-linejoin="miter" d="M28.498 28.5L277.238 28.5" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.052098,219.438914)" fill="none" stroke-linejoin="miter" d="M28.501 28.498L261.551 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,454.490567,42.727497)" fill="none" stroke-linejoin="miter" d="M28.502 28.501L238.498 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,447.849521,233.072727)" fill="none" stroke-linejoin="miter" d="M28.502 28.503L229.623 28.503" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.05205,417.175326)" fill="none" stroke-linejoin="miter" d="M28.499 28.498L317.797 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749562,0.008078,-0.008078,-0.749562,458.13727,423.052735)" fill="none" stroke-linejoin="miter" d="M28.502 28.498L236.691 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,295.246661,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,0.0549757,300.003188)" fill="none" stroke-linejoin="miter" d="M28.498 28.499L369.032 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,212.005521,303.92377)" fill="none" stroke-linejoin="miter" d="M28.502 28.502L253.641 28.502" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,125.175704,420.96948)" fill="none" stroke-linejoin="miter" d="M28.5 28.499L404.198 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,136.194843,142.632712)" fill="none" stroke-linejoin="miter" d="M28.499 28.501L90.352 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,165.332583,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/></svg>
+          Start Coding
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── CONTENT ─── -->
+<div class="page-wrap">
+
+  <p class="page-eyebrow">Contact</p>
+  <h1 class="page-title">Get in touch</h1>
+
+  <form class="contact-form" action="https://formspree.io/f/placeholder" method="POST">
+    <input type="text" name="name" placeholder="Name" required class="contact-input">
+    <input type="email" name="email" placeholder="Email" required class="contact-input">
+    <textarea name="message" placeholder="Message" required class="contact-input contact-textarea"></textarea>
+    <button type="submit" class="btn-start" style="width:100%;justify-content:center;margin-top:8px;">Send message</button>
+  </form>
+
+</div>
+
+<!-- ─── FOOTER ─── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <a href="https://49agents.com">49agents.com</a>
+    <div class="footer-dot"></div>
+    <a href="/security_privacy.html">Security &amp; Privacy</a>
+  </div>
+</footer>
+
+</body>
+</html>

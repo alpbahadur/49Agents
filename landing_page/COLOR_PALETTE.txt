@@ -1,0 +1,62 @@
+49Agents Color Palette
+======================
+
+ACCENT (Claude orange)
+  #da7756 | rgb(218, 119, 86)
+
+BACKGROUNDS
+  Body:        #050509
+  Card:        #0d0d14
+  Surface:     #0a0a12
+  App canvas:  #050d18
+  Pane:        rgba(26, 26, 46, 0.5)
+  Pane header: rgba(0, 0, 0, 0.3)
+
+BORDERS
+  Default:            rgba(255, 255, 255, 0.08)
+  Pane:               rgba(255, 255, 255, 0.1)
+  Pane header bottom: rgba(255, 255, 255, 0.05)
+
+TEXT
+  High: rgba(255, 255, 255, 0.90)
+  Mid:  rgba(255, 255, 255, 0.55)
+  Low:  rgba(255, 255, 255, 0.30)
+
+STATUS
+  Green:  #22c55e / #10b981
+  Amber:  #f59e0b
+  Red:    #ef4444
+
+GIT GRAPH
+  Main (green):    #85e89d
+  Feature (blue):  #79b8ff
+  Hotfix (purple): #b392f0
+  Branch name:     #4ec9b0
+  Tags (yellow):   #ffea7f / #ffd33d
+  Dirty (red):     #f97583
+
+APP INDIGO
+  #6366f1 | rgb(99, 102, 241)
+
+PANE TYPE COLORS (minimap)
+  Terminal:   rgba(78, 201, 176, 0.6)
+  File:       rgba(100, 149, 237, 0.6)
+  Note:       rgba(255, 213, 79, 0.6)
+  Git-graph:  rgba(255, 138, 101, 0.6)
+  Iframe:     rgba(171, 130, 255, 0.6)
+  Beads:      rgba(233, 170, 255, 0.6)
+  Folder:     rgba(139, 195, 74, 0.6)
+
+DEVICE LABEL COLORS
+  Sky:      bg rgba(129, 212, 250, 0.25)  text rgba(160, 220, 250, 0.9)
+  Peach:    bg rgba(255, 204, 128, 0.25)  text rgba(255, 215, 160, 0.9)
+  Lavender: bg rgba(179, 157, 219, 0.25)  text rgba(200, 185, 235, 0.9)
+
+CLAUDE STATE BACKLIGHTS
+  Working:    border rgba(60, 105, 185, 0.5)   bg rgba(20, 35, 75, 0.55)
+  Permission: border rgba(185, 28, 28, 0.6)    bg rgba(55, 15, 15, 0.5)
+
+FONTS
+  Body:    Inter (200, 300, 400, 500, 600)
+  Code:    JetBrains Mono (400)
+  Brand:   Montserrat (200, 300)

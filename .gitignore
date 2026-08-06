@@ -19,3 +19,4 @@ extensions/
 
 # Deploy scripts (contain server credentials)
 scripts/
+landing_page/landing_page

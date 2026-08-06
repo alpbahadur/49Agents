@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Setup — 49Agents</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&family=Montserrat:wght@200;300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 1px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.4); }
+  html { scrollbar-width: thin; scrollbar-color: rgba(139, 92, 246, 0.4) transparent; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #050509;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(5, 5, 9, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .site-nav-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-brand {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-brand:hover { color: #fff; }
+  .nav-logo { width: 22px; height: auto; opacity: 0.85; }
+  .nav-brand:hover .nav-logo { opacity: 1; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.2s ease;
+    letter-spacing: -0.01em;
+  }
+  .nav-links a:hover { color: rgba(255, 255, 255, 0.75); }
+  .nav-links a.nav-active { color: rgba(255, 255, 255, 0.6); }
+  .nav-links .nav-cta {
+    display: inline-block;
+    background: #8b5cf6;
+    color: #fff;
+    font-weight: 500;
+    font-size: 0.82rem;
+    font-family: 'Inter', sans-serif;
+    padding: 8px 22px;
+    border-radius: 999px;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+  }
+  .nav-links .nav-cta:hover {
+    color: #fff;
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), 0 0 40px rgba(139, 92, 246, 0.1);
+    transform: translateY(-1px);
+  }
+
+  canvas#particles {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+  }
+  .logo {
+    width: 100px;
+    height: auto;
+    opacity: 0.25;
+    margin-bottom: 40px;
+  }
+  .coming {
+    font-size: 1.1rem;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 600px) {
+    .site-nav-inner {
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px 20px;
+    }
+    .nav-links {
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .nav-links a { font-size: 0.65rem; }
+    .nav-links .nav-cta { font-size: 0.75rem; padding: 6px 18px; }
+    .logo { width: 72px; }
+    .coming { font-size: 0.95rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a href="/" class="nav-brand"><svg xmlns="http://www.w3.org/2000/svg" class="nav-logo" viewBox="0 0 458.88 474.75" preserveAspectRatio="xMidYMid meet"><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,253.155772,231.198275)" fill="none" stroke-linejoin="miter" d="M28.498 28.5L277.238 28.5" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.052098,219.438914)" fill="none" stroke-linejoin="miter" d="M28.501 28.498L261.551 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,454.490567,42.727497)" fill="none" stroke-linejoin="miter" d="M28.502 28.501L238.498 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,447.849521,233.072727)" fill="none" stroke-linejoin="miter" d="M28.502 28.503L229.623 28.503" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.05205,417.175326)" fill="none" stroke-linejoin="miter" d="M28.499 28.498L317.797 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749562,0.008078,-0.008078,-0.749562,458.13727,423.052735)" fill="none" stroke-linejoin="miter" d="M28.502 28.498L236.691 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,295.246661,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,0.0549757,300.003188)" fill="none" stroke-linejoin="miter" d="M28.498 28.499L369.032 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,212.005521,303.92377)" fill="none" stroke-linejoin="miter" d="M28.502 28.502L253.641 28.502" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,125.175704,420.96948)" fill="none" stroke-linejoin="miter" d="M28.5 28.499L404.198 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,136.194843,142.632712)" fill="none" stroke-linejoin="miter" d="M28.499 28.501L90.352 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,165.332583,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/></svg> Agents</a>
+    <div class="nav-links">
+      <a href="/">~/home</a>
+      <a href="/security_privacy.html">../security_privacy</a>
+      <a href="/claude-setup.html" class="nav-active">../claude.md <span style="font-size:0.55rem;color:rgba(139,92,246,0.5);">soon</span></a>
+      <a href="/changelogs.html">../changelogs <span style="font-size:0.55rem;color:rgba(139,92,246,0.5);">soon</span></a>
+      <a href="https://app.49agents.com" class="nav-cta">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<canvas id="particles"></canvas>
+
+<div class="content">
+  <svg xmlns="http://www.w3.org/2000/svg" class="logo" viewBox="0 0 458.88 474.75" preserveAspectRatio="xMidYMid meet"><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,253.155772,231.198275)" fill="none" stroke-linejoin="miter" d="M28.498 28.5L277.238 28.5" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.052098,219.438914)" fill="none" stroke-linejoin="miter" d="M28.501 28.498L261.551 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,454.490567,42.727497)" fill="none" stroke-linejoin="miter" d="M28.502 28.501L238.498 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,447.849521,233.072727)" fill="none" stroke-linejoin="miter" d="M28.502 28.503L229.623 28.503" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,415.05205,417.175326)" fill="none" stroke-linejoin="miter" d="M28.499 28.498L317.797 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749562,0.008078,-0.008078,-0.749562,458.13727,423.052735)" fill="none" stroke-linejoin="miter" d="M28.502 28.498L236.691 28.501" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,295.246661,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,0.0549757,300.003188)" fill="none" stroke-linejoin="miter" d="M28.498 28.499L369.032 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.749605,0,0,-0.749605,212.005521,303.92377)" fill="none" stroke-linejoin="miter" d="M28.502 28.502L253.641 28.502" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(0,-0.749605,0.749605,0,125.175704,420.96948)" fill="none" stroke-linejoin="miter" d="M28.5 28.499L404.198 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,136.194843,142.632712)" fill="none" stroke-linejoin="miter" d="M28.499 28.501L90.352 28.499" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/><path stroke-linecap="round" transform="matrix(-0.374803,-0.649177,0.649177,-0.374803,165.332583,474.452096)" fill="none" stroke-linejoin="miter" d="M28.499 28.5L90.351 28.498" stroke="#ffffff" stroke-width="57" stroke-miterlimit="4"/></svg>
+  <p class="coming">Coming soon</p>
+</div>
+
+<script>
+(function() {
+  var c = document.getElementById('particles');
+  var ctx = c.getContext('2d');
+  var pts = [];
+  function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+  for (var i = 0; i < 50; i++) {
+    pts.push({
+      x: Math.random() * c.width,
+      y: Math.random() * c.height,
+      r: Math.random() * 2.2 + 0.5,
+      dx: (Math.random() - 0.5) * 0.3,
+      dy: (Math.random() - 0.5) * 0.2,
+      o: Math.random() * 0.35 + 0.08
+    });
+  }
+  function draw() {
+    ctx.clearRect(0, 0, c.width, c.height);
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i];
+      p.x += p.dx; p.y += p.dy;
+      if (p.x < 0) p.x = c.width;
+      if (p.x > c.width) p.x = 0;
+      if (p.y < 0) p.y = c.height;
+      if (p.y > c.height) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, ' + p.o + ')';
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+
+</body>
+</html>

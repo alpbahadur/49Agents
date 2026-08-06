@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>49Agents — One canvas. Every agent.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #050509;
+      --bg2: #0a0a12;
+      --accent: #2dd4bf;
+      --accent-rgb: 45, 212, 191;
+      --accent-dim: rgba(var(--accent-rgb), 0.15);
+      --accent-glow: rgba(var(--accent-rgb), 0.4);
+      --text-hi: rgba(255,255,255,0.92);
+      --text-mid: rgba(255,255,255,0.6);
+      --text-lo: rgba(255,255,255,0.35);
+      --border: rgba(255,255,255,0.08);
+      --radius: 12px;
+      --max: 680px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-hi);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 32px;
+      background: rgba(5, 5, 9, 0.82);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-brand {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: var(--text-hi);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-brand span { color: var(--accent); }
+
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .nav-cta:hover { background: color-mix(in srgb, var(--accent) 80%, #000); transform: translateY(-1px); }
+
+    /* ── SCROLL REVEAL BASE ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Staggered delay helpers */
+    .d1 { transition-delay: 0.05s; }
+    .d2 { transition-delay: 0.15s; }
+    .d3 { transition-delay: 0.25s; }
+    .d4 { transition-delay: 0.35s; }
+    .d5 { transition-delay: 0.45s; }
+
+    /* ── SECTIONS ── */
+    section {
+      padding: 100px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: var(--max);
+    }
+
+    /* ── CHAPTER LABEL ── */
+    .chapter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    /* ── HEADINGS ── */
+    h1, h2 {
+      font-family: 'Montserrat', sans-serif;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 900;
+      color: var(--text-hi);
+    }
+
+    h2 {
+      font-size: clamp(1.8rem, 4.5vw, 2.8rem);
+      font-weight: 800;
+      color: var(--text-hi);
+    }
+
+    .subtext {
+      margin-top: 18px;
+      font-size: 1.08rem;
+      color: var(--text-mid);
+      max-width: 540px;
+    }
+
+    /* ── HERO ── */
+    #hero {
+      min-height: 100vh;
+      justify-content: center;
+      padding-top: 120px;
+      padding-bottom: 80px;
+      background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(var(--accent-rgb), 0.12) 0%, transparent 70%);
+    }
+
+    #hero h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .hero-problem {
+      margin-top: 28px;
+      padding: 20px 24px;
+      border-left: 3px solid rgba(var(--accent-rgb), 0.5);
+      background: rgba(var(--accent-rgb), 0.06);
+      border-radius: 0 8px 8px 0;
+      font-size: 1rem;
+      color: var(--text-mid);
+      line-height: 1.7;
+    }
+
+    .hero-problem strong { color: rgba(255,255,255,0.75); }
+
+    .hero-cta-wrap {
+      margin-top: 40px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 14px 28px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: color-mix(in srgb, var(--accent) 80%, #000);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(var(--accent-rgb), 0.4);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-mid);
+      font-size: 0.92rem;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .btn-ghost:hover { color: var(--text-hi); }
+
+    /* ── TRANSITION SECTION ── */
+    #idea {
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+    }
+
+    #idea h2 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    /* ── CANVAS DIAGRAM ── */
+    .canvas-diagram {
+      margin-top: 40px;
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      height: 280px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #07070f;
+      overflow: hidden;
+    }
+
+    .canvas-diagram::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(var(--accent-rgb), 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--accent-rgb), 0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .canvas-label {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-lo);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* Floating terminal cards inside diagram */
+    .term-card {
+      position: absolute;
+      background: rgba(10,10,20,0.95);
+      border: 1px solid rgba(var(--accent-rgb), 0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.6;
+      animation: float-card 6s ease-in-out infinite;
+    }
+
+    .term-card .tc-header {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 6px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot-red { background: #ff5f57; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #28c840; }
+
+    .tc-title {
+      margin-left: 4px;
+      font-size: 0.6rem;
+      color: var(--text-lo);
+    }
+
+    .tc-line { color: rgba(var(--accent-rgb), 0.8); }
+
+    .term-card:nth-child(2) {
+      top: 32px; left: 20px;
+      animation-delay: 0s;
+      animation-duration: 7s;
+    }
+    .term-card:nth-child(3) {
+      top: 24px; left: 220px;
+      animation-delay: -2s;
+      animation-duration: 8s;
+    }
+    .term-card:nth-child(4) {
+      top: 130px; left: 110px;
+      animation-delay: -4s;
+      animation-duration: 6.5s;
+    }
+    .term-card:nth-child(5) {
+      top: 140px; left: 370px;
+      animation-delay: -1s;
+      animation-duration: 7.5s;
+    }
+
+    @keyframes float-card {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+
+    /* Connection lines SVG */
+    .canvas-connections {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    /* ── FEATURES ── */
+    #features {
+      background: var(--bg2);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 40px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    .feature-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color 0.25s, background 0.25s;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(var(--accent-rgb), 0.35);
+      background: rgba(var(--accent-rgb), 0.05);
+    }
+
+    .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .feature-card h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text-hi);
+    }
+
+    .feature-card p {
+      font-size: 0.85rem;
+      color: var(--text-mid);
+      line-height: 1.6;
+    }
+
+    /* ── SETUP ── */
+    #setup {
+      background: var(--bg);
+    }
+
+    .setup-steps {
+      margin-top: 40px;
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .step {
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      border: 1px solid rgba(var(--accent-rgb), 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 3px;
+    }
+
+    .step-body { flex: 1; }
+    .step-body h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-hi);
+    }
+
+    .code-block {
+      background: #080810;
+      border: 1px solid rgba(var(--accent-rgb), 0.2);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: rgba(var(--accent-rgb), 0.9);
+      line-height: 1.7;
+      position: relative;
+      overflow-x: auto;
+    }
+
+    .code-block .prompt {
+      color: var(--text-lo);
+      user-select: none;
+    }
+
+    .code-connector {
+      width: 1px;
+      height: 20px;
+      background: rgba(var(--accent-rgb), 0.2);
+      margin: 0 auto 0 15px;
+    }
+
+    .setup-note {
+      margin-top: 28px;
+      font-size: 0.85rem;
+      color: var(--text-lo);
+    }
+
+    .setup-note a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .setup-note a:hover { text-decoration: underline; }
+
+    /* ── TUTORIAL SECTION ── */
+    #try-it {
+      background: var(--bg2);
+    }
+
+    .tutorial-frame-wrap {
+      margin-top: 32px;
+      width: 100%;
+      max-width: 860px;
+      aspect-ratio: 16 / 9;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(var(--accent-rgb), 0.25);
+      box-shadow: 0 0 60px rgba(var(--accent-rgb), 0.1);
+      position: relative;
+    }
+
+    .tutorial-frame-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    .tutorial-note {
+      margin-top: 14px;
+      font-size: 0.82rem;
+      color: var(--text-lo);
+      text-align: center;
+    }
+
+    /* ── PRICING ── */
+    #pricing {
+      background: var(--bg);
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 40px;
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .price-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 22px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .price-card.featured {
+      border-color: rgba(var(--accent-rgb), 0.5);
+      background: rgba(var(--accent-rgb), 0.07);
+      position: relative;
+    }
+
+    .price-badge {
+      position: absolute;
+      top: -11px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .price-tier {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-lo);
+      margin-bottom: 12px;
+    }
+
+    .price-amount {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: var(--text-hi);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .price-amount sup {
+      font-size: 1rem;
+      font-weight: 600;
+      vertical-align: super;
+    }
+
+    .price-cadence {
+      font-size: 0.78rem;
+      color: var(--text-lo);
+      margin-bottom: 20px;
+    }
+
+    .price-features {
+      list-style: none;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-mid);
+    }
+
+    .price-features li::before {
+      content: '+ ';
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .price-cta {
+      margin-top: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .price-cta.solid {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .price-cta.solid:hover {
+      background: color-mix(in srgb, var(--accent) 80%, #000);
+      transform: translateY(-1px);
+    }
+
+    .price-cta.outline {
+      border: 1px solid var(--border);
+      color: var(--text-mid);
+    }
+
+    .price-cta.outline:hover {
+      border-color: rgba(var(--accent-rgb), 0.4);
+      color: var(--text-hi);
+    }
+
+    /* ── FINAL CTA ── */
+    #final-cta {
+      background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(var(--accent-rgb), 0.1) 0%, transparent 70%);
+      text-align: center;
+    }
+
+    #final-cta .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #final-cta h2 { max-width: 500px; }
+
+    #final-cta .subtext { text-align: center; }
+
+    .final-actions {
+      margin-top: 36px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ── FLOATING CTA (shown after features are seen) ── */
+    #floating-try {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      z-index: 200;
+      opacity: 0;
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+      pointer-events: none;
+    }
+
+    #floating-try.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #floating-try a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.92rem;
+      padding: 12px 26px;
+      border-radius: 100px;
+      text-decoration: none;
+      box-shadow: 0 4px 24px rgba(var(--accent-rgb), 0.45);
+      animation: pulse-glow 2.5s ease-in-out infinite;
+      white-space: nowrap;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 4px 24px rgba(var(--accent-rgb), 0.4); }
+      50% { box-shadow: 0 4px 40px rgba(var(--accent-rgb), 0.7), 0 0 0 6px rgba(var(--accent-rgb), 0.12); }
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 32px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: gap;
+      gap: 12px;
+    }
+
+    .footer-brand {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: var(--text-lo);
+    }
+
+    .footer-brand span { color: var(--accent); }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      font-size: 0.8rem;
+      color: var(--text-lo);
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text-mid); }
+
+    /* ── MOBILE ── */
+    @media (max-width: 640px) {
+      nav { padding: 14px 20px; }
+
+      section { padding: 72px 20px; }
+
+      .features-grid { grid-template-columns: 1fr; }
+
+      .pricing-grid { grid-template-columns: 1fr; }
+
+      h1 { font-size: 2.2rem; }
+
+      h2 { font-size: 1.75rem; }
+
+      .canvas-diagram { height: 200px; }
+
+      .term-card:nth-child(4),
+      .term-card:nth-child(5) { display: none; }
+
+      footer { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="/" class="nav-brand">49<span>Agents</span></a>
+    <a href="https://app.49agents.com" class="nav-cta">Start free &rarr;</a>
+  </nav>
+
+  <!-- FLOATING TRY IT -->
+  <div id="floating-try">
+    <a href="#try-it">Try it right here &darr;</a>
+  </div>
+
+  <!-- ── CHAPTER 1: THE PROBLEM ── -->
+  <section id="hero">
+    <div class="container">
+      <p class="chapter reveal d1">Chapter 1 &mdash; The problem</p>
+      <h1 class="reveal d2">You run AI agents.<br />They live in <em>terminals.</em><br />Terminals multiply.</h1>
+      <div class="hero-problem reveal d3">
+        <strong>Sound familiar?</strong> You spawn Claude Code on one machine, another agent on a second, a third for tests. Now you have eight terminal windows across three SSH sessions. You lose context, miss errors, can&rsquo;t compare outputs. Managing the agents takes more time than the work they&rsquo;re doing.
+      </div>
+      <div class="hero-cta-wrap">
+        <a href="https://app.49agents.com" class="btn-primary reveal d4">Get started free &rarr;</a>
+        <a href="#idea" class="btn-ghost reveal d5">See the idea &darr;</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CHAPTER 2: THE IDEA ── -->
+  <section id="idea">
+    <div class="container">
+      <p class="chapter reveal">Chapter 2 &mdash; The idea</p>
+      <h2 class="reveal">What if every agent lived on one <em>infinite canvas?</em></h2>
+      <p class="subtext reveal">Instead of tabs and windows, you get a zoomable 2D surface. Drag terminals. Pin notes. Watch resource graphs. Every agent, every machine, right there &mdash; spatially organized however makes sense to you.</p>
+    </div>
+
+    <div class="canvas-diagram reveal" style="margin-top: 48px;">
+      <span class="canvas-label">49agents canvas &mdash; infinite 2D surface</span>
+
+      <svg class="canvas-connections" viewBox="0 0 640 280" preserveAspectRatio="none">
+        <line x1="120" y1="80" x2="280" y2="60" stroke="rgba(45,212,191,0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="280" y1="60" x2="220" y2="170" stroke="rgba(45,212,191,0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="220" y1="170" x2="440" y2="175" stroke="rgba(45,212,191,0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+      </svg>
+
+      <!-- Terminal card 1 -->
+      <div class="term-card">
+        <div class="tc-header">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span class="tc-title">agent:feature-auth</span>
+        </div>
+        <div class="tc-line">&#9654; claude --continue</div>
+        <div>Running... 12 files changed</div>
+      </div>
+
+      <!-- Terminal card 2 -->
+      <div class="term-card">
+        <div class="tc-header">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span class="tc-title">agent:fix-tests / machine-2</span>
+        </div>
+        <div class="tc-line">&#9654; npm test</div>
+        <div>28 passing, 0 failing</div>
+      </div>
+
+      <!-- Terminal card 3 -->
+      <div class="term-card">
+        <div class="tc-header">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span class="tc-title">notes &mdash; sprint plan</span>
+        </div>
+        <div>[ ] Auth refactor</div>
+        <div class="tc-line">[ ] Deploy staging</div>
+      </div>
+
+      <!-- Terminal card 4 -->
+      <div class="term-card">
+        <div class="tc-header">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span class="tc-title">resource monitor</span>
+        </div>
+        <div>CPU: 38% &nbsp; MEM: 61%</div>
+        <div class="tc-line">GPU: idle</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CHAPTER 3: THE SOLUTION ── -->
+  <section id="features">
+    <div class="container">
+      <p class="chapter reveal">Chapter 3 &mdash; What you get</p>
+      <h2 class="reveal">Everything in one surface</h2>
+      <p class="subtext reveal">No more alt-tabbing. No lost context. Tools that were always separate, now spatially connected.</p>
+
+      <div class="features-grid">
+        <div class="feature-card reveal d1">
+          <span class="feature-icon">&#9633;</span>
+          <h3>Infinite 2D canvas</h3>
+          <p>Pan and zoom across all your agents. Arrange them spatially so you always know what&rsquo;s where.</p>
+        </div>
+        <div class="feature-card reveal d2">
+          <span class="feature-icon">&#9654;</span>
+          <h3>Multi-machine terminals</h3>
+          <p>SSH into any machine. All terminals live on the same canvas, side by side.</p>
+        </div>
+        <div class="feature-card reveal d3">
+          <span class="feature-icon">&#9651;</span>
+          <h3>Git panel</h3>
+          <p>See diffs, staged changes, and branch status per agent &mdash; without leaving the canvas.</p>
+        </div>
+        <div class="feature-card reveal d4">
+          <span class="feature-icon">&#9650;</span>
+          <h3>Sticky notes</h3>
+          <p>Pin context next to each agent: prompts, checklists, links. It stays where you put it.</p>
+        </div>
+        <div class="feature-card reveal d1" style="transition-delay: 0.5s;">
+          <span class="feature-icon">&#9632;</span>
+          <h3>Resource monitor</h3>
+          <p>CPU, RAM, GPU per machine &mdash; live. Spot runaway processes before they cost you money.</p>
+        </div>
+        <div class="feature-card reveal d2" style="transition-delay: 0.6s;">
+          <span class="feature-icon">&#9670;</span>
+          <h3>Open source / self-host</h3>
+          <p>Run it on your own infrastructure. Your machines, your data, your rules. MIT licensed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CHAPTER 4: HOW EASY ── -->
+  <section id="setup">
+    <div class="container">
+      <p class="chapter reveal">Chapter 4 &mdash; Getting started</p>
+      <h2 class="reveal">3 commands to start</h2>
+      <p class="subtext reveal">Self-host in under two minutes. No Kubernetes, no cloud account, no credit card.</p>
+
+      <div class="setup-steps">
+        <div class="step reveal d1">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Clone the repo</h4>
+            <div class="code-block">
+              <span class="prompt">$ </span>git clone https://github.com/49agents/49agents
+            </div>
+          </div>
+        </div>
+
+        <div class="code-connector reveal"></div>
+
+        <div class="step reveal d2">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Install &amp; build</h4>
+            <div class="code-block">
+              <span class="prompt">$ </span>cd 49agents &amp;&amp; npm install
+            </div>
+          </div>
+        </div>
+
+        <div class="code-connector reveal"></div>
+
+        <div class="step reveal d3">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Launch</h4>
+            <div class="code-block">
+              <span class="prompt">$ </span>npm start<br />
+              <span style="color: rgba(255,255,255,0.3);">&#10003; Canvas running at http://localhost:3000</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="setup-note reveal">
+        Prefer not to self-host?
+        <a href="https://app.49agents.com">app.49agents.com</a> is fully managed &mdash; start free, no credit card.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── CHAPTER 5: TRY IT ── -->
+  <section id="try-it">
+    <div class="container" style="max-width: 860px; text-align: center;">
+      <p class="chapter reveal">Chapter 5 &mdash; Try it yourself</p>
+      <h2 class="reveal">No signup. Right here.</h2>
+      <p class="subtext reveal" style="margin: 12px auto 0;">The interactive tutorial below runs in your browser. Poke around, open a terminal, drag things.</p>
+    </div>
+
+    <div class="tutorial-frame-wrap reveal" style="margin-top: 32px;">
+      <iframe
+        src="/tutorial"
+        title="49Agents interactive tutorial"
+        loading="lazy"
+        allow="clipboard-write"
+      ></iframe>
+    </div>
+
+    <p class="tutorial-note reveal">Stuck or want more? <a href="https://app.49agents.com" style="color: var(--accent); text-decoration: none;">Open the full app &rarr;</a></p>
+  </section>
+
+  <!-- ── CHAPTER 6: PRICING ── -->
+  <section id="pricing">
+    <div class="container" style="max-width: 780px;">
+      <p class="chapter reveal">Chapter 6 &mdash; Pricing</p>
+      <h2 class="reveal">Start free. Scale when you need to.</h2>
+      <p class="subtext reveal">All plans include the full canvas. Pay only for cloud hosting &mdash; or self-host for free forever.</p>
+
+      <div class="pricing-grid">
+        <!-- Free -->
+        <div class="price-card reveal d1">
+          <div class="price-tier">Free</div>
+          <div class="price-amount">$0</div>
+          <div class="price-cadence">forever</div>
+          <ul class="price-features">
+            <li>1 canvas</li>
+            <li>Unlimited local machines</li>
+            <li>Community support</li>
+            <li>Open source &mdash; self-host</li>
+          </ul>
+          <a href="https://app.49agents.com" class="price-cta outline">Get started</a>
+        </div>
+
+        <!-- Pro -->
+        <div class="price-card featured reveal d2">
+          <div class="price-badge">Most popular</div>
+          <div class="price-tier">Pro</div>
+          <div class="price-amount"><sup>$</sup>8</div>
+          <div class="price-cadence">per month</div>
+          <ul class="price-features">
+            <li>Unlimited canvases</li>
+            <li>Cloud sync &amp; backup</li>
+            <li>Priority support</li>
+            <li>Remote machine access</li>
+          </ul>
+          <a href="https://app.49agents.com" class="price-cta solid">Start free trial</a>
+        </div>
+
+        <!-- Team -->
+        <div class="price-card reveal d3">
+          <div class="price-tier">Team</div>
+          <div class="price-amount"><sup>$</sup>6</div>
+          <div class="price-cadence">per seat / month</div>
+          <ul class="price-features">
+            <li>Everything in Pro</li>
+            <li>Shared canvases</li>
+            <li>Admin &amp; audit logs</li>
+            <li>SSO / SAML</li>
+          </ul>
+          <a href="https://app.49agents.com" class="price-cta outline">Contact us</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FINAL CTA ── -->
+  <section id="final-cta">
+    <div class="container">
+      <p class="chapter reveal">Ready when you are</p>
+      <h2 class="reveal">Stop managing terminals. Start managing work.</h2>
+      <p class="subtext reveal">One canvas. Every agent. Every machine. Right now.</p>
+      <div class="final-actions">
+        <a href="https://app.49agents.com" class="btn-primary reveal d1">Open the canvas &rarr;</a>
+        <a href="https://github.com/49agents/49agents" class="btn-ghost reveal d2">
+          View on GitHub &rarr;
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-brand">49<span>Agents</span></div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/49agents/49agents">GitHub</a></li>
+      <li><a href="/security_privacy.html">Privacy</a></li>
+      <li><a href="/changelogs.html">Changelog</a></li>
+      <li><a href="https://app.49agents.com">App</a></li>
+    </ul>
+  </footer>
+
+  <!-- THEME PICKER -->
+  <div id="theme-picker">
+    <div id="theme-picker-header">
+      <span id="theme-label">THEME</span>
+      <button id="theme-toggle" aria-label="Toggle theme picker">&#8722;</button>
+    </div>
+    <div id="theme-swatches">
+      <button class="swatch active" data-accent="#2dd4bf" data-rgb="45, 212, 191" title="Teal" style="background:#2dd4bf;"></button>
+      <button class="swatch" data-accent="#f59e0b" data-rgb="245, 158, 11" title="Amber" style="background:#f59e0b;"></button>
+      <button class="swatch" data-accent="#f43f5e" data-rgb="244, 63, 94" title="Rose" style="background:#f43f5e;"></button>
+      <button class="swatch" data-accent="#38bdf8" data-rgb="56, 189, 248" title="Sky" style="background:#38bdf8;"></button>
+      <button class="swatch" data-accent="#34d399" data-rgb="52, 211, 153" title="Emerald" style="background:#34d399;"></button>
+      <button class="swatch" data-accent="#fb923c" data-rgb="251, 146, 60" title="Orange" style="background:#fb923c;"></button>
+    </div>
+  </div>
+
+  <style>
+    #theme-picker {
+      position: fixed;
+      top: 72px;
+      right: 16px;
+      z-index: 9999;
+      background: rgba(10, 10, 18, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+    #theme-picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    #theme-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.4);
+    }
+    #theme-toggle {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.35);
+      cursor: pointer;
+      font-size: 0.9rem;
+      line-height: 1;
+      padding: 0 2px;
+      transition: color 0.15s;
+    }
+    #theme-toggle:hover { color: rgba(255,255,255,0.7); }
+    #theme-swatches {
+      display: flex;
+      gap: 6px;
+      transition: opacity 0.2s, max-height 0.2s;
+      max-height: 40px;
+      overflow: hidden;
+    }
+    #theme-swatches.collapsed {
+      max-height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+      padding: 0;
+      outline: none;
+    }
+    .swatch:hover { transform: scale(1.15); }
+    .swatch.active { border-color: #fff; }
+  </style>
+
+  <script>
+    // ── THEME PICKER ───────────────────────────────────────────────
+    (function() {
+      const themes = [
+        { accent: '#2dd4bf', rgb: '45, 212, 191' },
+        { accent: '#f59e0b', rgb: '245, 158, 11' },
+        { accent: '#f43f5e', rgb: '244, 63, 94' },
+        { accent: '#38bdf8', rgb: '56, 189, 248' },
+        { accent: '#34d399', rgb: '52, 211, 153' },
+        { accent: '#fb923c', rgb: '251, 146, 60' },
+      ];
+
+      const root = document.documentElement;
+      const swatches = document.querySelectorAll('.swatch');
+      const toggleBtn = document.getElementById('theme-toggle');
+      const swatchesEl = document.getElementById('theme-swatches');
+
+      function applyTheme(accent, rgb) {
+        root.style.setProperty('--accent', accent);
+        root.style.setProperty('--accent-rgb', rgb);
+      }
+
+      function setActive(btn) {
+        swatches.forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+      }
+
+      // Restore from localStorage
+      const saved = localStorage.getItem('demo9-theme');
+      if (saved) {
+        try {
+          const t = JSON.parse(saved);
+          applyTheme(t.accent, t.rgb);
+          swatches.forEach(s => {
+            if (s.dataset.accent === t.accent) setActive(s);
+          });
+        } catch(e) {}
+      }
+
+      swatches.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const accent = btn.dataset.accent;
+          const rgb = btn.dataset.rgb;
+          applyTheme(accent, rgb);
+          setActive(btn);
+          localStorage.setItem('demo9-theme', JSON.stringify({ accent, rgb }));
+        });
+      });
+
+      let collapsed = false;
+      toggleBtn.addEventListener('click', () => {
+        collapsed = !collapsed;
+        swatchesEl.classList.toggle('collapsed', collapsed);
+        toggleBtn.textContent = collapsed ? '+' : '\u2212';
+      });
+    })();
+  </script>
+
+  <script>
+    // ── SCROLL REVEAL ──────────────────────────────────────────────
+    const revealEls = document.querySelectorAll('.reveal');
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.12,
+      rootMargin: '0px 0px -40px 0px'
+    });
+
+    revealEls.forEach(el => observer.observe(el));
+
+    // ── FLOATING CTA: show after features section is visible ───────
+    const floatingBtn = document.getElementById('floating-try');
+    const featuresSection = document.getElementById('features');
+    const tryItSection = document.getElementById('try-it');
+
+    let featuresRevealed = false;
+    let inTryIt = false;
+
+    const featuresTrigger = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          // Wait for the stagger animations to finish before showing floating CTA
+          setTimeout(() => {
+            featuresRevealed = true;
+            if (!inTryIt) {
+              floatingBtn.classList.add('show');
+            }
+          }, 700);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    featuresTrigger.observe(featuresSection);
+
+    // Hide floating CTA when user reaches the try-it section (they're already there)
+    const tryItObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        inTryIt = entry.isIntersecting;
+        if (inTryIt) {
+          floatingBtn.classList.remove('show');
+        } else if (featuresRevealed) {
+          floatingBtn.classList.add('show');
+        }
+      });
+    }, { threshold: 0.2 });
+
+    tryItObserver.observe(tryItSection);
+
+    // Also hide when user reaches the bottom (final CTA)
+    const finalCta = document.getElementById('final-cta');
+    const finalObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          floatingBtn.classList.remove('show');
+        } else if (featuresRevealed && !inTryIt) {
+          floatingBtn.classList.add('show');
+        }
+      });
+    }, { threshold: 0.1 });
+
+    finalObserver.observe(finalCta);
+  </script>
+</body>
+</html>

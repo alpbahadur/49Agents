@@ -1,0 +1,2527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>49Agents — Interactive Tour</title>
+  <base target="_top">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Use the actual app stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Hide app's tutorial control buttons in demo context */
+    .tutorial-btn-skip,
+    .tutorial-btn-close,
+    #tutorial-btn,
+    #tut-skip-btn,
+    .tut-welcome .tut-start-btn ~ * {
+      display: none !important;
+    }
+
+    /* ─── Tutorial-specific overlays ─── */
+    #tutorial-overlay {
+      position: fixed; inset: 0;
+      background: rgba(5, 13, 24, 0.92);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100001;
+      transition: opacity 0.5s ease;
+    }
+    #tutorial-overlay.hiding { opacity: 0; pointer-events: none; }
+    #tutorial-overlay.hidden { display: none; }
+
+    .tut-welcome { text-align: center; max-width: 500px; padding: 40px; }
+
+    .tut-logo {
+      font-size: 32px; font-weight: 700;
+      background: linear-gradient(135deg, #da7756, #c4603e, #b5512f);
+      background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 16px;
+    }
+
+    .tut-sub {
+      font-size: 16px; color: rgba(255,255,255,0.5);
+      margin-bottom: 32px; line-height: 1.5; font-weight: 400;
+    }
+
+    .tut-start-btn {
+      padding: 12px 36px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, #da7756, #c4603e);
+      color: white; font-size: 15px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      box-shadow: 0 6px 24px rgba(218, 119, 86, 0.35);
+      transition: all 0.2s;
+    }
+    .tut-start-btn:hover { box-shadow: 0 8px 32px rgba(218, 119, 86, 0.5); transform: translateY(-2px); }
+
+    /* ─── Tutorial instruction prompt ─── */
+    #tut-prompt {
+      position: fixed;
+      bottom: 24px; left: 50%; transform: translateX(-50%);
+      width: min(520px, calc(100% - 48px));
+      background: rgba(10, 15, 25, 0.97);
+      border: 1px solid rgba(218, 119, 86, 0.3);
+      border-radius: 14px;
+      padding: 20px 24px;
+      z-index: 100000;
+      backdrop-filter: blur(30px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      display: none;
+    }
+    #tut-prompt.visible { display: block; }
+    #tut-prompt.entering { opacity: 0; transform: translateX(-50%) translateY(16px); }
+
+    .tut-progress {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .tut-progress-bar {
+      flex: 1; height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px; overflow: hidden;
+    }
+    .tut-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #da7756, #c4603e);
+      border-radius: 2px; transition: width 0.4s ease;
+    }
+    .tut-progress-label {
+      font-size: 11px; color: rgba(255,255,255,0.4);
+      font-weight: 400; white-space: nowrap;
+    }
+
+    .tut-chapter {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.1em; font-weight: 600;
+      color: rgba(218, 119, 86, 0.8);
+      margin-bottom: 4px;
+    }
+
+    .tut-title {
+      font-size: 17px; font-weight: 600;
+      color: rgba(255,255,255,0.95);
+      margin-bottom: 8px; line-height: 1.3;
+    }
+
+    .tut-body {
+      font-size: 13px; line-height: 1.6;
+      color: rgba(255,255,255,0.8);
+      font-weight: 400; margin-bottom: 0;
+    }
+
+    .tut-body .hl { color: #c4603e; font-weight: 500; }
+    .tut-body kbd {
+      display: inline-block; padding: 1px 6px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; color: rgba(255,255,255,0.9);
+    }
+
+
+    /* ─── Dim overlay ─── */
+    #tut-dim {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 99997;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      display: none;
+    }
+    #tut-dim.visible { display: block; }
+
+    /* ─── Spotlight: lift targeted elements above dim ─── */
+    .tut-spotlight-target {
+      position: relative !important;
+      z-index: 99998 !important;
+      pointer-events: auto !important;
+    }
+
+    /* When HUD needs to be above dim */
+    #hud-container.tut-above-dim {
+      z-index: 99998 !important;
+      pointer-events: auto !important;
+    }
+
+    #hud-container.tut-above-dim #hud-overlay {
+      pointer-events: auto !important;
+    }
+
+    /* When + button needs to be above dim */
+    #add-pane-btn.tut-above-dim {
+      z-index: 99998 !important;
+      pointer-events: auto !important;
+    }
+
+    /* When pane menu needs to be above dim */
+    #add-pane-menu.tut-above-dim {
+      z-index: 99999 !important;
+      pointer-events: auto !important;
+    }
+
+    /* ─── Shiny glow effect for interactive targets ─── */
+    @keyframes tut-glow-pulse {
+      0%, 100% {
+        box-shadow:
+          0 0 15px rgba(78, 201, 176, 0.4),
+          0 0 40px rgba(78, 201, 176, 0.15),
+          0 0 80px rgba(78, 201, 176, 0.05),
+          inset 0 0 8px rgba(78, 201, 176, 0.08);
+      }
+      50% {
+        box-shadow:
+          0 0 25px rgba(78, 201, 176, 0.6),
+          0 0 60px rgba(78, 201, 176, 0.25),
+          0 0 100px rgba(78, 201, 176, 0.1),
+          inset 0 0 12px rgba(78, 201, 176, 0.12);
+      }
+    }
+
+    @keyframes tut-glow-pulse-purple {
+      0%, 100% {
+        box-shadow:
+          0 0 15px rgba(218, 119, 86, 0.5),
+          0 0 40px rgba(196, 99, 62, 0.2),
+          0 0 80px rgba(196, 99, 62, 0.08);
+        filter: brightness(1.1);
+      }
+      50% {
+        box-shadow:
+          0 0 25px rgba(218, 119, 86, 0.7),
+          0 0 60px rgba(196, 99, 62, 0.35),
+          0 0 100px rgba(196, 99, 62, 0.15);
+        filter: brightness(1.25);
+      }
+    }
+
+    /* Teal glow for "Add Machine" button */
+    .tut-glow-teal {
+      animation: tut-glow-pulse 1.5s ease-in-out infinite !important;
+      border-color: rgba(78, 201, 176, 0.6) !important;
+    }
+
+    /* Purple glow for + button and menu items */
+    .tut-glow-purple {
+      animation: tut-glow-pulse-purple 1.5s ease-in-out infinite !important;
+    }
+
+    /* Menu item glow */
+    .menu-item.tut-glow-item {
+      background: rgba(218, 119, 86, 0.15) !important;
+      animation: tut-glow-pulse-purple 1.5s ease-in-out infinite !important;
+      border-radius: 8px;
+    }
+
+    /* ─── Terminal fake content ─── */
+    .tut-term-content {
+      padding: 8px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; line-height: 1.6;
+      color: rgba(255,255,255,0.85);
+      height: 100%; overflow-y: auto;
+    }
+    .tut-term-content .t-prompt { color: #4ade80; }
+    .tut-term-content .t-cmd { color: rgba(255,255,255,0.95); }
+    .tut-term-content .t-dim { color: rgba(255,255,255,0.35); }
+    .tut-term-content .t-claude { color: #e87b35; font-weight: 500; }
+    .tut-term-content .t-ok { color: #4ade80; }
+    .tut-term-content .t-blue { color: #60a5fa; font-weight: 500; }
+    .tut-term-content .t-line { white-space: pre-wrap; word-break: break-all; }
+
+    /* Terminal scrollbar — match app's purple thin scrollbar */
+    .tut-term-content {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(180, 130, 255, 0.45) transparent;
+    }
+    .tut-term-content::-webkit-scrollbar { width: 2px; }
+    .tut-term-content::-webkit-scrollbar-track { background: transparent; }
+    .tut-term-content::-webkit-scrollbar-thumb { background: rgba(180, 130, 255, 0.45); border-radius: 2px; }
+    .tut-term-content::-webkit-scrollbar-thumb:hover { background: rgba(180, 130, 255, 0.65); }
+
+    /* Fake file editor look (matching Monaco) */
+    .tut-file-editor {
+      display: flex; height: 100%;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px; line-height: 1.5;
+    }
+    .tut-file-lines {
+      padding: 8px 0; text-align: right;
+      color: rgba(255,255,255,0.18); user-select: none;
+      padding-right: 12px; min-width: 36px;
+      border-right: 1px solid rgba(255,255,255,0.05);
+      white-space: pre; line-height: 1.5;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px;
+    }
+    .tut-file-code {
+      flex: 1; padding: 8px 16px; margin: 0;
+      overflow: auto; white-space: pre;
+      color: #d4d4d4;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(180, 130, 255, 0.45) transparent;
+    }
+    .tut-file-code::-webkit-scrollbar { width: 2px; height: 2px; }
+    .tut-file-code::-webkit-scrollbar-track { background: transparent; }
+    .tut-file-code::-webkit-scrollbar-thumb { background: rgba(180, 130, 255, 0.45); border-radius: 2px; }
+
+    /* ─── Lift agents-hud / feedback-hud above dim ─── */
+    #agents-hud.tut-above-dim,
+    #feedback-hud.tut-above-dim {
+      z-index: 99998 !important;
+      pointer-events: auto !important;
+    }
+
+    #controls.tut-above-dim {
+      z-index: 99998 !important;
+      pointer-events: auto !important;
+    }
+
+    /* ─── Pane drag target highlight ─── */
+    .pane.tut-drag-target .pane-header {
+      animation: tut-glow-pulse-purple 1.5s ease-in-out infinite;
+      cursor: grab !important;
+    }
+
+    /* ─── Pane resize target highlight ─── */
+    .pane.tut-resize-target {
+      animation: tut-glow-pulse-purple 1.5s ease-in-out infinite;
+    }
+
+    .pane.tut-resize-target .pane-resize-handle {
+      width: 28px !important;
+      height: 28px !important;
+      background: linear-gradient(135deg, transparent 35%, rgba(196, 99, 62, 0.7) 35%) !important;
+    }
+
+    /* Broadcast selected pane (yellow border — matching app) */
+    .pane.broadcast-selected {
+      box-shadow: 0 0 0 2px rgba(255, 200, 0, 0.7), 0 0 20px rgba(255, 200, 0, 0.15) !important;
+    }
+
+    /* Broadcast indicator bar */
+    .broadcast-indicator {
+      position: fixed;
+      top: 12px;
+      bottom: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 200, 0, 0.15);
+      border: 1px solid rgba(255, 200, 0, 0.4);
+      color: rgba(255, 200, 0, 0.9);
+      padding: 6px 16px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(10px);
+    }
+    .broadcast-icon { font-size: 10px; }
+
+    /* Move mode visuals */
+    .pane.move-mode-active {
+      box-shadow: 0 0 0 2px rgba(218, 119, 86, 0.8), 0 0 30px rgba(218, 119, 86, 0.3) !important;
+      z-index: 999 !important;
+    }
+
+    .move-mode-indicator {
+      position: fixed;
+      top: 12px;
+      bottom: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(218, 119, 86, 0.15);
+      border: 1px solid rgba(218, 119, 86, 0.4);
+      color: rgba(167, 139, 250, 0.9);
+      padding: 6px 16px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(10px);
+    }
+    .move-mode-indicator-icon { font-size: 14px; }
+
+    body.cursor-suppressed, body.cursor-suppressed * {
+      cursor: none !important;
+    }
+
+    /* Completion overlay */
+    #tut-complete {
+      position: fixed; inset: 0;
+      background: #050d18;
+      display: none; align-items: center; justify-content: center;
+      z-index: 100001;
+    }
+    #tut-complete.visible { display: flex; }
+
+    .tut-complete-inner { text-align: center; max-width: 480px; padding: 40px; }
+
+    .tut-check {
+      width: 64px; height: 64px; margin: 0 auto 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.15), rgba(74, 222, 128, 0.05));
+      border: 2px solid rgba(74, 222, 128, 0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: #4ade80;
+    }
+
+    .tut-complete-title {
+      font-size: 24px; font-weight: 600; color: rgba(255,255,255,0.95);
+      margin-bottom: 12px;
+    }
+
+    .tut-complete-sub {
+      font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 28px;
+      line-height: 1.5; font-weight: 400;
+    }
+
+    .tut-cta {
+      padding: 12px 32px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, #da7756, #c4603e);
+      color: white; font-size: 15px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      box-shadow: 0 6px 24px rgba(218, 119, 86, 0.35);
+      transition: all 0.2s; text-decoration: none; display: inline-block;
+    }
+    .tut-cta:hover { box-shadow: 0 8px 32px rgba(218, 119, 86, 0.5); transform: translateY(-2px); }
+
+    /* ─── Home button (abandon tutorial) ─── */
+    #tut-home-btn {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      z-index: 100000;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(10,15,25,0.85);
+      backdrop-filter: blur(20px);
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    #tut-home-btn:hover {
+      background: rgba(10,15,25,0.95);
+      border-color: rgba(99,102,241,0.4);
+      color: rgba(255,255,255,0.95);
+      transform: translateY(-1px);
+    }
+    #tut-home-btn svg { width: 16px; height: 16px; opacity: 0.7; }
+    #tut-home-btn:hover svg { opacity: 1; }
+  </style>
+</head>
+<body>
+  <!-- ═══ Exact same DOM structure as the real app ═══ -->
+  <div id="canvas-container">
+    <div id="canvas"></div>
+  </div>
+
+  <button id="add-pane-btn" aria-label="Add new pane" style="display:none;">+</button>
+
+  <div id="add-pane-menu" class="pane-menu hidden">
+    <button class="menu-item" data-type="terminal" data-shortcut="t">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v12h16V6H4zm2 2l4 4-4 4 1.5 1.5L9 12l-5.5-5.5L2 8zm6 8h6v2h-6v-2z"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">T</span>erminal</span>
+    </button>
+    <button class="menu-item" data-type="note" data-shortcut="n">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4l2-2 2 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H6zm0 2h12v16h-3l-3-3-3 3H6V4z"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">N</span>ote</span>
+    </button>
+    <button class="menu-item" data-type="file" data-shortcut="f">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">F</span>ile</span>
+    </button>
+    <button class="menu-item" data-type="git-graph" data-shortcut="g">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><circle cx="7" cy="6" r="2.5" fill="currentColor"/><circle cx="17" cy="6" r="2.5" fill="currentColor"/><circle cx="7" cy="18" r="2.5" fill="currentColor"/><line x1="7" y1="8.5" x2="7" y2="15.5" stroke="currentColor" stroke-width="2"/><path d="M17 8.5c0 4-10 4-10 7" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">G</span>it Graph</span>
+    </button>
+    <button class="menu-item" data-type="iframe" data-shortcut="w">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3" y1="12" x2="8" y2="12" stroke="currentColor" stroke-width="2"/><line x1="16" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"/><path d="M12 3c-2 3-2 6 0 9s2 6 0 9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">W</span>eb Page</span>
+    </button>
+    <button class="menu-item" data-type="folder" data-shortcut="d">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">D</span>irectory</span>
+    </button>
+  </div>
+
+  <div id="controls" style="display:none;">
+    <button id="zoom-in" aria-label="Zoom in">+</button>
+    <button id="zoom-out" aria-label="Zoom out">-</button>
+  </div>
+
+  <!-- Tutorial overlays -->
+  <div id="tut-dim"></div>
+
+  <div id="tutorial-overlay">
+    <div class="tut-welcome">
+      <div class="tut-logo">49Agents</div>
+      <div class="tut-sub">
+        Your remote dev machines, one canvas away.<br>
+        Let's walk through setting up your workspace.
+      </div>
+      <button class="tut-start-btn" id="tut-start-btn">Start Tour</button>
+    </div>
+  </div>
+
+  <div id="tut-prompt">
+    <div class="tut-progress">
+      <div class="tut-progress-bar"><div class="tut-progress-fill" id="tut-progress-fill"></div></div>
+      <span class="tut-progress-label" id="tut-progress-label"></span>
+    </div>
+    <div class="tut-chapter" id="tut-chapter"></div>
+    <div class="tut-title" id="tut-title"></div>
+    <div class="tut-body" id="tut-body"></div>
+  </div>
+
+  <div id="tut-complete">
+    <div class="tut-complete-inner">
+      <div class="tut-check">&#10003;</div>
+      <div class="tut-complete-title">That's the gist of it</div>
+      <div class="tut-complete-sub">
+        Terminals, git, file editing, and more — all on one canvas. Ready to try it yourself?
+      </div>
+      <a class="tut-cta" href="https://app.49agents.com" target="_top">Try it yourself</a>
+    </div>
+  </div>
+
+  <a id="tut-home-btn" href="https://app.49agents.com" target="_top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    Home
+  </a>
+
+  <!-- ═══ Guide scripts (loaded before engine) ═══ -->
+  <script src="tutorial-getting-started.min.js"></script>
+  <script src="tutorial-panes.min.js"></script>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // ─── Constants (matching app.js) ───
+    const SNAP_THRESHOLD = 38;
+    const SNAP_GAP = 10;
+    const PANE_DEFAULTS = {
+      'terminal':  { width: 600, height: 400 },
+      'file':      { width: 600, height: 400 },
+      'git-graph': { width: 500, height: 450 },
+    };
+
+    // ─── DOM refs ───
+    const canvas = document.getElementById('canvas');
+    const canvasContainer = document.getElementById('canvas-container');
+    const addPaneBtn = document.getElementById('add-pane-btn');
+    const paneMenu = document.getElementById('add-pane-menu');
+    const tutOverlay = document.getElementById('tutorial-overlay');
+    const tutPrompt = document.getElementById('tut-prompt');
+    const tutDim = document.getElementById('tut-dim');
+    const tutComplete = document.getElementById('tut-complete');
+
+    // ─── State ───
+    const panes = []; // {id, type, x, y, width, height, el}
+    let paneIdCounter = 0;
+    let panX = 0, panY = 0, zoom = 1;
+
+    // ─── Canvas transform ───
+    function updateCanvasTransform() {
+      canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+    }
+    updateCanvasTransform();
+
+    // ─── Canvas Pan (drag on empty canvas) ───
+    let isPanning = false, panStartX = 0, panStartY = 0;
+
+    canvasContainer.addEventListener('mousedown', (e) => {
+      // Pan on left-click on canvas bg OR middle-mouse anywhere
+      const isMiddle = e.button === 1;
+      if (e.button !== 0 && !isMiddle) return;
+      // Shift+left-click reserved for broadcast select / drag-select
+      if (!isMiddle && e.shiftKey) return;
+      if (!isMiddle && (e.target.closest('.pane') || e.target.closest('#tut-prompt') ||
+          e.target.closest('.placement-ghost') || e.target.closest('#hud-container') ||
+          e.target.closest('#add-pane-btn') || e.target.closest('#add-pane-menu') ||
+          e.target.closest('#controls'))) return;
+
+      isPanning = true;
+      panStartX = e.clientX - panX;
+      panStartY = e.clientY - panY;
+      canvasContainer.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+
+    // Prevent middle-click default (autoscroll)
+    canvasContainer.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      panX = e.clientX - panStartX;
+      panY = e.clientY - panStartY;
+      updateCanvasTransform();
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isPanning) {
+        isPanning = false;
+        canvasContainer.style.cursor = '';
+      }
+    });
+
+    // ─── Canvas Zoom (Ctrl+scroll or zoom buttons) ───
+    function setZoom(newZoom, cx, cy) {
+      newZoom = Math.max(0.15, Math.min(4, newZoom));
+      const ratio = newZoom / zoom;
+      panX = cx - (cx - panX) * ratio;
+      panY = cy - (cy - panY) * ratio;
+      zoom = newZoom;
+      updateCanvasTransform();
+    }
+
+    canvasContainer.addEventListener('wheel', (e) => {
+      if (e.target.closest('.pane')) return; // let pane scroll
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        setZoom(zoom * delta, e.clientX, e.clientY);
+      } else {
+        // Normal scroll = pan
+        e.preventDefault();
+        panX -= e.deltaX;
+        panY -= e.deltaY;
+        updateCanvasTransform();
+      }
+    }, { passive: false });
+
+    // Zoom buttons
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => {
+      setZoom(zoom * 1.2, window.innerWidth / 2, window.innerHeight / 2);
+    });
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => {
+      setZoom(zoom / 1.2, window.innerWidth / 2, window.innerHeight / 2);
+    });
+
+    // ─── Linux OS icon SVG ───
+    const LINUX_ICON = `<svg class="hud-os-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 2C10 2 8 4 8 6.5V9c-2 .5-3 2-3 4 0 1.5.5 2.5 1.5 3.5-.5.5-1 1.5-1 2.5 0 1.5 1 3 3 3h7c2 0 3-1.5 3-3 0-1-.5-2-1-2.5 1-1 1.5-2 1.5-3.5 0-2-1-3.5-3-4V6.5C16 4 14 2 12.5 2zm0 2c1.5 0 2.5 1 2.5 2.5V9h-5V6.5C10 5 11 4 12.5 4zM9 11c.8 0 1.5.7 1.5 1.5S9.8 14 9 14s-1.5-.7-1.5-1.5S8.2 11 9 11zm6 0c.8 0 1.5.7 1.5 1.5S15.8 14 15 14s-1.5-.7-1.5-1.5S14.2 11 15 11z"/></svg>`;
+
+    // ─── Fake content templates ───
+
+    const TERMINAL_CLAUDE = `<div class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">claude</span></div>
+<div class="t-line"><span class="t-dim">Claude Code v1.0.23</span></div>
+<div class="t-line">&nbsp;</div>
+<div class="t-line"><span class="t-claude">You:</span> <span class="t-cmd">Fix the authentication bug in login.ts</span></div>
+<div class="t-line">&nbsp;</div>
+<div class="t-line"><span class="t-claude">Claude:</span> I'll look at the auth flow and fix it.</div>
+<div class="t-line">&nbsp;</div>
+<div class="t-line"><span class="t-dim">  Reading src/auth.ts...</span></div>
+<div class="t-line"><span class="t-dim">  Reading src/login.ts...</span></div>
+<div class="t-line">&nbsp;</div>
+<div class="t-line">Found the issue: the token refresh logic</div>
+<div class="t-line">skips validation when expired is false.</div>
+<div class="t-line">&nbsp;</div>
+<div class="t-line"><span class="t-dim">  Editing src/auth.ts...</span></div>
+<div class="t-line"><span class="t-ok">  ✓ Fixed token validation in refreshAuth()</span></div>
+<div class="t-line"><span class="t-ok">  ✓ Added expiry check before skip</span></div>
+<div class="t-line">&nbsp;</div>
+<div class="t-line"><span class="t-dim">  Running tests...</span></div>
+<div class="t-line"><span class="t-ok">  ✓ 14 tests passed</span></div>`;
+
+    // Cloud icon SVG for git indicators
+    const GIT_CLOUD = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>';
+    const GIT_IND = '<span class="git-indicator"></span>';
+    const GIT_IND_SYNC = `<span class="git-indicator git-synced" title="origin/main + main">${GIT_CLOUD}</span>`;
+    const GIT_IND_REMOTE = `<span class="git-indicator git-remote" title="origin/main">${GIT_CLOUD}</span>`;
+    const M = 'git-branch-master';
+    const O = 'git-branch-other';
+
+    const GIT_GRAPH_CONTENT = `${GIT_IND_SYNC}<span class="${M}">●</span> <span class="${M}">a3f7c21</span> <span class="git-time">2m</span> fix: token validation in refreshAuth
+${GIT_IND}<span class="${M}">│</span>
+${GIT_IND}<span class="${M}">●</span> <span class="${M}">e91b4d8</span> <span class="git-time">15m</span> feat: add session middleware
+${GIT_IND}<span class="${M}">│</span>
+${GIT_IND}<span class="${M}">●</span> <span class="${M}">7c2f093</span> <span class="git-time">1h</span> refactor: extract auth helpers
+${GIT_IND}<span class="${M}">│</span> <span class="${O}">●</span> <span class="${O}">b5d1a42</span> <span class="git-time">2h</span> wip: oauth2 flow
+${GIT_IND}<span class="${M}">│</span><span class="${O}">/</span>
+${GIT_IND_REMOTE}<span class="${M}">●</span> <span class="${M}">1a4e8bc</span> <span class="git-time">3h</span> chore: update deps
+${GIT_IND}<span class="${M}">│</span>
+${GIT_IND}<span class="${M}">●</span> <span class="${M}">d820f17</span> <span class="git-time">5h</span> docs: update README
+${GIT_IND}<span class="${M}">│</span>
+${GIT_IND}<span class="${M}">●</span> <span class="${M}">9f3c7a2</span> <span class="git-time">8h</span> feat: login page UI
+${GIT_IND}<span class="${M}">│</span>
+${GIT_IND}<span class="${M}">●</span> <span class="${M}">4b1e693</span> <span class="git-time">1d</span> feat: initial auth module
+${GIT_IND}<span class="${M}">│</span>
+${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span class="git-time">2d</span> init: project setup`;
+
+    // Fake file content (auth.ts)
+    const FILE_LINES = Array.from({length: 22}, (_, i) => i + 1).join('\n');
+    const FILE_CODE = `<span class="ansi-magenta">import</span> { Request, Response } <span class="ansi-magenta">from</span> <span class="ansi-green">'express'</span>;
+<span class="ansi-magenta">import</span> { verifyToken, refreshAuth } <span class="ansi-magenta">from</span> <span class="ansi-green">'./utils/jwt'</span>;
+
+<span class="ansi-magenta">interface</span> <span class="ansi-cyan">AuthPayload</span> {
+  userId: <span class="ansi-cyan">string</span>;
+  email: <span class="ansi-cyan">string</span>;
+  expired: <span class="ansi-cyan">boolean</span>;
+}
+
+<span class="ansi-magenta">export async function</span> <span class="ansi-blue">authenticate</span>(req: Request, res: Response) {
+  <span class="ansi-magenta">const</span> token = req.headers.authorization?.<span class="ansi-blue">split</span>(<span class="ansi-green">' '</span>)[<span class="ansi-yellow">1</span>];
+  <span class="ansi-magenta">if</span> (!token) <span class="ansi-magenta">return</span> res.<span class="ansi-blue">status</span>(<span class="ansi-yellow">401</span>).<span class="ansi-blue">json</span>({ error: <span class="ansi-green">'No token'</span> });
+
+  <span class="ansi-magenta">const</span> payload = <span class="ansi-magenta">await</span> <span class="ansi-blue">verifyToken</span>(token) <span class="ansi-magenta">as</span> <span class="ansi-cyan">AuthPayload</span>;
+
+  <span class="ansi-dim">// Fixed: check expiry before skipping refresh</span>
+  <span class="ansi-magenta">if</span> (payload.expired) {
+    <span class="ansi-magenta">const</span> refreshed = <span class="ansi-magenta">await</span> <span class="ansi-blue">refreshAuth</span>(payload);
+    <span class="ansi-magenta">return</span> res.<span class="ansi-blue">json</span>({ token: refreshed.token, user: refreshed.user });
+  }
+
+  <span class="ansi-magenta">return</span> res.<span class="ansi-blue">json</span>({ user: payload });
+}`;
+
+
+    // ═════════════════════════════════════════════════
+    //  SNAP LOGIC (ported from app.js)
+    // ═════════════════════════════════════════════════
+
+    function findSnapTargets(draggedPane, draggedX, draggedY, excludeIds) {
+      const dRight = draggedX + draggedPane.width;
+      const dBottom = draggedY + draggedPane.height;
+
+      let bestX = null, bestDistX = SNAP_THRESHOLD + 1;
+      let bestY = null, bestDistY = SNAP_THRESHOLD + 1;
+
+      for (const other of panes) {
+        if (other.id === draggedPane.id) continue;
+        if (excludeIds && excludeIds.has(other.id)) continue;
+
+        const oLeft = other.x, oRight = other.x + other.width;
+        const oTop = other.y, oBottom = other.y + other.height;
+
+        const vOverlap = draggedY < oBottom && dBottom > oTop;
+        const hOverlap = draggedX < oRight && dRight > oLeft;
+
+        if (vOverlap) {
+          // Right edge of dragged → Left edge of other
+          let dist = Math.abs(dRight + SNAP_GAP - oLeft);
+          if (dist < bestDistX) {
+            bestDistX = dist;
+            bestX = { adjustX: oLeft - draggedPane.width - SNAP_GAP, edge: oLeft - SNAP_GAP / 2, orientation: 'vertical',
+              top: Math.max(draggedY, oTop), bottom: Math.min(dBottom, oBottom), otherId: other.id };
+          }
+          // Left edge of dragged → Right edge of other
+          dist = Math.abs(draggedX - SNAP_GAP - oRight);
+          if (dist < bestDistX) {
+            bestDistX = dist;
+            bestX = { adjustX: oRight + SNAP_GAP, edge: oRight + SNAP_GAP / 2, orientation: 'vertical',
+              top: Math.max(draggedY, oTop), bottom: Math.min(dBottom, oBottom), otherId: other.id };
+          }
+        }
+
+        if (hOverlap) {
+          // Bottom edge of dragged → Top edge of other
+          let dist = Math.abs(dBottom + SNAP_GAP - oTop);
+          if (dist < bestDistY) {
+            bestDistY = dist;
+            bestY = { adjustY: oTop - draggedPane.height - SNAP_GAP, edge: oTop - SNAP_GAP / 2, orientation: 'horizontal',
+              left: Math.max(draggedX, oLeft), right: Math.min(dRight, oRight), otherId: other.id };
+          }
+          // Top edge of dragged → Bottom edge of other
+          dist = Math.abs(draggedY - SNAP_GAP - oBottom);
+          if (dist < bestDistY) {
+            bestDistY = dist;
+            bestY = { adjustY: oBottom + SNAP_GAP, edge: oBottom + SNAP_GAP / 2, orientation: 'horizontal',
+              left: Math.max(draggedX, oLeft), right: Math.min(dRight, oRight), otherId: other.id };
+          }
+        }
+      }
+
+      const snapX = bestDistX <= SNAP_THRESHOLD ? bestX : null;
+      let snapY = bestDistY <= SNAP_THRESHOLD ? bestY : null;
+
+      // Same-edge alignment when snapped side-by-side (X)
+      if (snapX && !snapY) {
+        const other = panes.find(p => p.id === snapX.otherId);
+        if (other) {
+          const topDist = Math.abs(draggedY - other.y);
+          const bottomDist = Math.abs(dBottom - (other.y + other.height));
+          if (topDist < SNAP_THRESHOLD && topDist <= bottomDist) {
+            snapY = { adjustY: other.y, edge: other.y, orientation: 'horizontal',
+              left: Math.min(draggedX, other.x), right: Math.max(dRight, other.x + other.width), otherId: other.id };
+          } else if (bottomDist < SNAP_THRESHOLD) {
+            snapY = { adjustY: other.y + other.height - draggedPane.height, edge: other.y + other.height, orientation: 'horizontal',
+              left: Math.min(draggedX, other.x), right: Math.max(dRight, other.x + other.width), otherId: other.id };
+          }
+        }
+      }
+
+      // Same-edge alignment when stacked (Y)
+      if (snapY && !snapX) {
+        const other = panes.find(p => p.id === snapY.otherId);
+        if (other) {
+          const leftDist = Math.abs(draggedX - other.x);
+          const rightDist = Math.abs(dRight - (other.x + other.width));
+          if (leftDist < SNAP_THRESHOLD && leftDist <= rightDist) {
+            bestX = { adjustX: other.x, edge: other.x, orientation: 'vertical',
+              top: Math.min(draggedY, other.y), bottom: Math.max(dBottom, other.y + other.height), otherId: other.id };
+            return { x: bestX, y: snapY };
+          } else if (rightDist < SNAP_THRESHOLD) {
+            bestX = { adjustX: other.x + other.width - draggedPane.width, edge: other.x + other.width, orientation: 'vertical',
+              top: Math.min(draggedY, other.y), bottom: Math.max(dBottom, other.y + other.height), otherId: other.id };
+            return { x: bestX, y: snapY };
+          }
+        }
+      }
+
+      return (snapX || snapY) ? { x: snapX, y: snapY } : null;
+    }
+
+    function findResizeSnapTargets(paneData, newWidth, newHeight) {
+      const rightEdge = paneData.x + newWidth;
+      const bottomEdge = paneData.y + newHeight;
+
+      let bestW = null, bestDistW = SNAP_THRESHOLD + 1;
+      let bestH = null, bestDistH = SNAP_THRESHOLD + 1;
+
+      for (const other of panes) {
+        if (other.id === paneData.id) continue;
+
+        const oLeft = other.x, oRight = other.x + other.width;
+        const oTop = other.y, oBottom = other.y + other.height;
+
+        const margin = SNAP_GAP + SNAP_THRESHOLD;
+        const vOverlap = paneData.y < oBottom + margin && bottomEdge > oTop - margin;
+        const hOverlap = paneData.x < oRight + margin && rightEdge > oLeft - margin;
+
+        if (vOverlap) {
+          let dist = Math.abs(rightEdge + SNAP_GAP - oLeft);
+          if (dist < bestDistW) {
+            bestDistW = dist;
+            bestW = { snapWidth: oLeft - paneData.x - SNAP_GAP, edge: oLeft - SNAP_GAP / 2, orientation: 'vertical',
+              top: Math.min(paneData.y, oTop), bottom: Math.max(bottomEdge, oBottom) };
+          }
+          dist = Math.abs(rightEdge - oRight);
+          if (dist < bestDistW) {
+            bestDistW = dist;
+            bestW = { snapWidth: oRight - paneData.x, edge: oRight, orientation: 'vertical',
+              top: Math.min(paneData.y, oTop), bottom: Math.max(bottomEdge, oBottom) };
+          }
+        }
+
+        if (hOverlap) {
+          let dist = Math.abs(bottomEdge + SNAP_GAP - oTop);
+          if (dist < bestDistH) {
+            bestDistH = dist;
+            bestH = { snapHeight: oTop - paneData.y - SNAP_GAP, edge: oTop - SNAP_GAP / 2, orientation: 'horizontal',
+              left: Math.min(paneData.x, oLeft), right: Math.max(rightEdge, oRight) };
+          }
+          dist = Math.abs(bottomEdge - oBottom);
+          if (dist < bestDistH) {
+            bestDistH = dist;
+            bestH = { snapHeight: oBottom - paneData.y, edge: oBottom, orientation: 'horizontal',
+              left: Math.min(paneData.x, oLeft), right: Math.max(rightEdge, oRight) };
+          }
+        }
+      }
+
+      const snapW = bestDistW <= SNAP_THRESHOLD ? bestW : null;
+      const snapH = bestDistH <= SNAP_THRESHOLD ? bestH : null;
+      return (snapW || snapH) ? { w: snapW, h: snapH } : null;
+    }
+
+
+    // ─── Snap guides (ported from app.js) ───
+    let snapGuideX = null, snapGuideY = null;
+
+    function updateSnapGuide(guide, snap) {
+      if (!guide) {
+        guide = document.createElement('div');
+        guide.style.pointerEvents = 'none';
+        canvas.appendChild(guide);
+      }
+      guide.className = `snap-guide ${snap.orientation}`;
+      if (snap.orientation === 'vertical') {
+        guide.style.left = `${snap.edge}px`;
+        guide.style.top = `${snap.top}px`;
+        guide.style.height = `${snap.bottom - snap.top}px`;
+        guide.style.width = '';
+      } else {
+        guide.style.left = `${snap.left}px`;
+        guide.style.top = `${snap.edge}px`;
+        guide.style.width = `${snap.right - snap.left}px`;
+        guide.style.height = '';
+      }
+      return guide;
+    }
+
+    function showSnapGuides(snaps) {
+      if (snaps.x) { snapGuideX = updateSnapGuide(snapGuideX, snaps.x); }
+      else if (snapGuideX) { snapGuideX.remove(); snapGuideX = null; }
+      if (snaps.y) { snapGuideY = updateSnapGuide(snapGuideY, snaps.y); }
+      else if (snapGuideY) { snapGuideY.remove(); snapGuideY = null; }
+    }
+
+    function removeSnapGuides() {
+      if (snapGuideX) { snapGuideX.remove(); snapGuideX = null; }
+      if (snapGuideY) { snapGuideY.remove(); snapGuideY = null; }
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  PLACEMENT MODE (ported from app.js)
+    // ═════════════════════════════════════════════════
+
+    function enterPlacementMode(type) {
+      return new Promise(resolve => {
+        const size = PANE_DEFAULTS[type];
+        const labels = { 'terminal': 'Terminal', 'file': 'File', 'git-graph': 'Git Graph' };
+        const label = labels[type] || type;
+
+        const ghost = document.createElement('div');
+        ghost.className = 'placement-ghost';
+        ghost.style.width = `${size.width}px`;
+        ghost.style.height = `${size.height}px`;
+        ghost.innerHTML = `<div class="placement-ghost-label">${label}</div>`;
+        document.body.appendChild(ghost);
+
+        canvasContainer.classList.add('placement-active');
+
+        let snappedX = null, snappedY = null;
+
+        const moveHandler = (e) => {
+          // Canvas coords (with zoom=1, panX/Y=0, canvas coords = viewport coords)
+          let cx = (e.clientX - panX) / zoom - size.width / 2;
+          let cy = (e.clientY - panY) / zoom - size.height / 2;
+
+          // Snap-to-edge
+          const fakePane = { id: '__placement__', width: size.width, height: size.height };
+          if (!e.ctrlKey) {
+            const snaps = findSnapTargets(fakePane, cx, cy, null);
+            if (snaps) {
+              if (snaps.x) cx = snaps.x.adjustX;
+              if (snaps.y) cy = snaps.y.adjustY;
+              showSnapGuides(snaps);
+            } else {
+              removeSnapGuides();
+            }
+          } else {
+            removeSnapGuides();
+          }
+
+          snappedX = cx;
+          snappedY = cy;
+
+          // Position ghost in viewport space
+          ghost.style.left = `${panX + cx * zoom}px`;
+          ghost.style.top = `${panY + cy * zoom}px`;
+          ghost.style.width = `${size.width * zoom}px`;
+          ghost.style.height = `${size.height * zoom}px`;
+        };
+
+        const clickHandler = (e) => {
+          // Don't place if clicking on the prompt or overlays
+          if (e.target.closest('#tut-prompt')) return;
+
+          removeSnapGuides();
+          canvasContainer.classList.remove('placement-active');
+          document.removeEventListener('mousemove', moveHandler);
+          canvasContainer.removeEventListener('click', clickHandler);
+          document.removeEventListener('keydown', escHandler);
+          ghost.remove();
+
+          const x = snappedX != null ? snappedX : ((e.clientX - panX) / zoom - size.width / 2);
+          const y = snappedY != null ? snappedY : ((e.clientY - panY) / zoom - size.height / 2);
+          resolve({ x, y });
+        };
+
+        const escHandler = (e) => {
+          if (e.key === 'Escape') {
+            removeSnapGuides();
+            canvasContainer.classList.remove('placement-active');
+            document.removeEventListener('mousemove', moveHandler);
+            canvasContainer.removeEventListener('click', clickHandler);
+            document.removeEventListener('keydown', escHandler);
+            ghost.remove();
+            // Re-enter placement mode (user must place it)
+            enterPlacementMode(type).then(resolve);
+          }
+        };
+
+        document.addEventListener('mousemove', moveHandler);
+        canvasContainer.addEventListener('click', clickHandler);
+        document.addEventListener('keydown', escHandler);
+      });
+    }
+
+    // Shift+Click placement mode — ignores non-Shift clicks
+    function enterShiftPlacementMode(type) {
+      return new Promise(resolve => {
+        const size = PANE_DEFAULTS[type];
+        const labels = { 'terminal': 'Terminal', 'file': 'File', 'git-graph': 'Git Graph' };
+        const label = labels[type] || type;
+
+        const ghost = document.createElement('div');
+        ghost.className = 'placement-ghost';
+        ghost.style.width = `${size.width}px`;
+        ghost.style.height = `${size.height}px`;
+        ghost.innerHTML = `<div class="placement-ghost-label">${label}</div>`;
+        document.body.appendChild(ghost);
+
+        canvasContainer.classList.add('placement-active');
+
+        let snappedX = null, snappedY = null;
+
+        const moveHandler = (e) => {
+          let cx = (e.clientX - panX) / zoom - size.width / 2;
+          let cy = (e.clientY - panY) / zoom - size.height / 2;
+
+          const fakePane = { id: '__placement__', width: size.width, height: size.height };
+          if (!e.ctrlKey) {
+            const snaps = findSnapTargets(fakePane, cx, cy, null);
+            if (snaps) {
+              if (snaps.x) cx = snaps.x.adjustX;
+              if (snaps.y) cy = snaps.y.adjustY;
+              showSnapGuides(snaps);
+            } else {
+              removeSnapGuides();
+            }
+          } else {
+            removeSnapGuides();
+          }
+
+          snappedX = cx;
+          snappedY = cy;
+
+          ghost.style.left = `${panX + cx * zoom}px`;
+          ghost.style.top = `${panY + cy * zoom}px`;
+          ghost.style.width = `${size.width * zoom}px`;
+          ghost.style.height = `${size.height * zoom}px`;
+        };
+
+        const clickHandler = (e) => {
+          if (e.target.closest('#tut-prompt')) return;
+          // Require Shift — ignore normal clicks
+          if (!e.shiftKey) return;
+
+          removeSnapGuides();
+          canvasContainer.classList.remove('placement-active');
+          document.removeEventListener('mousemove', moveHandler);
+          canvasContainer.removeEventListener('click', clickHandler);
+          document.removeEventListener('keydown', escHandler);
+          ghost.remove();
+
+          const x = snappedX != null ? snappedX : ((e.clientX - panX) / zoom - size.width / 2);
+          const y = snappedY != null ? snappedY : ((e.clientY - panY) / zoom - size.height / 2);
+          resolve({ x, y });
+        };
+
+        const escHandler = (e) => {
+          if (e.key === 'Escape') {
+            removeSnapGuides();
+            canvasContainer.classList.remove('placement-active');
+            document.removeEventListener('mousemove', moveHandler);
+            canvasContainer.removeEventListener('click', clickHandler);
+            document.removeEventListener('keydown', escHandler);
+            ghost.remove();
+            enterShiftPlacementMode(type).then(resolve);
+          }
+        };
+
+        document.addEventListener('mousemove', moveHandler);
+        canvasContainer.addEventListener('click', clickHandler);
+        document.addEventListener('keydown', escHandler);
+      });
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  PANE DRAG (ported from app.js)
+    // ═════════════════════════════════════════════════
+
+    function setupPaneDrag(paneEl, paneData) {
+      const header = paneEl.querySelector('.pane-header');
+      if (!header) return;
+
+      header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.pane-close') || e.target.closest('.pane-expand') || e.target.closest('.pane-zoom-btn')) return;
+        // Shift+click reserved for broadcast select — don't start drag
+        if (e.shiftKey) return;
+        e.preventDefault();
+
+        paneEl.classList.add('dragging');
+        document.body.classList.add('no-select');
+
+        const rect = paneEl.getBoundingClientRect();
+        const dragOffsetX = (e.clientX - rect.left) / zoom;
+        const dragOffsetY = (e.clientY - rect.top) / zoom;
+
+        // Track whether this pane is part of a broadcast group
+        const isBroadcast = broadcastSelected.has(paneData.id);
+        const excludeIds = isBroadcast ? broadcastSelected : null;
+
+        const moveHandler = (moveE) => {
+          moveE.preventDefault();
+          let newX = (moveE.clientX - panX) / zoom - dragOffsetX;
+          let newY = (moveE.clientY - panY) / zoom - dragOffsetY;
+
+          // Snap-to-edge (exclude broadcast siblings from snap targets)
+          const snaps = findSnapTargets(paneData, newX, newY, excludeIds);
+          if (snaps) {
+            if (snaps.x) newX = snaps.x.adjustX;
+            if (snaps.y) newY = snaps.y.adjustY;
+            showSnapGuides(snaps);
+          } else {
+            removeSnapGuides();
+          }
+
+          const dx = newX - paneData.x;
+          const dy = newY - paneData.y;
+
+          paneEl.style.left = `${newX}px`;
+          paneEl.style.top = `${newY}px`;
+          paneData.x = newX;
+          paneData.y = newY;
+
+          // Move all other broadcast-selected panes by the same delta
+          if (isBroadcast) {
+            broadcastSelected.forEach(id => {
+              if (id === paneData.id) return;
+              const other = panes.find(p => p.id === id);
+              if (!other) return;
+              other.x += dx;
+              other.y += dy;
+              other.el.style.left = `${other.x}px`;
+              other.el.style.top = `${other.y}px`;
+            });
+          }
+        };
+
+        const endHandler = () => {
+          removeSnapGuides();
+          paneEl.classList.remove('dragging');
+          document.body.classList.remove('no-select');
+
+          document.removeEventListener('mousemove', moveHandler);
+          document.removeEventListener('mouseup', endHandler);
+
+          if (paneData._onDragEnd) paneData._onDragEnd();
+        };
+
+        document.addEventListener('mousemove', moveHandler);
+        document.addEventListener('mouseup', endHandler);
+      });
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  PANE RESIZE (ported from app.js)
+    // ═════════════════════════════════════════════════
+
+    function setupPaneResize(paneEl, paneData) {
+      const handle = paneEl.querySelector('.pane-resize-handle');
+      if (!handle) return;
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        paneEl.classList.add('resizing');
+        document.body.classList.add('no-select');
+
+        const startX = e.clientX, startY = e.clientY;
+        const startW = paneData.width, startH = paneData.height;
+
+        const moveHandler = (moveE) => {
+          moveE.preventDefault();
+          let newW = Math.max(200, startW + (moveE.clientX - startX) / zoom);
+          let newH = Math.max(150, startH + (moveE.clientY - startY) / zoom);
+
+          // Snap resize edges (unless Shift held)
+          if (!moveE.shiftKey) {
+            const snaps = findResizeSnapTargets(paneData, newW, newH);
+            if (snaps) {
+              if (snaps.w) newW = snaps.w.snapWidth;
+              if (snaps.h) newH = snaps.h.snapHeight;
+              showSnapGuides({ x: snaps.w, y: snaps.h });
+            } else {
+              removeSnapGuides();
+            }
+          } else {
+            removeSnapGuides();
+          }
+
+          paneEl.style.width = `${newW}px`;
+          paneEl.style.height = `${newH}px`;
+          paneData.width = newW;
+          paneData.height = newH;
+        };
+
+        const endHandler = () => {
+          removeSnapGuides();
+          paneEl.classList.remove('resizing');
+          document.body.classList.remove('no-select');
+
+          document.removeEventListener('mousemove', moveHandler);
+          document.removeEventListener('mouseup', endHandler);
+
+          if (paneData._onResizeEnd) paneData._onResizeEnd();
+        };
+
+        document.addEventListener('mousemove', moveHandler);
+        document.addEventListener('mouseup', endHandler);
+      });
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  HUD (Machines panel)
+    // ═════════════════════════════════════════════════
+
+    function createHud() {
+      const container = document.createElement('div');
+      container.id = 'hud-container';
+      document.body.appendChild(container);
+
+      const hud = document.createElement('div');
+      hud.id = 'hud-overlay';
+      hud.innerHTML = `
+        <div class="hud-header">
+          <span class="hud-title">Machines</span>
+          <span class="hud-collapse-dots"></span>
+        </div>
+        <div class="hud-content"></div>
+      `;
+      container.appendChild(hud);
+      renderHudEmpty();
+    }
+
+    function renderHudEmpty() {
+      const content = document.querySelector('#hud-overlay .hud-content');
+      if (!content) return;
+      content.innerHTML = `
+        <div style="text-align:center;padding:12px 8px 4px;">
+          <div style="color:rgba(255,255,255,0.4);font-size:11px;margin-bottom:10px;">No machines connected</div>
+          <button class="add-machine-fleet-btn" id="tut-add-machine-btn" style="width:100%;padding:8px 12px;background:#4ec9b0;border:none;color:#0a0a1a;border-radius:4px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:600;transition:opacity 0.15s;">+ Add Machine</button>
+        </div>`;
+    }
+
+    function renderHudWithDevice() {
+      const content = document.querySelector('#hud-overlay .hud-content');
+      if (!content) return;
+
+      content.innerHTML = `
+        <div class="hud-device" data-device="alp-dev-server">
+          <div class="hud-device-row">
+            <span class="hud-status-dot online"></span>
+            ${LINUX_ICON}
+            <span class="hud-device-name">alp-dev-server</span>
+            <span class="hud-version-dot current" data-tooltip="v1.2.0 — up to date"></span>
+            <span class="hud-counts" id="hud-pane-counts"></span>
+          </div>
+          <div class="hud-metrics">
+            <span class="hud-metric metric-green">RAM 34% <span class="hud-metric-dim">16 GB</span></span>
+            <span class="hud-metric-sep">&middot;</span>
+            <span class="hud-metric metric-green">CPU 12%</span>
+            <span class="hud-metric-sep">&middot;</span>
+            <span class="hud-metric metric-yellow">GPU 42%</span>
+          </div>
+        </div>
+        <button class="add-machine-fleet-btn" style="width:100%;margin-top:8px;padding:6px;background:transparent;border:1px solid #4ec9b0;color:#4ec9b0;border-radius:4px;cursor:pointer;font-family:monospace;font-size:11px;transition:background 0.15s,color 0.15s;">+ Add Machine</button>`;
+    }
+
+    function updateHudCounts() {
+      const countsEl = document.getElementById('hud-pane-counts');
+      if (!countsEl) return;
+      const termSvg = '<svg class="hud-count-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v12h16V6H4zm2 2l4 4-4 4 1.5 1.5L9 12l-5.5-5.5L2 8zm6 8h6v2h-6v-2z"/></svg>';
+      const gitSvg = '<svg class="hud-count-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="7" cy="6" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="7" cy="18" r="2.5"/><line x1="7" y1="8.5" x2="7" y2="15.5" stroke="currentColor" stroke-width="2"/><path d="M17 8.5c0 4-10 4-10 7" stroke="currentColor" stroke-width="2" fill="none"/></svg>';
+      const fileSvg = '<svg class="hud-count-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>';
+      const terms = panes.filter(p => p.type === 'terminal').length;
+      const files = panes.filter(p => p.type === 'file').length;
+      const gits = panes.filter(p => p.type === 'git-graph').length;
+      let html = '';
+      if (terms > 0) html += `<span class="hud-count" data-tooltip="Terminals">${termSvg}${terms}</span>`;
+      if (files > 0) html += `<span class="hud-count" data-tooltip="Files">${fileSvg}${files}</span>`;
+      if (gits > 0) html += `<span class="hud-count" data-tooltip="Git">${gitSvg}${gits}</span>`;
+      countsEl.innerHTML = html;
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  USAGE HUD (fake Claude Code usage)
+    // ═════════════════════════════════════════════════
+
+    function createUsageHud() {
+      const container = document.getElementById('hud-container');
+      if (!container) return;
+
+      // Random usage numbers
+      const fiveHr = Math.floor(Math.random() * 40) + 35;   // 35-74
+      const sevenDay = Math.floor(Math.random() * 30) + 15;  // 15-44
+      const sonnet = Math.floor(Math.random() * 25) + 10;    // 10-34
+      const opus = Math.floor(Math.random() * 15) + 5;       // 5-19
+
+      function cls(pct) { return pct >= 75 ? 'high' : pct >= 40 ? 'medium' : 'low'; }
+
+      const resetIcon = '<svg class="usage-reset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 0 0-8 8 8 8 0 0 0 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 0 1-6-6 6 6 0 0 1 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>';
+
+      const hud = document.createElement('div');
+      hud.id = 'agents-hud';
+      const CLAUDE_LOGO = '<svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="opacity:0.7;vertical-align:-1px;margin-right:3px;"><path d="m3.127 10.604 3.135-1.76.053-.153-.053-.085H6.11l-.525-.032-1.791-.048-1.554-.065-1.505-.08-.38-.081L0 7.832l.036-.234.32-.214.455.04 1.009.069 1.513.105 1.097.064 1.626.17h.259l.036-.105-.089-.065-.068-.064-1.566-1.062-1.695-1.121-.887-.646-.48-.327-.243-.306-.104-.67.435-.48.585.04.15.04.593.456 1.267.981 1.654 1.218.242.202.097-.068.012-.049-.109-.181-.9-1.626-.96-1.655-.428-.686-.113-.411a2 2 0 0 1-.068-.484l.496-.674L4.446 0l.662.089.279.242.411.94.666 1.48 1.033 2.014.302.597.162.553.06.17h.105v-.097l.085-1.134.157-1.392.154-1.792.052-.504.25-.605.497-.327.387.186.319.456-.045.294-.19 1.23-.37 1.93-.243 1.29h.142l.161-.16.654-.868 1.097-1.372.484-.545.565-.601.363-.287h.686l.505.751-.226.775-.707.895-.585.759-.839 1.13-.524.904.048.072.125-.012 1.897-.403 1.024-.186 1.223-.21.553.258.06.263-.218.536-1.307.323-1.533.307-2.284.54-.028.02.032.04 1.029.098.44.024h1.077l2.005.15.525.346.315.424-.053.323-.807.411-3.631-.863-.872-.218h-.12v.073l.726.71 1.331 1.202 1.667 1.55.084.383-.214.302-.226-.032-1.464-1.101-.565-.497-1.28-1.077h-.084v.113l.295.432 1.557 2.34.08.718-.112.234-.404.141-.444-.08-.911-1.28-.94-1.44-.759-1.291-.093.053-.448 4.821-.21.246-.484.186-.403-.307-.214-.496.214-.98.258-1.28.21-1.016.19-1.263.112-.42-.008-.028-.092.012-.953 1.307-1.448 1.957-1.146 1.227-.274.109-.477-.247.045-.44.266-.39 1.586-2.018.956-1.25.617-.723-.004-.105h-.036l-4.212 2.736-.75.096-.324-.302.04-.496.154-.162 1.267-.871z"/></svg>';
+      hud.innerHTML = `
+        <div class="agents-hud-header">
+          <span class="hud-title">${CLAUDE_LOGO}Usage</span>
+          <span class="agents-hud-pct ${cls(fiveHr)}">${fiveHr}%</span>
+        </div>
+        <div class="agents-hud-content">
+          <div class="usage-block">
+            <div class="usage-top-row">
+              ${resetIcon}
+              <span class="usage-reset-time">2h 41m</span>
+              <span class="usage-pct ${cls(fiveHr)}">${fiveHr}%</span>
+            </div>
+            <div class="usage-bar-track"><div class="usage-bar-fill ${cls(fiveHr)}" style="width:${fiveHr}%"></div></div>
+            <div class="usage-period">5-hour window</div>
+          </div>
+          <div class="usage-block">
+            <div class="usage-top-row">
+              ${resetIcon}
+              <span class="usage-reset-time">4d 12h</span>
+              <span class="usage-pct ${cls(sevenDay)}">${sevenDay}%</span>
+            </div>
+            <div class="usage-bar-track"><div class="usage-bar-fill ${cls(sevenDay)}" style="width:${sevenDay}%"></div></div>
+            <div class="usage-period">7-day window</div>
+          </div>
+          <div class="usage-block">
+            <div class="usage-top-row">
+              ${resetIcon}
+              <span class="usage-reset-time">4d 12h</span>
+              <span class="usage-pct ${cls(sonnet)}">${sonnet}%</span>
+            </div>
+            <div class="usage-bar-track"><div class="usage-bar-fill ${cls(sonnet)}" style="width:${sonnet}%"></div></div>
+            <div class="usage-period">7-day sonnet</div>
+          </div>
+          <div class="usage-block">
+            <div class="usage-top-row">
+              ${resetIcon}
+              <span class="usage-reset-time">4d 12h</span>
+              <span class="usage-pct ${cls(opus)}">${opus}%</span>
+            </div>
+            <div class="usage-bar-track"><div class="usage-bar-fill ${cls(opus)}" style="width:${opus}%"></div></div>
+            <div class="usage-period">7-day opus</div>
+          </div>
+          <div class="agents-last-updated" style="font-size:10px;color:#666;margin-top:4px;">Updated just now</div>
+        </div>`;
+
+      container.appendChild(hud);
+      return hud;
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  FEEDBACK HUD (chat panel)
+    // ═════════════════════════════════════════════════
+
+    function createFeedbackHud() {
+      const container = document.getElementById('hud-container');
+      if (!container) return;
+
+      const hud = document.createElement('div');
+      hud.id = 'feedback-hud';
+      hud.innerHTML = `
+        <div class="hud-header chat-hud-header">
+          <span class="hud-title">Feedback</span>
+        </div>
+        <div class="chat-hud-content">
+          <div class="chat-messages">
+            <div class="chat-bubble user">
+              <div class="chat-bubble-body">The git graph looks amazing! Love the snap-to-edge feature.</div>
+              <div class="chat-bubble-time">2m ago</div>
+            </div>
+            <div class="chat-bubble admin">
+              <div class="chat-bubble-body">Thanks! Let us know if you run into any issues.</div>
+              <div class="chat-bubble-time">1m ago</div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <textarea class="chat-textarea" rows="2" maxlength="3000" placeholder="shift + enter to send" readonly></textarea>
+            <div class="chat-input-footer">
+              <span class="chat-char-count"></span>
+              <span class="chat-status"></span>
+              <button class="chat-send-btn">Send</button>
+            </div>
+          </div>
+        </div>`;
+
+      container.appendChild(hud);
+      return hud;
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  PANE CREATION
+    // ═════════════════════════════════════════════════
+
+    function createFakeTerminalPane(x, y) {
+      const id = 'tut-' + (++paneIdCounter);
+      const size = PANE_DEFAULTS['terminal'];
+      const paneData = { id, type: 'terminal', x, y, width: size.width, height: size.height, el: null };
+
+      const pane = document.createElement('div');
+      pane.className = 'pane';
+      pane.id = `pane-${id}`;
+      pane.style.cssText = `left:${x}px;top:${y}px;width:${size.width}px;height:${size.height}px;z-index:${10 + paneIdCounter}`;
+      pane.dataset.paneId = id;
+
+      pane.innerHTML = `
+        <div class="pane-header">
+          <span class="pane-title">
+            <span class="device-label">alp-dev-server</span>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v12h16V6H4zm2 2l4 4-4 4 1.5 1.5L9 12l-5.5-5.5L2 8zm6 8h6v2h-6v-2z"/></svg>
+            Terminal
+          </span>
+          <div class="pane-header-right">
+            <button class="pane-expand" aria-label="Expand">&#x26F6;</button>
+            <button class="pane-close" aria-label="Close">&times;</button>
+          </div>
+        </div>
+        <div class="pane-content">
+          <div class="tut-term-content">${TERMINAL_CLAUDE}</div>
+        </div>
+        <div class="pane-resize-handle"></div>`;
+
+      canvas.appendChild(pane);
+      paneData.el = pane;
+      panes.push(paneData);
+
+      setupPaneDrag(pane, paneData);
+      setupPaneResize(pane, paneData);
+
+      // Stop content scroll/mousedown from triggering canvas interactions
+      const content = pane.querySelector('.pane-content');
+      content.addEventListener('mousedown', e => e.stopPropagation());
+      content.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+
+      updateHudCounts();
+      return paneData;
+    }
+
+    function createFakeGitGraphPane(x, y) {
+      const id = 'tut-' + (++paneIdCounter);
+      const size = PANE_DEFAULTS['git-graph'];
+      const paneData = { id, type: 'git-graph', x, y, width: size.width, height: size.height, el: null };
+
+      const pane = document.createElement('div');
+      pane.className = 'pane git-graph-pane';
+      pane.id = `pane-${id}`;
+      pane.style.cssText = `left:${x}px;top:${y}px;width:${size.width}px;height:${size.height}px;z-index:${10 + paneIdCounter}`;
+      pane.dataset.paneId = id;
+
+      pane.innerHTML = `
+        <div class="pane-header">
+          <span class="pane-title git-graph-title">
+            <span class="device-label">alp-dev-server</span>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="vertical-align:middle;margin-right:4px;"><circle cx="7" cy="6" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="7" cy="18" r="2.5"/><line x1="7" y1="8.5" x2="7" y2="15.5" stroke="currentColor" stroke-width="2"/><path d="M17 8.5c0 4-10 4-10 7" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+            Git Graph
+          </span>
+          <div class="pane-header-right">
+            <div class="pane-zoom-controls">
+              <button class="pane-zoom-btn zoom-out" data-tooltip="Zoom out">−</button>
+              <button class="pane-zoom-btn zoom-in" data-tooltip="Zoom in">+</button>
+            </div>
+            <button class="pane-expand" aria-label="Expand">&#x26F6;</button>
+            <button class="pane-close" aria-label="Close">&times;</button>
+          </div>
+        </div>
+        <div class="pane-content">
+          <div class="git-graph-container">
+            <div class="git-graph-header">
+              <span class="git-graph-branch-name">main</span>
+              <span class="git-graph-clean">&#9679; clean</span>
+              <button class="git-graph-push-btn"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style="vertical-align:middle;margin-right:3px;"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>Push</button>
+            </div>
+            <pre class="git-graph-output">${GIT_GRAPH_CONTENT}</pre>
+          </div>
+        </div>
+        <div class="pane-resize-handle"></div>`;
+
+      canvas.appendChild(pane);
+      paneData.el = pane;
+      panes.push(paneData);
+
+      setupPaneDrag(pane, paneData);
+      setupPaneResize(pane, paneData);
+
+      // Stop content scroll/mousedown from propagating
+      const output = pane.querySelector('.git-graph-output');
+      output.addEventListener('mousedown', e => e.stopPropagation());
+      output.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+
+      updateHudCounts();
+      return paneData;
+    }
+
+    function createFakeFilePane(x, y) {
+      const id = 'tut-' + (++paneIdCounter);
+      const size = PANE_DEFAULTS['file'];
+      const paneData = { id, type: 'file', x, y, width: size.width, height: size.height, el: null };
+
+      const pane = document.createElement('div');
+      pane.className = 'pane file-pane';
+      pane.id = `pane-${id}`;
+      pane.style.cssText = `left:${x}px;top:${y}px;width:${size.width}px;height:${size.height}px;z-index:${10 + paneIdCounter}`;
+      pane.dataset.paneId = id;
+
+      pane.innerHTML = `
+        <div class="pane-header">
+          <span class="pane-title">
+            <span class="device-label">alp-dev-server</span>
+            📄 auth.ts
+          </span>
+          <div class="pane-header-right">
+            <div class="pane-zoom-controls">
+              <button class="pane-zoom-btn zoom-out" data-tooltip="Zoom out">−</button>
+              <button class="pane-zoom-btn zoom-in" data-tooltip="Zoom in">+</button>
+            </div>
+            <button class="pane-expand" aria-label="Expand">&#x26F6;</button>
+            <button class="pane-close" aria-label="Close">&times;</button>
+          </div>
+        </div>
+        <div class="pane-content">
+          <div class="file-container">
+            <div class="file-toolbar">
+              <button class="file-toolbar-btn reload-btn" data-tooltip="Reload file">Reload</button>
+              <span class="file-status">auth.ts</span>
+            </div>
+            <div class="file-editor">
+              <div class="tut-file-editor">
+                <div class="tut-file-lines">${FILE_LINES}</div>
+                <pre class="tut-file-code">${FILE_CODE}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pane-resize-handle"></div>`;
+
+      canvas.appendChild(pane);
+      paneData.el = pane;
+      panes.push(paneData);
+
+      setupPaneDrag(pane, paneData);
+      setupPaneResize(pane, paneData);
+
+      const content = pane.querySelector('.pane-content');
+      content.addEventListener('mousedown', e => e.stopPropagation());
+      content.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+
+      updateHudCounts();
+      return paneData;
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  UI HELPERS
+    // ═════════════════════════════════════════════════
+
+    function showPrompt(chapter, title, body, stepIdx, totalSteps) {
+      tutPrompt.classList.add('entering');
+      tutPrompt.classList.add('visible');
+
+      document.getElementById('tut-chapter').textContent = chapter;
+      document.getElementById('tut-title').textContent = title;
+      document.getElementById('tut-body').innerHTML = body;
+
+      const pct = ((stepIdx + 1) / totalSteps * 100);
+      document.getElementById('tut-progress-fill').style.width = pct + '%';
+      document.getElementById('tut-progress-label').textContent = `${stepIdx + 1} / ${totalSteps}`;
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => tutPrompt.classList.remove('entering'));
+      });
+    }
+
+    function hidePrompt() {
+      tutPrompt.classList.remove('visible');
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function waitForClick(selector, glowClass) {
+      return new Promise(resolve => {
+        const check = () => {
+          const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+          if (!el) { setTimeout(check, 100); return; }
+          if (glowClass) el.classList.add(glowClass);
+          const handler = () => {
+            if (glowClass) el.classList.remove(glowClass);
+            el.removeEventListener('click', handler);
+            resolve(el);
+          };
+          el.addEventListener('click', handler);
+        };
+        check();
+      });
+    }
+
+    function waitForMenuItemClick(type) {
+      return new Promise(resolve => {
+        paneMenu.classList.add('tut-above-dim');
+        const targetItem = paneMenu.querySelector(`.menu-item[data-type="${type}"]`);
+        if (targetItem) targetItem.classList.add('tut-glow-item');
+        const handler = (e) => {
+          const menuItem = e.target.closest('.menu-item');
+          if (!menuItem || menuItem.dataset.type !== type) return;
+          if (targetItem) targetItem.classList.remove('tut-glow-item');
+          paneMenu.classList.remove('tut-above-dim');
+          paneMenu.removeEventListener('click', handler);
+          paneMenu.classList.add('hidden');
+          resolve(menuItem.dataset.type);
+        };
+        paneMenu.addEventListener('click', handler);
+      });
+    }
+
+    // Wait for user to press the keyboard shortcut for a menu item
+    function waitForMenuShortcut(type) {
+      return new Promise(resolve => {
+        paneMenu.classList.add('tut-above-dim');
+        const targetItem = paneMenu.querySelector(`.menu-item[data-type="${type}"]`);
+        const shortcut = targetItem ? targetItem.dataset.shortcut : type.charAt(0);
+        if (targetItem) targetItem.classList.add('tut-glow-item');
+        const handler = (e) => {
+          if (e.key.toLowerCase() !== shortcut) return;
+          e.preventDefault();
+          if (targetItem) targetItem.classList.remove('tut-glow-item');
+          paneMenu.classList.remove('tut-above-dim');
+          document.removeEventListener('keydown', handler);
+          paneMenu.classList.add('hidden');
+          resolve(type);
+        };
+        document.addEventListener('keydown', handler);
+      });
+    }
+
+    function waitForDrag(paneData, minDist) {
+      return new Promise(resolve => {
+        const startX = paneData.x, startY = paneData.y;
+        paneData._onDragEnd = () => {
+          const dx = paneData.x - startX, dy = paneData.y - startY;
+          if (Math.sqrt(dx * dx + dy * dy) >= minDist) {
+            delete paneData._onDragEnd;
+            resolve();
+          }
+        };
+      });
+    }
+
+    function waitForResize(paneData, minChange) {
+      return new Promise(resolve => {
+        const startW = paneData.width, startH = paneData.height;
+        paneData._onResizeEnd = () => {
+          if (Math.abs(paneData.width - startW) >= minChange || Math.abs(paneData.height - startH) >= minChange) {
+            delete paneData._onResizeEnd;
+            resolve();
+          }
+        };
+      });
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  Ctrl+/- PANE ZOOM (matching app.js)
+    // ═════════════════════════════════════════════════
+    let focusedPaneId = null;
+
+    canvas.addEventListener('mousedown', (e) => {
+      const paneEl = e.target.closest('.pane');
+      // Remove old focus
+      canvas.querySelectorAll('.pane.focused').forEach(p => p.classList.remove('focused'));
+      if (paneEl) {
+        paneEl.classList.add('focused');
+        focusedPaneId = paneEl.dataset.paneId;
+      } else {
+        focusedPaneId = null;
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const isPlus = e.key === '=' || e.key === '+';
+      const isMinus = e.key === '-';
+      if (!isPlus && !isMinus) return;
+
+      e.preventDefault();
+      const focusedEl = canvas.querySelector('.pane.focused');
+      if (focusedEl) {
+        // Pane zoom
+        const pd = panes.find(p => p.id === focusedEl.dataset.paneId);
+        if (!pd) return;
+        if (!pd.zoomLevel) pd.zoomLevel = 100;
+        pd.zoomLevel = isPlus ? Math.min(500, pd.zoomLevel + 10) : Math.max(20, pd.zoomLevel - 10);
+        const scale = pd.zoomLevel / 100;
+        // Apply zoom per pane type
+        if (pd.type === 'terminal') {
+          const tc = focusedEl.querySelector('.tut-term-content');
+          if (tc) tc.style.zoom = scale === 1 ? '' : scale;
+        } else if (pd.type === 'file') {
+          const fc = focusedEl.querySelector('.tut-file-code');
+          const fl = focusedEl.querySelector('.tut-file-lines');
+          if (fc) fc.style.fontSize = `${Math.round(13 * scale)}px`;
+          if (fl) fl.style.fontSize = `${Math.round(13 * scale)}px`;
+        } else if (pd.type === 'git-graph') {
+          const go = focusedEl.querySelector('.git-graph-output');
+          if (go) go.style.fontSize = `${Math.round(12 * scale)}px`;
+        }
+      } else {
+        // Canvas zoom
+        const factor = isPlus ? 1.2 : 1 / 1.2;
+        setZoom(zoom * factor, window.innerWidth / 2, window.innerHeight / 2);
+      }
+    });
+
+
+    // ═════════════════════════════════════════════════
+    //  ADDITIVE MENU (show only relevant items)
+    // ═════════════════════════════════════════════════
+    function showMenuItems(types) {
+      paneMenu.querySelectorAll('.menu-item').forEach(item => {
+        item.style.display = types.includes(item.dataset.type) ? '' : 'none';
+      });
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  FILE BROWSER MODAL (matching real app)
+    // ═════════════════════════════════════════════════
+
+    // Glow style for highlighted nav items inside modals
+    const GLOW_STYLE = 'box-shadow:0 0 12px rgba(99,102,241,0.5),0 0 30px rgba(139,92,246,0.2),inset 0 0 6px rgba(99,102,241,0.1);border-radius:6px;';
+
+    function showFileBrowserModal() {
+      return new Promise(resolve => {
+        // Fake file tree — target is ~/projects/49agents/main.py
+        const tree = {
+          '~': [
+            { name: 'projects', type: 'dir', highlight: true },
+            { name: '.config', type: 'dir' },
+            { name: '.bashrc', type: 'file', size: '2.1 KB' },
+          ],
+          '~/projects': [
+            { name: '49agents', type: 'dir', highlight: true },
+            { name: 'notes', type: 'dir' },
+          ],
+          '~/projects/49agents': [
+            { name: 'main.py', type: 'file', size: '2.8 KB', highlight: true },
+            { name: 'src', type: 'dir' },
+            { name: 'package.json', type: 'file', size: '1.4 KB' },
+            { name: 'tsconfig.json', type: 'file', size: '0.8 KB' },
+          ],
+          '~/projects/49agents/src': [
+            { name: 'auth.ts', type: 'file', size: '1.2 KB' },
+            { name: 'server.ts', type: 'file', size: '3.4 KB' },
+            { name: 'utils', type: 'dir' },
+          ],
+        };
+
+        let currentPath = '~';
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100002;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
+
+        const browser = document.createElement('div');
+        browser.style.cssText = 'width:500px;max-width:90vw;max-height:70vh;background:rgba(15,20,35,0.98);border:1px solid rgba(99,102,241,0.3);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);';
+
+        const header = document.createElement('div');
+        header.style.cssText = 'padding:12px 16px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;flex-shrink:0;';
+        header.innerHTML = '<span class="device-label" style="font-size:10px;">alp-dev-server</span><span style="flex:1;font-size:14px;font-weight:600;color:rgba(255,255,255,0.9);">Browse Files</span><button style="background:rgba(78,201,176,0.15);border:1px solid rgba(78,201,176,0.3);color:#4ec9b0;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;">+ New File</button>';
+
+        const breadcrumb = document.createElement('div');
+        breadcrumb.style.cssText = 'padding:8px 16px;background:rgba(0,0,0,0.15);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:4px;flex-shrink:0;overflow-x:auto;font-size:12px;font-family:"JetBrains Mono",monospace;';
+
+        const content = document.createElement('div');
+        content.className = 'tc-scrollbar';
+        content.style.cssText = 'flex:1;overflow-y:auto;padding:4px 0;min-height:200px;';
+
+        browser.append(header, breadcrumb, content);
+        overlay.appendChild(browser);
+        document.body.appendChild(overlay);
+
+        function renderBreadcrumb(path) {
+          let html = '';
+          if (path.startsWith('~')) {
+            html += '<span style="cursor:pointer;color:rgba(255,255,255,0.6);" data-path="~">~</span>';
+            const rest = path.slice(2).split('/').filter(Boolean);
+            let accumulated = '~';
+            for (const p of rest) {
+              accumulated += '/' + p;
+              html += '<span style="color:rgba(255,255,255,0.2);margin:0 2px;">/</span>';
+              html += `<span style="cursor:pointer;color:rgba(255,255,255,0.6);" data-path="${accumulated}">${p}</span>`;
+            }
+          }
+          breadcrumb.innerHTML = html;
+          breadcrumb.querySelectorAll('[data-path]').forEach(el => {
+            el.addEventListener('click', () => navigateTo(el.dataset.path));
+          });
+        }
+
+        function navigateTo(path) {
+          currentPath = path;
+          renderBreadcrumb(path);
+          const items = tree[path] || [];
+          let html = '';
+
+          // Parent nav
+          if (path !== '~') {
+            const parent = path.split('/').slice(0, -1).join('/') || '~';
+            html += `<div data-nav-item data-dir="${parent}" style="padding:7px 16px;cursor:pointer;transition:background 0.1s;font-size:13px;display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.5);">
+              <span style="width:18px;text-align:center;">..</span>
+              <span>Parent folder</span>
+            </div>`;
+          }
+
+          for (const item of items) {
+            const fullPath = path + '/' + item.name;
+            const glowAttr = item.highlight ? ` style="padding:7px 16px;cursor:pointer;transition:background 0.1s,box-shadow 0.3s;font-size:13px;display:flex;align-items:center;gap:10px;${GLOW_STYLE}animation:tut-glow-pulse-purple 1.5s ease-in-out infinite;"` : ` style="padding:7px 16px;cursor:pointer;transition:background 0.1s;font-size:13px;display:flex;align-items:center;gap:10px;"`;
+            if (item.type === 'dir') {
+              html += `<div data-nav-item data-dir="${fullPath}"${glowAttr}>
+                <span style="width:18px;text-align:center;font-size:14px;">📁</span>
+                <span style="color:rgba(255,255,255,0.85);">${item.name}</span>
+              </div>`;
+            } else {
+              html += `<div data-nav-item data-file="${fullPath}"${glowAttr}>
+                <span style="width:18px;text-align:center;font-size:14px;">📄</span>
+                <span style="color:rgba(255,255,255,0.85);flex:1;">${item.name}</span>
+                <span style="color:rgba(255,255,255,0.25);font-size:11px;font-family:'JetBrains Mono',monospace;">${item.size}</span>
+              </div>`;
+            }
+          }
+
+          content.innerHTML = html;
+
+          // Hover effects (non-highlighted items only)
+          content.querySelectorAll('[data-nav-item]').forEach(el => {
+            if (!el.style.animation) {
+              el.addEventListener('mouseenter', () => { el.style.background = 'rgba(99,102,241,0.15)'; });
+              el.addEventListener('mouseleave', () => { el.style.background = ''; });
+            }
+          });
+
+          // Dir navigation
+          content.querySelectorAll('[data-dir]').forEach(el => {
+            el.addEventListener('click', () => navigateTo(el.dataset.dir));
+          });
+
+          // File selection
+          content.querySelectorAll('[data-file]').forEach(el => {
+            el.addEventListener('click', () => {
+              overlay.remove();
+              resolve(el.dataset.file);
+            });
+          });
+        }
+
+        // Close on overlay bg click — don't close, just refresh
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) navigateTo(currentPath);
+        });
+
+        navigateTo('~');
+      });
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  GIT REPO PICKER MODAL (matching real app)
+    // ═════════════════════════════════════════════════
+
+    function showGitRepoPickerModal() {
+      return new Promise(resolve => {
+        // Folder tree with highlight markers for the path user should follow
+        const folderTree = {
+          '~': [
+            { name: 'projects', highlight: true },
+            { name: '.config', highlight: false },
+          ],
+          '~/projects': [
+            { name: '49agents', highlight: true },
+            { name: 'notes', highlight: false },
+          ],
+          '~/projects/49agents': [],
+        };
+
+        let currentPath = '~';
+        let scanned = false;
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100002;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
+
+        const browser = document.createElement('div');
+        browser.style.cssText = 'width:500px;max-width:90vw;max-height:70vh;background:rgba(15,20,35,0.98);border:1px solid rgba(99,102,241,0.3);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);';
+
+        const header = document.createElement('div');
+        header.style.cssText = 'padding:12px 16px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;flex-shrink:0;';
+        header.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="opacity:0.7;"><circle cx="7" cy="6" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="7" cy="18" r="2.5"/><line x1="7" y1="8.5" x2="7" y2="15.5" stroke="currentColor" stroke-width="2"/><path d="M17 8.5c0 4-10 4-10 7" stroke="currentColor" stroke-width="2" fill="none"/></svg><span class="device-label" style="font-size:10px;">alp-dev-server</span><span style="flex:1;font-size:14px;font-weight:600;color:rgba(255,255,255,0.9);">Choose Folder</span>';
+
+        const breadcrumb = document.createElement('div');
+        breadcrumb.style.cssText = 'padding:8px 16px;background:rgba(0,0,0,0.15);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:4px;flex-shrink:0;overflow-x:auto;font-size:12px;font-family:"JetBrains Mono",monospace;';
+
+        const content = document.createElement('div');
+        content.className = 'tc-scrollbar';
+        content.style.cssText = 'flex:1;overflow-y:auto;padding:4px 0;min-height:200px;';
+
+        browser.append(header, breadcrumb, content);
+        overlay.appendChild(browser);
+        document.body.appendChild(overlay);
+
+        function renderBreadcrumb(path) {
+          let html = '';
+          if (path.startsWith('~')) {
+            html += '<span style="cursor:pointer;color:rgba(255,255,255,0.6);" data-path="~">~</span>';
+            const rest = path.slice(2).split('/').filter(Boolean);
+            let acc = '~';
+            for (const p of rest) {
+              acc += '/' + p;
+              html += '<span style="color:rgba(255,255,255,0.2);margin:0 2px;">/</span>';
+              html += `<span style="cursor:pointer;color:rgba(255,255,255,0.6);" data-path="${acc}">${p}</span>`;
+            }
+          }
+          breadcrumb.innerHTML = html;
+          breadcrumb.querySelectorAll('[data-path]').forEach(el => {
+            el.addEventListener('click', () => { scanned = false; navigateFolder(el.dataset.path); });
+          });
+        }
+
+        function navigateFolder(path) {
+          currentPath = path;
+          renderBreadcrumb(path);
+          const folders = folderTree[path] || [];
+          let html = '';
+
+          // Parent
+          if (path !== '~') {
+            const parent = path.split('/').slice(0, -1).join('/') || '~';
+            html += `<div data-nav-item data-dir="${parent}" style="padding:7px 16px;cursor:pointer;transition:background 0.1s;font-size:13px;display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.5);">
+              <span style="width:18px;text-align:center;">..</span><span>Parent folder</span>
+            </div>`;
+          }
+
+          // Scan button — glow when user is in the target folder (~/projects/49agents)
+          const isTargetFolder = (path === '~/projects/49agents');
+          const scanGlow = isTargetFolder ? `${GLOW_STYLE}animation:tut-glow-pulse-purple 1.5s ease-in-out infinite;` : '';
+          html += `<div id="tut-scan-btn" data-nav-item style="display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;transition:background 0.1s,box-shadow 0.3s;font-size:13px;background:rgba(99,102,241,0.1);border-bottom:1px solid rgba(255,255,255,0.05);${scanGlow}">
+            <span style="color:#da7756;">✓</span>
+            <span style="color:#a5b4fc;font-weight:500;">Scan this folder for repos</span>
+          </div>`;
+
+          // Folders — highlighted items get glow
+          for (const f of folders) {
+            const fp = path + '/' + f.name;
+            const glowAttr = f.highlight ? `${GLOW_STYLE}animation:tut-glow-pulse-purple 1.5s ease-in-out infinite;` : '';
+            html += `<div data-nav-item data-dir="${fp}" style="padding:7px 16px;cursor:pointer;transition:background 0.1s,box-shadow 0.3s;font-size:13px;display:flex;align-items:center;gap:10px;${glowAttr}">
+              <span style="width:18px;text-align:center;font-size:14px;">📁</span>
+              <span style="color:rgba(255,255,255,0.85);">${f.name}</span>
+            </div>`;
+          }
+
+          content.innerHTML = html;
+
+          // Hover (non-glowing items only)
+          content.querySelectorAll('[data-nav-item]').forEach(el => {
+            if (!el.style.animation) {
+              el.addEventListener('mouseenter', () => { el.style.background = 'rgba(99,102,241,0.15)'; });
+              el.addEventListener('mouseleave', () => { el.style.background = el.id === 'tut-scan-btn' ? 'rgba(99,102,241,0.1)' : ''; });
+            }
+          });
+
+          // Dir nav
+          content.querySelectorAll('[data-dir]').forEach(el => {
+            el.addEventListener('click', () => { scanned = false; navigateFolder(el.dataset.dir); });
+          });
+
+          // Scan button
+          const scanBtn = content.querySelector('#tut-scan-btn');
+          if (scanBtn) {
+            scanBtn.addEventListener('click', async () => {
+              scanned = true;
+              await showScanResults();
+            });
+          }
+        }
+
+        async function showScanResults() {
+          // Show scanning UI
+          const toggleBar = document.createElement('div');
+          toggleBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.05);';
+
+          const backBtn = document.createElement('button');
+          backBtn.style.cssText = 'background:none;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);padding:3px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-family:inherit;';
+          backBtn.textContent = '← Back';
+          backBtn.addEventListener('click', () => { scanned = false; navigateFolder(currentPath); });
+
+          const scanStatus = document.createElement('span');
+          scanStatus.style.cssText = 'flex:1;font-size:11px;color:rgba(255,255,255,0.5);';
+          scanStatus.textContent = 'Scanning...';
+
+          toggleBar.append(backBtn, scanStatus);
+
+          const repoList = document.createElement('div');
+          repoList.style.cssText = 'flex:1;overflow-y:auto;padding:4px 0;';
+
+          content.innerHTML = '';
+          content.appendChild(toggleBar);
+          content.appendChild(repoList);
+
+          // Simulate progressive scan
+          const fakeRepos = [
+            { name: '49agents', path: '~/projects/49agents', branch: 'master' },
+          ];
+
+          await sleep(600);
+          scanStatus.textContent = 'Scanning... (1 found)';
+
+          for (const repo of fakeRepos) {
+            const item = document.createElement('div');
+            item.setAttribute('data-nav-item', '');
+            // Glow the repo result item to guide user to click it
+            item.style.cssText = `padding:9px 16px;cursor:pointer;transition:background 0.1s,box-shadow 0.3s;font-size:13px;display:flex;align-items:center;gap:10px;${GLOW_STYLE}animation:tut-glow-pulse-purple 1.5s ease-in-out infinite;`;
+            item.innerHTML = `
+              <span style="color:#f97583;font-size:8px;">●</span>
+              <span style="flex:1;">
+                <span style="font-weight:600;color:rgba(255,255,255,0.9);">${repo.name}</span>
+                <span style="display:block;font-size:11px;color:rgba(255,255,255,0.35);font-family:'JetBrains Mono',monospace;">${repo.path}</span>
+              </span>
+              <span style="color:#4ec9b0;font-size:11px;font-weight:500;font-family:'JetBrains Mono',monospace;">${repo.branch}</span>`;
+            item.addEventListener('click', () => {
+              overlay.remove();
+              resolve(repo);
+            });
+            repoList.appendChild(item);
+          }
+
+          await sleep(400);
+          scanStatus.textContent = `${fakeRepos.length} repos`;
+        }
+
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) navigateFolder(currentPath);
+        });
+
+        navigateFolder('~');
+      });
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  TYPEWRITER EFFECT
+    // ═════════════════════════════════════════════════
+
+    function typeInto(textarea, text) {
+      return new Promise(async (resolve) => {
+        textarea.value = '';
+        for (let i = 0; i < text.length; i++) {
+          textarea.value += text[i];
+          textarea.scrollTop = textarea.scrollHeight;
+          const delay = Math.random() * 40 + 30; // 30-70ms
+          await sleep(delay);
+        }
+        resolve();
+      });
+    }
+
+
+    // ═════════════════════════════════════════════════
+    //  WAIT FOR ZOOM OUT
+    // ═════════════════════════════════════════════════
+
+    function waitForZoomOut(threshold) {
+      return new Promise(resolve => {
+        if (zoom <= threshold) { resolve(); return; }
+        const checkInterval = setInterval(() => {
+          if (zoom <= threshold) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+
+
+    // ═══ BROADCAST MODE HELPERS ═══
+    const broadcastSelected = new Set();
+
+    function addBroadcastSelect(paneId) {
+      broadcastSelected.add(paneId);
+      const el = document.getElementById('pane-' + paneId);
+      if (el) el.classList.add('broadcast-selected');
+      updateBroadcastIndicator();
+    }
+
+    function removeBroadcastSelect(paneId) {
+      broadcastSelected.delete(paneId);
+      const el = document.getElementById('pane-' + paneId);
+      if (el) el.classList.remove('broadcast-selected');
+      updateBroadcastIndicator();
+    }
+
+    function clearBroadcastSelect() {
+      broadcastSelected.forEach(id => {
+        const el = document.getElementById('pane-' + id);
+        if (el) el.classList.remove('broadcast-selected');
+      });
+      broadcastSelected.clear();
+      updateBroadcastIndicator();
+    }
+
+    function updateBroadcastIndicator() {
+      let indicator = document.getElementById('broadcast-indicator');
+      if (broadcastSelected.size >= 2) {
+        if (!indicator) {
+          indicator = document.createElement('div');
+          indicator.id = 'broadcast-indicator';
+          indicator.className = 'broadcast-indicator';
+          document.body.appendChild(indicator);
+        }
+        indicator.innerHTML = `<span class="broadcast-icon">◉</span> BROADCAST — ${broadcastSelected.size} panes`;
+        indicator.style.display = 'flex';
+      } else {
+        if (indicator) indicator.style.display = 'none';
+      }
+    }
+
+    // Wait for user to shift+click N panes (any part of the pane)
+    function waitForBroadcastSelect(minCount) {
+      return new Promise(resolve => {
+        const handler = (e) => {
+          if (!e.shiftKey) return;
+          const paneEl = e.target.closest('.pane');
+          if (!paneEl) return;
+          const id = paneEl.dataset.paneId;
+          if (broadcastSelected.has(id)) {
+            removeBroadcastSelect(id);
+          } else {
+            addBroadcastSelect(id);
+          }
+          if (broadcastSelected.size >= minCount) {
+            canvas.removeEventListener('click', handler, true);
+            resolve();
+          }
+        };
+        canvas.addEventListener('click', handler, true);
+      });
+    }
+
+    // Wait for user to type something while broadcast is active
+    function waitForBroadcastType() {
+      return new Promise(resolve => {
+        let typed = '';
+        const handler = (e) => {
+          if (e.key.length !== 1) return; // only printable chars
+          typed += e.key;
+          // Show typed text in all broadcast-selected terminals
+          broadcastSelected.forEach(id => {
+            const el = document.getElementById('pane-' + id);
+            if (!el) return;
+            const tc = el.querySelector('.tut-term-content');
+            if (!tc) return;
+            // Append or update the broadcast line
+            let bcastLine = tc.querySelector('.broadcast-typed');
+            if (!bcastLine) {
+              bcastLine = document.createElement('div');
+              bcastLine.className = 't-line broadcast-typed';
+              bcastLine.innerHTML = '<span class="t-prompt">$</span> <span class="t-cmd broadcast-cmd"></span>';
+              tc.appendChild(bcastLine);
+              tc.scrollTop = tc.scrollHeight;
+            }
+            bcastLine.querySelector('.broadcast-cmd').textContent = typed;
+          });
+          if (typed.length >= 3) {
+            document.removeEventListener('keydown', handler);
+            resolve();
+          }
+        };
+        document.addEventListener('keydown', handler);
+      });
+    }
+
+    // Wait for shift+drag selection rectangle
+    function waitForDragSelect(minCount) {
+      return new Promise(resolve => {
+        let rect = null;
+        let startX, startY;
+
+        const downHandler = (e) => {
+          if (!e.shiftKey || e.target.closest('.pane')) return;
+          startX = e.clientX;
+          startY = e.clientY;
+          rect = document.createElement('div');
+          rect.id = 'tut-selection-rect';
+          rect.style.cssText = 'position:fixed;border:1px solid rgba(255,200,0,0.6);background:rgba(255,200,0,0.08);z-index:99999;pointer-events:none;';
+          document.body.appendChild(rect);
+          e.preventDefault();
+
+          const moveHandler = (me) => {
+            const x = Math.min(startX, me.clientX);
+            const y = Math.min(startY, me.clientY);
+            const w = Math.abs(me.clientX - startX);
+            const h = Math.abs(me.clientY - startY);
+            rect.style.left = x + 'px';
+            rect.style.top = y + 'px';
+            rect.style.width = w + 'px';
+            rect.style.height = h + 'px';
+          };
+
+          const upHandler = () => {
+            document.removeEventListener('mousemove', moveHandler);
+            document.removeEventListener('mouseup', upHandler);
+            // Check which panes intersect the rectangle
+            const rr = rect.getBoundingClientRect();
+            rect.remove();
+            rect = null;
+
+            clearBroadcastSelect();
+            panes.forEach(p => {
+              const pel = p.el.getBoundingClientRect();
+              if (pel.right > rr.left && pel.left < rr.right && pel.bottom > rr.top && pel.top < rr.bottom) {
+                addBroadcastSelect(p.id);
+              }
+            });
+
+            if (broadcastSelected.size >= minCount) {
+              canvasContainer.removeEventListener('mousedown', downHandler);
+              resolve();
+            }
+          };
+
+          document.addEventListener('mousemove', moveHandler);
+          document.addEventListener('mouseup', upHandler);
+        };
+
+        canvasContainer.addEventListener('mousedown', downHandler);
+      });
+    }
+
+    // Wait for Esc to clear broadcast
+    function waitForEscClear() {
+      return new Promise(resolve => {
+        const handler = (e) => {
+          if (e.key === 'Escape') {
+            clearBroadcastSelect();
+            document.removeEventListener('keydown', handler);
+            resolve();
+          }
+        };
+        document.addEventListener('keydown', handler);
+      });
+    }
+
+    // Wait for user to drag any broadcast-selected pane (grouped drag)
+    function waitForBroadcastDrag(minDist) {
+      return new Promise(resolve => {
+        const check = () => {
+          broadcastSelected.forEach(id => {
+            const p = panes.find(pp => pp.id === id);
+            if (p) {
+              const origEnd = p._onDragEnd;
+              p._onDragEnd = () => {
+                if (origEnd) origEnd();
+                resolve();
+              };
+            }
+          });
+        };
+        // Set up drag-end hooks on all selected panes
+        check();
+      });
+    }
+
+    // Wait for Tab+H to hide HUD
+    function waitForTabH() {
+      return new Promise(resolve => {
+        let tabHeld = false;
+        const down = (e) => {
+          if (e.key === 'Tab') { tabHeld = true; e.preventDefault(); }
+          if (e.key === 'h' && tabHeld) {
+            e.preventDefault();
+            const hud = document.getElementById('hud-container');
+            if (hud) hud.style.display = hud.style.display === 'none' ? '' : 'none';
+            document.removeEventListener('keydown', down);
+            document.removeEventListener('keyup', up);
+            resolve();
+          }
+        };
+        const up = (e) => { if (e.key === 'Tab') tabHeld = false; };
+        document.addEventListener('keydown', down);
+        document.addEventListener('keyup', up);
+      });
+    }
+
+
+    // ═══ MOVE MODE HELPERS ═══
+    let moveModeActive = false;
+    let moveModePaneIdx = 0;
+
+    function applyMoveModeVisuals() {
+      panes.forEach((p, i) => {
+        p.el.classList.remove('move-mode-active', 'move-mode-dimmed');
+        // Remove old overlays
+        const old = p.el.querySelector('.pane-hover-overlay');
+        if (old) old.remove();
+
+        if (i === moveModePaneIdx) {
+          p.el.classList.add('move-mode-active');
+        } else {
+          p.el.classList.add('move-mode-dimmed');
+          const overlay = document.createElement('div');
+          overlay.className = 'pane-hover-overlay';
+          overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:5;pointer-events:none;border-radius:inherit;';
+          p.el.appendChild(overlay);
+        }
+      });
+    }
+
+    function showMoveModeIndicator() {
+      let indicator = document.getElementById('move-mode-indicator');
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'move-mode-indicator';
+        indicator.className = 'move-mode-indicator';
+        document.body.appendChild(indicator);
+      }
+      indicator.innerHTML = '<span class="move-mode-indicator-icon">⇄</span> MOVE — WASD to navigate, Enter to select, Esc to cancel';
+      indicator.style.display = 'flex';
+    }
+
+    function hideMoveModeIndicator() {
+      const indicator = document.getElementById('move-mode-indicator');
+      if (indicator) indicator.style.display = 'none';
+    }
+
+    function exitMoveMode() {
+      moveModeActive = false;
+      panes.forEach(p => {
+        p.el.classList.remove('move-mode-active', 'move-mode-dimmed');
+        const ov = p.el.querySelector('.pane-hover-overlay');
+        if (ov) ov.remove();
+      });
+      hideMoveModeIndicator();
+      document.body.classList.remove('cursor-suppressed');
+    }
+
+    // Wait for double-tap Tab
+    function waitForMoveMode() {
+      return new Promise(resolve => {
+        let lastTabUp = 0;
+        const handler = (e) => {
+          if (e.key !== 'Tab') return;
+          e.preventDefault();
+          const now = Date.now();
+          if (now - lastTabUp < 400) {
+            document.removeEventListener('keyup', handler);
+            // Clear broadcast selection when entering move mode
+            clearBroadcastSelect();
+            // Enter move mode
+            moveModeActive = true;
+            moveModePaneIdx = 0;
+            document.body.classList.add('cursor-suppressed');
+            showMoveModeIndicator();
+            applyMoveModeVisuals();
+            resolve();
+          }
+          lastTabUp = now;
+        };
+        document.addEventListener('keyup', handler);
+      });
+    }
+
+    // Wait for N WASD navigations
+    function waitForWASDNav(minCount) {
+      return new Promise(resolve => {
+        let count = 0;
+        const handler = (e) => {
+          const key = e.key.toLowerCase();
+          let delta = 0;
+          if (key === 'd' || key === 'arrowright' || key === 's' || key === 'arrowdown') delta = 1;
+          else if (key === 'a' || key === 'arrowleft' || key === 'w' || key === 'arrowup') delta = -1;
+          if (delta === 0) return;
+          e.preventDefault();
+          moveModePaneIdx = (moveModePaneIdx + delta + panes.length) % panes.length;
+          applyMoveModeVisuals();
+          count++;
+          if (count >= minCount) {
+            document.removeEventListener('keydown', handler);
+            resolve();
+          }
+        };
+        document.addEventListener('keydown', handler);
+      });
+    }
+
+    // Wait for Enter to select pane and exit move mode
+    function waitForEnterSelect() {
+      return new Promise(resolve => {
+        const handler = (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const selected = panes[moveModePaneIdx];
+          exitMoveMode();
+          if (selected) {
+            selected.el.classList.add('focused');
+            canvas.querySelectorAll('.pane.focused').forEach(p => {
+              if (p !== selected.el) p.classList.remove('focused');
+            });
+          }
+          document.removeEventListener('keydown', handler);
+          resolve();
+        };
+        document.addEventListener('keydown', handler);
+      });
+    }
+
+    // Wait for Tab+W to close a pane
+    function waitForTabW() {
+      return new Promise(resolve => {
+        let tabHeld = false;
+        const downHandler = (e) => {
+          if (e.key === 'Tab') { tabHeld = true; e.preventDefault(); }
+          if (e.key === 'w' && tabHeld) {
+            e.preventDefault();
+            // Close the focused pane (or last pane)
+            const focused = canvas.querySelector('.pane.focused');
+            const targetId = focused ? focused.dataset.paneId : (panes.length > 0 ? panes[panes.length - 1].id : null);
+            if (targetId) {
+              const idx = panes.findIndex(p => p.id === targetId);
+              if (idx !== -1) {
+                panes[idx].el.remove();
+                panes.splice(idx, 1);
+                updateHudCounts();
+              }
+            }
+            document.removeEventListener('keydown', downHandler);
+            document.removeEventListener('keyup', upHandler);
+            resolve();
+          }
+        };
+        const upHandler = (e) => {
+          if (e.key === 'Tab') tabHeld = false;
+        };
+        document.addEventListener('keydown', downHandler);
+        document.addEventListener('keyup', upHandler);
+      });
+    }
+
+    // Wait for Tab+A to open the pane menu
+    function waitForTabA() {
+      return new Promise(resolve => {
+        let tabHeld = false;
+        const down = (e) => {
+          if (e.key === 'Tab') { tabHeld = true; e.preventDefault(); }
+          if (e.key === 'a' && tabHeld) {
+            e.preventDefault();
+            paneMenu.classList.remove('hidden');
+            document.removeEventListener('keydown', down);
+            document.removeEventListener('keyup', up);
+            resolve();
+          }
+        };
+        const up = (e) => { if (e.key === 'Tab') tabHeld = false; };
+        document.addEventListener('keydown', down);
+        document.addEventListener('keyup', up);
+      });
+    }
+
+
+    // ═══ GUIDE ROUTING ═══
+    const guideParam = new URLSearchParams(window.location.search).get('guide') || 'getting-started';
+
+    // Update welcome text per guide
+    const welcomeTexts = {
+      'getting-started': { title: '49Agents', sub: 'Your remote dev machines, one canvas away.<br>Let\'s walk through setting up your workspace.' },
+      'panes': { title: 'Panes & Navigation', sub: 'Learn broadcast mode, WASD navigation, and pane management.' },
+    };
+    const wt = welcomeTexts[guideParam] || welcomeTexts['getting-started'];
+    document.querySelector('.tut-logo').textContent = wt.title;
+    document.querySelector('.tut-sub').innerHTML = wt.sub;
+
+    // Update completion text per guide
+    const completionTexts = {
+      'getting-started': { title: "You're all set", sub: "You've seen the core features. Now connect your machine and start building." },
+      'panes': { title: 'Navigation mastered', sub: 'You now know broadcast mode, WASD pane navigation, and multi-placement.' },
+    };
+    const ct = completionTexts[guideParam] || completionTexts['getting-started'];
+    document.querySelector('.tut-complete-title').textContent = ct.title;
+    document.querySelector('.tut-complete-sub').textContent = ct.sub;
+
+    // Home button visibility
+    const tutHomeBtn = document.getElementById('tut-home-btn');
+    const isFirstTime = localStorage.getItem('tc_tutorial') === null;
+
+    if (guideParam !== 'getting-started') {
+      // Non-getting-started guides: always show
+      tutHomeBtn.style.display = 'flex';
+    } else if (isFirstTime) {
+      // First-time user on getting-started: keep hidden
+      tutHomeBtn.style.display = 'none';
+    } else {
+      // Returning user re-doing getting-started: show only if logged in
+      tutHomeBtn.style.display = 'none';
+      fetch('/api/preferences', { credentials: 'include' })
+        .then(resp => { if (resp.ok) tutHomeBtn.style.display = 'flex'; })
+        .catch(() => {});
+    }
+
+    // Build ctx object with all shared helpers
+    const controls = document.getElementById('controls');
+    const ctx = {
+      showPrompt, hidePrompt, sleep, waitForClick, waitForMenuItemClick, waitForMenuShortcut,
+      waitForDrag, waitForResize, waitForZoomOut, enterPlacementMode, enterShiftPlacementMode, typeInto,
+      createFakeTerminalPane, createFakeFilePane, createFakeGitGraphPane,
+      createHud, renderHudEmpty, renderHudWithDevice, createUsageHud, createFeedbackHud,
+      showMenuItems, showFileBrowserModal, showGitRepoPickerModal,
+      updateHudCounts, setZoom,
+      // Broadcast helpers
+      waitForBroadcastSelect, waitForBroadcastType, waitForDragSelect,
+      waitForEscClear, clearBroadcastSelect, waitForBroadcastDrag,
+      // Move mode helpers
+      waitForMoveMode, waitForWASDNav, waitForEnterSelect, waitForTabW,
+      // Hotkey helpers
+      waitForTabA, waitForTabH,
+      tutOverlay, tutDim, tutComplete, tutHomeBtn, addPaneBtn, paneMenu, controls, canvas, canvasContainer, tutPrompt,
+      panes, PANE_DEFAULTS,
+      get panX() { return panX; }, set panX(v) { panX = v; },
+      get panY() { return panY; }, set panY(v) { panY = v; },
+      get zoom() { return zoom; }, set zoom(v) { zoom = v; },
+      updateCanvasTransform,
+    };
+
+    const guide = window.TUT_GUIDES && window.TUT_GUIDES[guideParam];
+    if (guide) {
+      guide(ctx);
+    } else {
+      console.error('[Tutorial] Unknown guide:', guideParam);
+    }
+
+  })();
+  </script>
+
+</body>
+</html>

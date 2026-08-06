@@ -1,0 +1,8 @@
+.git
+node_modules
+cloud/node_modules
+agent/node_modules
+desktop
+scripts
+**/*.log
+.49agents

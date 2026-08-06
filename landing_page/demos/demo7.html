@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>49Agents — Not Another Terminal Tab</title>
+<meta name="description" content="Stop hunting for which terminal Claude is waiting in. 49Agents is an infinite 2D canvas for running parallel AI agents across multiple machines — spatial, persistent, and actually manageable.">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&family=Montserrat:wght@200;300&display=swap" rel="stylesheet">
+<style>
+  /* ─── Theme tokens ─── */
+  :root {
+    --accent:     #2dd4bf;
+    --accent-rgb: 45, 212, 191;
+    --accent-dim: rgba(45, 212, 191, 0.08);
+    --accent-glow: rgba(45, 212, 191, 0.4);
+  }
+
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  ::-webkit-scrollbar { width: 1px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb), 0.4); }
+  html { scrollbar-width: thin; scrollbar-color: rgba(var(--accent-rgb), 0.4) transparent; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #000;
+    color: #fff;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ─── NAV ─── */
+
+  .site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(5, 5, 9, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .site-nav-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-brand {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: color 0.2s ease;
+  }
+
+  .nav-brand:hover { color: #fff; }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.2s ease;
+    letter-spacing: -0.01em;
+  }
+
+  .nav-links a:hover { color: rgba(255, 255, 255, 0.75); }
+
+  .nav-links .nav-cta {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 0.82rem;
+    padding: 8px 22px;
+    border-radius: 999px;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+  }
+
+  .nav-links .nav-cta:hover {
+    color: #fff;
+    box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.3), 0 0 40px rgba(var(--accent-rgb), 0.1);
+    transform: translateY(-1px);
+  }
+
+  /* ─── HERO ─── */
+
+  .hero {
+    background: #000;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 24px 60px;
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 600px;
+    background: radial-gradient(ellipse at center, rgba(var(--accent-rgb), 0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: rgba(var(--accent-rgb), 0.8);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards 0.1s;
+  }
+
+  .hero-headline {
+    font-size: clamp(2rem, 5.5vw, 3.6rem);
+    font-weight: 200;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: rgba(255, 255, 255, 0.94);
+    max-width: 760px;
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards 0.25s;
+  }
+
+  .hero-headline em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero-sub {
+    font-size: 1.05rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.5);
+    max-width: 540px;
+    line-height: 1.7;
+    margin-bottom: 48px;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards 0.4s;
+  }
+
+  .hero-cta-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards 0.55s;
+  }
+
+  .btn-primary {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 14px 36px;
+    border-radius: 999px;
+    text-decoration: none;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.4), 0 0 60px rgba(var(--accent-rgb), 0.15);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost {
+    display: inline-block;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 13px 24px;
+    border-radius: 999px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .btn-ghost:hover {
+    color: rgba(255, 255, 255, 0.7);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .hero-context {
+    margin-top: 24px;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.22);
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards 0.7s;
+  }
+
+  .scroll-indicator {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: pulse-chevron 2.5s ease-in-out infinite;
+  }
+
+  .scroll-indicator svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: rgba(255,255,255,0.25);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @keyframes pulse-chevron {
+    0%, 100% { opacity: 0.3; transform: translateX(-50%) translateY(0); }
+    50% { opacity: 0.7; transform: translateX(-50%) translateY(4px); }
+  }
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── COMPARISON (Before / After) ─── */
+
+  .comparison {
+    background: #050509;
+    padding: 100px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: rgba(var(--accent-rgb), 0.6);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .section-heading {
+    font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+    font-weight: 200;
+    letter-spacing: -0.02em;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 56px;
+    text-align: center;
+    max-width: 540px;
+  }
+
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+    max-width: 900px;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .comparison-col {
+    padding: 36px 32px;
+  }
+
+  .comparison-col.before {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .comparison-col.after {
+    background: rgba(var(--accent-rgb), 0.04);
+    border-left: 1px solid rgba(var(--accent-rgb), 0.1);
+  }
+
+  .comparison-col-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .before .comparison-col-label { color: rgba(255, 255, 255, 0.25); }
+  .after .comparison-col-label  { color: var(--accent); }
+
+  .comparison-col-label .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .before .dot { background: rgba(255, 255, 255, 0.2); }
+  .after  .dot { background: var(--accent); }
+
+  .comparison-items {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .comparison-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .comparison-item-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .comparison-item-icon svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .before .comparison-item-icon svg { stroke: rgba(255, 255, 255, 0.2); }
+  .after  .comparison-item-icon svg { stroke: var(--accent); }
+
+  .comparison-item-text {
+    font-size: 0.87rem;
+    font-weight: 300;
+    line-height: 1.5;
+  }
+
+  .before .comparison-item-text { color: rgba(255, 255, 255, 0.4); }
+  .after  .comparison-item-text { color: rgba(255, 255, 255, 0.75); }
+
+  /* ─── INSTEAD OF / YOU GET ─── */
+
+  .tradeoffs {
+    background: #050509;
+    padding: 80px 24px 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .tradeoffs-inner {
+    max-width: 680px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .tradeoff-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  }
+
+  .tradeoff-row:first-child { border-top: 1px solid rgba(255, 255, 255, 0.04); }
+
+  .tradeoff-row.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .tradeoff-before {
+    font-size: 0.85rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.3);
+    line-height: 1.45;
+  }
+
+  .tradeoff-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .tradeoff-arrow svg {
+    width: 16px;
+    height: 16px;
+    stroke: rgba(var(--accent-rgb), 0.4);
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .tradeoff-after {
+    font-size: 0.87rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.45;
+  }
+
+  /* ─── FEATURES ─── */
+
+  .features {
+    background: #000;
+    padding: 100px 24px 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .features-inner {
+    max-width: 640px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 64px;
+  }
+
+  .feature {
+    display: flex;
+    gap: 20px;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .feature.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .feature-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(var(--accent-rgb), 0.08);
+    border: 1px solid rgba(var(--accent-rgb), 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .feature-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke: var(--accent);
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .feature-text h3 {
+    font-size: clamp(1rem, 2.2vw, 1.15rem);
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.35;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .feature-text p {
+    font-size: 0.83rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.6;
+  }
+
+  .feature-unique-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: rgba(var(--accent-rgb), 0.7);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-top: 8px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* ─── OPEN SOURCE / CREDIBILITY ─── */
+
+  .opensource {
+    background: #050509;
+    padding: 100px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .opensource-inner {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .opensource-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 6px 14px;
+    margin-bottom: 32px;
+  }
+
+  .opensource-badge svg {
+    width: 14px;
+    height: 14px;
+    fill: rgba(255, 255, 255, 0.3);
+  }
+
+  .opensource h2 {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 200;
+    letter-spacing: -0.02em;
+    color: rgba(255, 255, 255, 0.88);
+    margin-bottom: 16px;
+  }
+
+  .opensource p {
+    font-size: 0.88rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.7;
+    margin-bottom: 36px;
+  }
+
+  .opensource-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .opensource-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px 18px;
+    border-radius: 8px;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+
+  .opensource-link:hover {
+    color: rgba(255, 255, 255, 0.75);
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .opensource-link svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+
+  /* ─── PRICING ─── */
+
+  .pricing {
+    background: #050509;
+    padding: 80px 24px 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .pricing-inner {
+    max-width: 480px;
+    width: 100%;
+  }
+
+  .pricing-tier {
+    padding: 28px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .pricing-tier.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .pricing-tier:last-child {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .pricing-tier.pro {
+    background: rgba(var(--accent-rgb), 0.04);
+    margin: 0 -20px;
+    padding: 28px 20px;
+    border-radius: 8px;
+    border-top: none;
+    border-bottom: none;
+  }
+
+  .pricing-tier.pro + .pricing-tier {
+    border-top: none;
+  }
+
+  .tier-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .tier-name {
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .pro .tier-name { color: var(--accent); }
+
+  .tier-price {
+    font-size: 0.92rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .tier-desc {
+    font-size: 0.83rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.32);
+    line-height: 1.55;
+  }
+
+  /* ─── FINAL CTA ─── */
+
+  .final-cta {
+    background: #000;
+    padding: 120px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .final-cta h2 {
+    font-size: clamp(1.5rem, 3.5vw, 2.4rem);
+    font-weight: 200;
+    letter-spacing: -0.02em;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 40px;
+    max-width: 480px;
+    line-height: 1.3;
+  }
+
+  .final-cta-sub {
+    margin-top: 20px;
+    font-size: 0.78rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.25);
+  }
+
+  /* ─── FIXED FLOATING CTA ─── */
+
+  .floating-cta {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 200;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    pointer-events: none;
+  }
+
+  .floating-cta.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .floating-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 12px 22px;
+    border-radius: 999px;
+    text-decoration: none;
+    box-shadow: 0 4px 24px rgba(var(--accent-rgb), 0.35);
+    animation: pulse-glow 2.8s ease-in-out infinite;
+  }
+
+  .floating-cta-btn:hover {
+    box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.5), 0 4px 24px rgba(var(--accent-rgb), 0.35);
+    animation: none;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 4px 24px rgba(var(--accent-rgb), 0.35); }
+    50%       { box-shadow: 0 4px 32px rgba(var(--accent-rgb), 0.6), 0 0 48px rgba(var(--accent-rgb), 0.2); }
+  }
+
+  .floating-cta-btn svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: rgba(255,255,255,0.7);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ─── FOOTER ─── */
+
+  .footer {
+    background: #050509;
+    padding: 0 24px 32px;
+    text-align: center;
+  }
+
+  .footer-inner {
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .footer a {
+    color: rgba(255, 255, 255, 0.25);
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+
+  .footer a:hover { color: rgba(255, 255, 255, 0.45); }
+
+  .footer-dot {
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  /* ─── ANIMATIONS (shared) ─── */
+
+  .animate-on-scroll {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .animate-on-scroll.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── THEME PICKER ─── */
+
+  .theme-picker {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 9999;
+    background: rgba(10, 10, 18, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: opacity 0.2s ease;
+  }
+
+  .theme-picker.collapsed .theme-swatches {
+    display: none;
+  }
+
+  .theme-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .theme-picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.35);
+    user-select: none;
+  }
+
+  .theme-picker-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.25);
+    padding: 0;
+    font-size: 0.65rem;
+    line-height: 1;
+    transition: color 0.15s ease;
+  }
+
+  .theme-picker-toggle:hover {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .theme-swatches {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .theme-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: outline-color 0.15s ease, transform 0.1s ease;
+    flex-shrink: 0;
+  }
+
+  .theme-swatch:hover {
+    transform: scale(1.15);
+  }
+
+  .theme-swatch.active {
+    outline-color: rgba(255, 255, 255, 0.7);
+  }
+
+  /* ─── RESPONSIVE ─── */
+
+  @media (max-width: 640px) {
+    .site-nav-inner {
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 16px;
+    }
+
+    .nav-links {
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .hero {
+      padding: 60px 20px 60px;
+      min-height: auto;
+      padding-top: 80px;
+    }
+
+    .comparison-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .comparison-col.after {
+      border-left: none;
+      border-top: 1px solid rgba(var(--accent-rgb), 0.1);
+    }
+
+    .tradeoff-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .tradeoff-arrow { display: none; }
+
+    .tradeoff-before::after {
+      content: ' >';
+      color: rgba(var(--accent-rgb), 0.4);
+    }
+
+    .features-inner { gap: 48px; }
+
+    .floating-cta {
+      bottom: 16px;
+      right: 16px;
+    }
+
+    .final-cta {
+      padding: 80px 20px;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .hero-cta-group {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .btn-primary, .btn-ghost {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── NAV ─── -->
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a href="https://49agents.com" class="nav-brand">49Agents</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://app.49agents.com" class="nav-cta">Try it free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── HERO ─── -->
+<section class="hero">
+  <p class="hero-eyebrow">A different kind of terminal</p>
+  <h1 class="hero-headline">
+    Your AI agents don't belong<br>
+    in <em>tabs.</em>
+  </h1>
+  <p class="hero-sub">
+    When you're running Claude Code across five machines, you spend half your time just figuring out which terminal is waiting for you. 49Agents puts every agent, every machine, and every session on one infinite canvas — so you can see everything at once and actually get work done.
+  </p>
+  <div class="hero-cta-group">
+    <a href="https://app.49agents.com" class="btn-primary">Try it free</a>
+    <a href="https://github.com/49agents" class="btn-ghost">View on GitHub</a>
+  </div>
+  <p class="hero-context">Open source · Self-hostable · No credit card required</p>
+
+  <div class="scroll-indicator">
+    <svg viewBox="0 0 24 24">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ─── BEFORE / AFTER COMPARISON ─── -->
+<section class="comparison">
+  <p class="section-label animate-on-scroll">The real problem</p>
+  <h2 class="section-heading animate-on-scroll">Running parallel agents is chaos. Until now.</h2>
+
+  <div class="comparison-grid animate-on-scroll">
+    <div class="comparison-col before">
+      <div class="comparison-col-label">
+        <span class="dot"></span>
+        What you're doing now
+      </div>
+      <div class="comparison-items">
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="3" y1="9" x2="21" y2="9"/>
+              <line x1="9" y1="21" x2="9" y2="9"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            20 terminal tabs across 3 windows — no way to tell which one Claude is stuck in
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            SSH session drops on your home server, losing the entire context mid-run
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            Sharing state with a teammate means Slack messages and copy-pasted commands
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            No way to monitor CPU/memory across machines without separate dashboards
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+              <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+              <line x1="6" y1="1" x2="6" y2="4"/>
+              <line x1="10" y1="1" x2="10" y2="4"/>
+              <line x1="14" y1="1" x2="14" y2="4"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            Machine reboots wipe every conversation — start from scratch every time
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comparison-col after">
+      <div class="comparison-col-label">
+        <span class="dot"></span>
+        With 49Agents
+      </div>
+      <div class="comparison-items">
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M3 9h18"/>
+              <path d="M9 21V9"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            Every agent lives as a named card on a spatial canvas — glance and know exactly what's running where
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            Sessions persist through disconnects and reboots — reconnect and keep going
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            Teammates see the same canvas in real time — no Slack relay needed
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            Resource usage widgets live on the canvas, next to the terminals using those resources
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-item-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <div class="comparison-item-text">
+            Conversation history survives reboots — the agent picks up exactly where it left off
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── INSTEAD OF / YOU GET ─── -->
+<section class="tradeoffs">
+  <div class="tradeoffs-inner">
+    <p class="section-label animate-on-scroll" style="text-align:center;margin-bottom:40px;">What changes</p>
+
+    <div class="tradeoff-row">
+      <div class="tradeoff-before">tmux sessions you've memorised but can't share</div>
+      <div class="tradeoff-arrow">
+        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </div>
+      <div class="tradeoff-after">Named canvas regions — label, zoom, share with a link</div>
+    </div>
+
+    <div class="tradeoff-row">
+      <div class="tradeoff-before">SSH config files per machine, broken after every IP change</div>
+      <div class="tradeoff-arrow">
+        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </div>
+      <div class="tradeoff-after">Install the agent once per machine, connect instantly from anywhere</div>
+    </div>
+
+    <div class="tradeoff-row">
+      <div class="tradeoff-before">Notes in Notion, commands in Slack, git in a separate terminal</div>
+      <div class="tradeoff-arrow">
+        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </div>
+      <div class="tradeoff-after">Notes, git panels, and terminals together on the same surface</div>
+    </div>
+
+    <div class="tradeoff-row">
+      <div class="tradeoff-before">Desktop-only — phone means nothing until you're back at a keyboard</div>
+      <div class="tradeoff-arrow">
+        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </div>
+      <div class="tradeoff-after">Full canvas access from mobile — check, approve, redirect agents on the go</div>
+    </div>
+
+    <div class="tradeoff-row">
+      <div class="tradeoff-before">Context lost when the cloud bill arrives and you switch to self-hosting</div>
+      <div class="tradeoff-arrow">
+        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </div>
+      <div class="tradeoff-after">Self-host or cloud — same codebase, same data format, no lock-in</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── UNIQUE FEATURES ─── -->
+<section class="features" id="features">
+  <div class="features-inner">
+    <p class="section-label animate-on-scroll" style="text-align:center;">What makes it different</p>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <!-- infinite canvas -->
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div>
+      <div class="feature-text">
+        <h3>Infinite spatial canvas, not a tab strip</h3>
+        <p>Tabs and tmux panes are linear — you scroll left-right through a list. 49Agents is two-dimensional. Pin your staging server here, your prod fix there, your experiment cluster over there. Spatial memory is real and it works.</p>
+        <span class="feature-unique-tag">Only in 49Agents</span>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <!-- multi-machine -->
+        <svg viewBox="0 0 24 24">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+      </div>
+      <div class="feature-text">
+        <h3>Multiple machines, zero SSH config</h3>
+        <p>Run a lightweight agent process on any machine — cloud VM, home server, work laptop. No public IP required. They all appear as terminal cards on your canvas. Switch between them by panning, not by hunting for an SSH alias.</p>
+        <span class="feature-unique-tag">Only in 49Agents</span>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <!-- persistence -->
+        <svg viewBox="0 0 24 24">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div class="feature-text">
+        <h3>Sessions that survive reboots</h3>
+        <p>Close your laptop, reboot the server, lose power — your agent's conversation history stays intact. When it comes back online, the session reconnects automatically. No re-prompting, no lost context.</p>
+        <span class="feature-unique-tag">Only in 49Agents</span>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <!-- mobile -->
+        <svg viewBox="0 0 24 24">
+          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+          <line x1="12" y1="18" x2="12.01" y2="18"/>
+        </svg>
+      </div>
+      <div class="feature-text">
+        <h3>Mobile access to your full canvas</h3>
+        <p>Most terminal tools are desktop-only by design. 49Agents renders the full canvas in a mobile browser — pan around, check agent status, read output, send a message. Useful when a long-running job needs a nudge and you're nowhere near a keyboard.</p>
+        <span class="feature-unique-tag">Only in 49Agents</span>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <!-- resource monitoring -->
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+      </div>
+      <div class="feature-text">
+        <h3>Resource monitoring alongside your terminals</h3>
+        <p>CPU, memory, and disk widgets sit on the same canvas as the processes consuming them. No separate dashboard tab. Spot a runaway process, switch to the adjacent terminal, kill it — all without leaving the canvas.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <!-- git / notes -->
+        <svg viewBox="0 0 24 24">
+          <line x1="6" y1="3" x2="6" y2="15"/>
+          <circle cx="18" cy="6" r="3"/>
+          <circle cx="6" cy="18" r="3"/>
+          <path d="M18 9a9 9 0 0 1-9 9"/>
+        </svg>
+      </div>
+      <div class="feature-text">
+        <h3>Git panels and notes — no context switching</h3>
+        <p>Open a git panel next to the terminal doing the work. Drop a sticky note explaining a decision. Everything stays spatially related to the task it belongs to, so the next person (or future you) has context without asking.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── OPEN SOURCE / CREDIBILITY ─── -->
+<section class="opensource">
+  <div class="opensource-inner animate-on-scroll">
+    <div class="opensource-badge">
+      <!-- GitHub mark icon -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+      </svg>
+      MIT License · Open Source
+    </div>
+    <h2>Built in the open. Run it yourself.</h2>
+    <p>
+      49Agents is MIT-licensed and fully self-hostable. The server, the agent process, the canvas — all of it lives in a public repository. Audit the code, run it on your own infrastructure, or contribute. The cloud option at app.49agents.com exists for convenience, not necessity.
+    </p>
+    <div class="opensource-links">
+      <a href="https://github.com/49agents" class="opensource-link">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+        GitHub repository
+      </a>
+      <a href="../BUILD_GUIDE.md" class="opensource-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        Self-host guide
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PRICING ─── -->
+<section class="pricing" id="pricing">
+  <p class="section-label animate-on-scroll" style="text-align:center;margin-bottom:40px;">Simple pricing</p>
+  <div class="pricing-inner">
+    <div class="pricing-tier">
+      <div class="tier-header">
+        <span class="tier-name">Free</span>
+        <span class="tier-price">$0 / month</span>
+      </div>
+      <div class="tier-desc">Self-host for free, forever. Or use app.49agents.com with 1 connected machine and unlimited canvas space.</div>
+    </div>
+    <div class="pricing-tier pro">
+      <div class="tier-header">
+        <span class="tier-name">Pro</span>
+        <span class="tier-price">$8 / month</span>
+      </div>
+      <div class="tier-desc">Up to 10 connected machines, persistent session history, mobile access, priority support.</div>
+    </div>
+    <div class="pricing-tier">
+      <div class="tier-header">
+        <span class="tier-name">Team</span>
+        <span class="tier-price">$6 / seat / month</span>
+      </div>
+      <div class="tier-desc">Shared canvases, role-based access, shared machine connections. Minimum 3 seats.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FINAL CTA ─── -->
+<section class="final-cta">
+  <h2 class="animate-on-scroll">Start with the canvas.<br>You won't go back to tabs.</h2>
+  <a href="https://app.49agents.com" class="btn-primary animate-on-scroll">Try it free</a>
+  <p class="final-cta-sub animate-on-scroll">No credit card required · Self-host or cloud · MIT licensed</p>
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <span>49Agents</span>
+    <span class="footer-dot"></span>
+    <a href="https://49agents.com/security_privacy.html">Privacy</a>
+    <span class="footer-dot"></span>
+    <a href="https://github.com/49agents">GitHub</a>
+    <span class="footer-dot"></span>
+    <a href="https://app.49agents.com">app.49agents.com</a>
+  </div>
+</footer>
+
+<!-- ─── FLOATING CTA ─── -->
+<div class="floating-cta" id="floatingCta">
+  <a href="https://app.49agents.com" class="floating-cta-btn">
+    Try it out
+    <svg viewBox="0 0 24 24">
+      <line x1="5" y1="12" x2="19" y2="12"/>
+      <polyline points="12 5 19 12 12 19"/>
+    </svg>
+  </a>
+</div>
+
+<!-- ─── THEME PICKER ─── -->
+<div class="theme-picker" id="themePicker">
+  <div class="theme-picker-header">
+    <span class="theme-picker-label">Theme</span>
+    <button class="theme-picker-toggle" id="themeToggle" aria-label="Toggle theme picker">−</button>
+  </div>
+  <div class="theme-swatches" id="themeSwatches">
+    <button class="theme-swatch" data-theme="teal"    data-accent="#2dd4bf" data-rgb="45, 212, 191"   style="background:#2dd4bf"  title="Teal"    aria-label="Teal theme"></button>
+    <button class="theme-swatch" data-theme="amber"   data-accent="#f59e0b" data-rgb="245, 158, 11"   style="background:#f59e0b"  title="Amber"   aria-label="Amber theme"></button>
+    <button class="theme-swatch" data-theme="rose"    data-accent="#f43f5e" data-rgb="244, 63, 94"    style="background:#f43f5e"  title="Rose"    aria-label="Rose theme"></button>
+    <button class="theme-swatch" data-theme="sky"     data-accent="#38bdf8" data-rgb="56, 189, 248"   style="background:#38bdf8"  title="Sky"     aria-label="Sky theme"></button>
+    <button class="theme-swatch" data-theme="emerald" data-accent="#34d399" data-rgb="52, 211, 153"   style="background:#34d399"  title="Emerald" aria-label="Emerald theme"></button>
+    <button class="theme-swatch" data-theme="orange"  data-accent="#fb923c" data-rgb="251, 146, 60"   style="background:#fb923c"  title="Orange"  aria-label="Orange theme"></button>
+  </div>
+</div>
+
+<script>
+  // ─── Theme picker ───
+  (function() {
+    var root = document.documentElement;
+    var swatches = document.querySelectorAll('.theme-swatch');
+    var picker = document.getElementById('themePicker');
+    var toggle = document.getElementById('themeToggle');
+
+    function applyTheme(accent, rgb) {
+      root.style.setProperty('--accent', accent);
+      root.style.setProperty('--accent-rgb', rgb);
+      root.style.setProperty('--accent-dim', 'rgba(' + rgb + ', 0.08)');
+      root.style.setProperty('--accent-glow', 'rgba(' + rgb + ', 0.4)');
+    }
+
+    function setActive(themeName) {
+      swatches.forEach(function(s) {
+        s.classList.toggle('active', s.dataset.theme === themeName);
+      });
+    }
+
+    // Load saved theme
+    var saved = localStorage.getItem('49a-theme') || 'teal';
+    var savedSwatch = document.querySelector('[data-theme="' + saved + '"]');
+    if (savedSwatch) {
+      applyTheme(savedSwatch.dataset.accent, savedSwatch.dataset.rgb);
+      setActive(saved);
+    } else {
+      setActive('teal');
+    }
+
+    // Load collapsed state
+    if (localStorage.getItem('49a-theme-picker-collapsed') === '1') {
+      picker.classList.add('collapsed');
+      toggle.textContent = '+';
+    }
+
+    swatches.forEach(function(swatch) {
+      swatch.addEventListener('click', function() {
+        var accent = this.dataset.accent;
+        var rgb = this.dataset.rgb;
+        var theme = this.dataset.theme;
+        applyTheme(accent, rgb);
+        setActive(theme);
+        localStorage.setItem('49a-theme', theme);
+      });
+    });
+
+    toggle.addEventListener('click', function() {
+      var collapsed = picker.classList.toggle('collapsed');
+      toggle.textContent = collapsed ? '+' : '−';
+      localStorage.setItem('49a-theme-picker-collapsed', collapsed ? '1' : '0');
+    });
+  })();
+
+  // ─── IntersectionObserver: scroll animations ───
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+  );
+
+  document.querySelectorAll(
+    '.animate-on-scroll, .feature, .tradeoff-row, .pricing-tier'
+  ).forEach((el) => observer.observe(el));
+
+  // ─── Floating CTA: appears after features section enters view ───
+  const featuresSection = document.getElementById('features');
+  const floatingCta = document.getElementById('floatingCta');
+
+  const floatObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          floatingCta.classList.add('visible');
+        }
+      });
+    },
+    { threshold: 0.1 }
+  );
+
+  if (featuresSection) {
+    floatObserver.observe(featuresSection);
+  }
+
+  // ─── Stagger tradeoff rows ───
+  const tradeoffRows = document.querySelectorAll('.tradeoff-row');
+  const tradeoffObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const index = Array.from(tradeoffRows).indexOf(entry.target);
+          setTimeout(() => {
+            entry.target.classList.add('visible');
+          }, index * 80);
+        }
+      });
+    },
+    { threshold: 0.15 }
+  );
+
+  tradeoffRows.forEach((row) => tradeoffObserver.observe(row));
+
+  // ─── Stagger features ───
+  const featureEls = document.querySelectorAll('.feature');
+  const featureObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const index = Array.from(featureEls).indexOf(entry.target);
+          setTimeout(() => {
+            entry.target.classList.add('visible');
+          }, index * 60);
+        }
+      });
+    },
+    { threshold: 0.12 }
+  );
+
+  featureEls.forEach((el) => featureObserver.observe(el));
+</script>
+</body>
+</html>

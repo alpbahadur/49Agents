@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>49Agents — One canvas for every AI agent, every machine, every project</title>
+<meta name="description" content="Run Claude Code and other AI agents in parallel across all your machines. Manage terminals, git, notes, and resource usage from one infinite 2D canvas.">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&family=Montserrat:wght@200;300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --accent: #2dd4bf;
+  --accent-rgb: 45, 212, 191;
+  --accent-dim: rgba(45, 212, 191, 0.45);
+  --accent-glow: rgba(45, 212, 191, 0.12);
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar { width: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb), 0.5); }
+html { scrollbar-width: thin; scrollbar-color: rgba(var(--accent-rgb), 0.5) transparent; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #050509;
+  color: #fff;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* ─── SCROLL PROGRESS BAR ─── */
+#scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: var(--accent);
+  z-index: 1000;
+  transition: width 0.1s linear;
+}
+
+/* ─── NAV ─── */
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(5, 5, 9, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.site-nav-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-brand {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 200;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: rgba(255, 255, 255, 0.8); }
+
+.nav-cta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: rgba(var(--accent-rgb), 0.9) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  padding: 7px 16px;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s !important;
+}
+
+.nav-cta:hover {
+  background: rgba(var(--accent-rgb), 0.1) !important;
+  border-color: rgba(var(--accent-rgb), 0.6) !important;
+  color: var(--accent) !important;
+}
+
+/* ─── HERO ─── */
+.hero {
+  padding: 112px 32px 96px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: rgba(var(--accent-rgb), 0.75);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+
+.hero-headline {
+  font-family: 'Montserrat', sans-serif;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 300;
+  line-height: 1.15;
+  color: rgba(255, 255, 255, 0.95);
+  max-width: 720px;
+  margin-bottom: 24px;
+  letter-spacing: -0.01em;
+}
+
+.hero-headline em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.hero-subheadline {
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 560px;
+  line-height: 1.7;
+  margin-bottom: 40px;
+}
+
+.hero-cta {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 13px 28px;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+  letter-spacing: 0.01em;
+}
+
+.hero-cta:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.hero-secondary-link {
+  display: inline-block;
+  margin-left: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-decoration: none;
+  letter-spacing: 0.03em;
+  transition: color 0.2s;
+  vertical-align: middle;
+}
+
+.hero-secondary-link:hover { color: rgba(255, 255, 255, 0.7); }
+
+/* ─── CANVAS MOCK ─── */
+.canvas-mock {
+  max-width: 960px;
+  margin: 0 auto 96px;
+  padding: 0 32px;
+}
+
+.canvas-mock-inner {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+}
+
+.canvas-mock-bar {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mock-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.mock-dot-r { background: rgba(255, 80, 80, 0.4); }
+.mock-dot-y { background: rgba(255, 180, 50, 0.4); }
+.mock-dot-g { background: rgba(50, 200, 80, 0.4); }
+
+.mock-dot-spacer {
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.2);
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+.canvas-mock-grid {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  min-height: 280px;
+}
+
+.mock-card {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 5px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mock-card-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  color: rgba(var(--accent-rgb), 0.6);
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.mock-card-line {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin-bottom: 6px;
+}
+
+.mock-card-line.w40 { width: 40%; }
+.mock-card-line.w70 { width: 70%; }
+.mock-card-line.w55 { width: 55%; }
+.mock-card-line.w85 { width: 85%; }
+.mock-card-line.w30 { width: 30%; }
+.mock-card-line.w60 { width: 60%; }
+
+.mock-terminal-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.25);
+  line-height: 1.8;
+}
+
+.mock-terminal-line .prompt { color: rgba(var(--accent-rgb), 0.5); }
+.mock-terminal-line .ok { color: rgba(80, 200, 100, 0.5); }
+
+.mock-resource-bar-wrap {
+  margin-top: 8px;
+}
+
+.mock-resource-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  color: rgba(255, 255, 255, 0.2);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.mock-resource-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.mock-resource-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+/* ─── SECTION COMMON ─── */
+.section {
+  padding: 80px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.section-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ─── AUDIENCE STRIP ─── */
+.audience-strip {
+  padding: 48px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.audience-strip p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.35);
+  max-width: 640px;
+  line-height: 1.7;
+}
+
+.audience-strip p strong {
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 500;
+}
+
+/* ─── FEATURES ─── */
+.features-section {
+  padding: 96px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.features-section-headline {
+  font-family: 'Montserrat', sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 560px;
+  line-height: 1.3;
+  margin-bottom: 64px;
+  letter-spacing: -0.01em;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.feature-item {
+  padding: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.feature-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.feature-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  color: rgba(var(--accent-rgb), 0.45);
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+}
+
+.feature-headline {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+
+.feature-body {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.38);
+  line-height: 1.7;
+}
+
+/* ─── HOW IT WORKS ─── */
+.how-section {
+  padding: 80px 32px 96px;
+  max-width: 960px;
+  margin: 0 auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.how-headline {
+  font-family: 'Montserrat', sans-serif;
+  font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 480px;
+  line-height: 1.3;
+  margin-bottom: 56px;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.how-headline.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.how-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.how-step {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 24px;
+  padding: 28px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  opacity: 0;
+  transform: translateX(-12px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.how-step:last-child { border-bottom: none; }
+
+.how-step.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.step-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: rgba(var(--accent-rgb), 0.5);
+  padding-top: 3px;
+  letter-spacing: 0.04em;
+}
+
+.step-content h3 {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 6px;
+}
+
+.step-content p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.65;
+}
+
+.step-content code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: rgba(var(--accent-rgb), 0.7);
+  background: rgba(var(--accent-rgb), 0.08);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* ─── OPEN SOURCE CALLOUT ─── */
+.oss-section {
+  padding: 64px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.oss-inner {
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
+  border-radius: 6px;
+  padding: 40px 48px;
+  background: rgba(var(--accent-rgb), 0.03);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.oss-inner.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.oss-headline {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.oss-body {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.38);
+  line-height: 1.65;
+  max-width: 420px;
+}
+
+.oss-link {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: rgba(var(--accent-rgb), 0.8);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  padding: 10px 20px;
+  border-radius: 4px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.oss-link:hover {
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.55);
+}
+
+/* ─── PRICING ─── */
+.pricing-section {
+  padding: 96px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pricing-headline {
+  font-family: 'Montserrat', sans-serif;
+  font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 460px;
+  line-height: 1.3;
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.pricing-headline.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pricing-sub {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 48px;
+  line-height: 1.6;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.pricing-plan {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 32px;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.pricing-plan.featured {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  background: rgba(var(--accent-rgb), 0.04);
+}
+
+.pricing-plan.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.plan-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.plan-name.accent { color: rgba(var(--accent-rgb), 0.8); }
+
+.plan-price {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 2rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.plan-price span {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 300;
+}
+
+.plan-period {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 24px;
+}
+
+.plan-features {
+  list-style: none;
+  margin-bottom: 28px;
+}
+
+.plan-features li {
+  font-size: 0.83rem;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 5px 0;
+  line-height: 1.5;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.plan-features li::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.45);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.plan-cta {
+  display: block;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 10px 0;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.plan-cta-outline {
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.plan-cta-outline:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.plan-cta-primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid transparent;
+}
+
+.plan-cta-primary:hover { opacity: 0.85; }
+
+/* ─── FOOTER ─── */
+.site-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 48px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-brand {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 200;
+  color: rgba(255, 255, 255, 0.35);
+  text-decoration: none;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+
+.footer-links a {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.25);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover { color: rgba(255, 255, 255, 0.55); }
+
+/* ─── FLOATING CTA ─── */
+#floating-cta {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+#floating-cta.visible {
+  opacity: 1;
+  pointer-events: auto;
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+  50% { box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0.12); }
+}
+
+#floating-cta a {
+  display: block;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 12px 22px;
+  border-radius: 5px;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+#floating-cta a:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+/* ─── REVEAL ANIMATION HELPERS ─── */
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.reveal-scale.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 640px) {
+  .site-nav-inner { padding: 16px 20px; }
+  .nav-links { display: none; }
+  .hero { padding: 72px 20px 64px; }
+  .canvas-mock { padding: 0 20px; }
+  .canvas-mock-grid { grid-template-columns: 1fr; }
+  .section, .audience-strip, .features-section, .how-section,
+  .oss-section, .pricing-section { padding-left: 20px; padding-right: 20px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .oss-inner { grid-template-columns: 1fr; padding: 28px 24px; }
+  .site-footer { flex-direction: column; gap: 20px; text-align: center; }
+  #floating-cta { bottom: 20px; right: 20px; }
+  .hero-secondary-link { display: block; margin-left: 0; margin-top: 16px; }
+}
+
+@media (max-width: 768px) {
+  .features-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; gap: 12px; }
+}
+
+/* ─── THEME PICKER ─── */
+#theme-picker {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+#theme-picker-panel {
+  background: rgba(10, 10, 18, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#theme-picker-panel.collapsed {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(0.97);
+}
+
+#theme-picker-label {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.theme-swatches {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.theme-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.theme-swatch:hover { transform: scale(1.15); }
+
+.theme-swatch.active {
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+#theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: color 0.15s;
+  user-select: none;
+}
+
+#theme-toggle:hover { color: rgba(255, 255, 255, 0.65); }
+</style>
+</head>
+<body>
+
+<!-- Theme picker -->
+<div id="theme-picker">
+  <div id="theme-picker-panel">
+    <span id="theme-picker-label">Theme</span>
+    <div class="theme-swatches">
+      <div class="theme-swatch active" data-accent="#2dd4bf" data-rgb="45, 212, 191" style="background:#2dd4bf" title="Teal"></div>
+      <div class="theme-swatch" data-accent="#f59e0b" data-rgb="245, 158, 11" style="background:#f59e0b" title="Amber"></div>
+      <div class="theme-swatch" data-accent="#f43f5e" data-rgb="244, 63, 94" style="background:#f43f5e" title="Rose"></div>
+      <div class="theme-swatch" data-accent="#38bdf8" data-rgb="56, 189, 248" style="background:#38bdf8" title="Sky"></div>
+      <div class="theme-swatch" data-accent="#34d399" data-rgb="52, 211, 153" style="background:#34d399" title="Emerald"></div>
+      <div class="theme-swatch" data-accent="#fb923c" data-rgb="251, 146, 60" style="background:#fb923c" title="Orange"></div>
+    </div>
+    <button id="theme-toggle" title="Collapse theme picker">—</button>
+  </div>
+</div>
+
+<!-- Scroll progress indicator -->
+<div id="scroll-progress"></div>
+
+<!-- Floating CTA (appears after all features revealed) -->
+<div id="floating-cta">
+  <a href="https://app.49agents.com" target="_blank" rel="noopener">Try it out</a>
+</div>
+
+<!-- Nav -->
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a href="https://49agents.com" class="nav-brand">49Agents</a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">Setup</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="https://github.com/49agents/49agents" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://app.49agents.com" class="nav-cta">Open app</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <p class="hero-eyebrow">Open source &middot; Self-hostable &middot; Cloud at app.49agents.com</p>
+  <h1 class="hero-headline">
+    One canvas for every AI agent,<br>every machine, <em>every project</em>
+  </h1>
+  <p class="hero-subheadline">
+    Run Claude Code and other AI agents in parallel across every machine you own. Terminals, git, notes, and resource monitoring — all on a single infinite 2D canvas you can pan and zoom.
+  </p>
+  <a href="https://app.49agents.com" class="hero-cta">Start for free</a>
+  <a href="https://github.com/49agents/49agents" class="hero-secondary-link" target="_blank" rel="noopener">star on GitHub &rarr;</a>
+</section>
+
+<!-- Canvas Mock -->
+<div class="canvas-mock">
+  <div class="canvas-mock-inner">
+    <div class="canvas-mock-bar">
+      <div class="mock-dot mock-dot-r"></div>
+      <div class="mock-dot mock-dot-y"></div>
+      <div class="mock-dot mock-dot-g"></div>
+      <span class="mock-dot-spacer">49agents — infinite canvas</span>
+    </div>
+    <div class="canvas-mock-grid">
+      <!-- Terminal card -->
+      <div class="mock-card">
+        <div class="mock-card-label">TERMINAL &middot; dev-machine-1</div>
+        <div class="mock-terminal-line"><span class="prompt">$</span> claude --continue</div>
+        <div class="mock-terminal-line"><span class="ok">&#10003;</span> Refactored auth module</div>
+        <div class="mock-terminal-line"><span class="prompt">$</span> git push origin feat/auth</div>
+        <div class="mock-terminal-line"><span class="ok">&#10003;</span> pushed 3 commits</div>
+        <div class="mock-terminal-line"><span class="prompt">$</span> _</div>
+      </div>
+      <!-- Terminal card 2 -->
+      <div class="mock-card">
+        <div class="mock-card-label">TERMINAL &middot; dev-machine-2</div>
+        <div class="mock-terminal-line"><span class="prompt">$</span> claude "add unit tests"</div>
+        <div class="mock-terminal-line">&nbsp;&nbsp;Running tests...</div>
+        <div class="mock-terminal-line"><span class="ok">&#10003;</span> 24 passed, 0 failed</div>
+        <div class="mock-terminal-line"><span class="prompt">$</span> npm run build</div>
+        <div class="mock-terminal-line">&nbsp;&nbsp;Building... 98%</div>
+      </div>
+      <!-- Resources card -->
+      <div class="mock-card">
+        <div class="mock-card-label">RESOURCES &middot; all machines</div>
+        <div class="mock-resource-bar-wrap">
+          <div class="mock-resource-label"><span>dev-machine-1 CPU</span><span>42%</span></div>
+          <div class="mock-resource-track"><div class="mock-resource-fill" style="width:42%"></div></div>
+          <div class="mock-resource-label"><span>dev-machine-2 CPU</span><span>78%</span></div>
+          <div class="mock-resource-track"><div class="mock-resource-fill" style="width:78%"></div></div>
+          <div class="mock-resource-label"><span>dev-machine-1 RAM</span><span>5.2 GB</span></div>
+          <div class="mock-resource-track"><div class="mock-resource-fill" style="width:65%"></div></div>
+          <div class="mock-resource-label"><span>dev-machine-2 RAM</span><span>3.1 GB</span></div>
+          <div class="mock-resource-track"><div class="mock-resource-fill" style="width:39%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Audience strip -->
+<div class="audience-strip">
+  <p>
+    Built for <strong>developers running multiple AI coding agents</strong> — people who open the same terminal across three machines and lose track of which agent did what.
+    If you use Claude Code, Cursor, or any CLI-based AI agent and you work across more than one machine, this is for you.
+  </p>
+</div>
+
+<!-- Features -->
+<section class="features-section" id="features">
+  <h2 class="features-section-headline reveal-scale">
+    See everything your agents are doing — without switching windows
+  </h2>
+  <div class="features-grid">
+    <div class="feature-item" data-feature-index="0">
+      <div class="feature-number">01</div>
+      <h3 class="feature-headline">Never lose a terminal again</h3>
+      <p class="feature-body">Every terminal from every machine lives on the canvas. Pan to it, zoom in, scroll back through history. No more SSH tabs, no more guessing which window has the agent you care about.</p>
+    </div>
+    <div class="feature-item" data-feature-index="1">
+      <div class="feature-number">02</div>
+      <h3 class="feature-headline">All your machines, zero SSH commands</h3>
+      <p class="feature-body">Add a machine by running one command on it. After that, terminals, files, and resource stats appear on your canvas automatically — no VPN, no port forwarding, no config files.</p>
+    </div>
+    <div class="feature-item" data-feature-index="2">
+      <div class="feature-number">03</div>
+      <h3 class="feature-headline">Push code without leaving the canvas</h3>
+      <p class="feature-body">The git panel shows diffs, branch status, and lets you stage, commit, and push from the canvas. Your agent works in one panel; you review and ship from the next one over.</p>
+    </div>
+    <div class="feature-item" data-feature-index="3">
+      <div class="feature-number">04</div>
+      <h3 class="feature-headline">Know when a machine is about to choke</h3>
+      <p class="feature-body">CPU, RAM, and disk for every connected machine update live on the canvas. You see which agent is burning resources before it slows everything else down.</p>
+    </div>
+    <div class="feature-item" data-feature-index="4">
+      <div class="feature-number">05</div>
+      <h3 class="feature-headline">Notes that stay next to the work</h3>
+      <p class="feature-body">Sticky notes live on the canvas alongside your terminals. Write the agent's goal next to the terminal it's running in. Stop maintaining a separate doc to remember what each agent is doing.</p>
+    </div>
+    <div class="feature-item" data-feature-index="5">
+      <div class="feature-number">06</div>
+      <h3 class="feature-headline">Run it on your own hardware, keep your data</h3>
+      <p class="feature-body">Self-host with a single Docker command. Your terminal output and agent sessions never leave your network. The cloud version at app.49agents.com is there when you don't want to maintain infrastructure.</p>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="how-section" id="how-it-works">
+  <h2 class="how-headline">
+    One command to start, works on any machine you own
+  </h2>
+  <div class="how-steps">
+    <div class="how-step" data-step-index="0">
+      <div class="step-num">01</div>
+      <div class="step-content">
+        <h3>Open the canvas</h3>
+        <p>Go to <code>app.49agents.com</code> or self-host with <code>docker run 49agents/49agents</code>. You get an empty infinite canvas — ready to fill with machines and terminals.</p>
+      </div>
+    </div>
+    <div class="how-step" data-step-index="1">
+      <div class="step-num">02</div>
+      <div class="step-content">
+        <h3>Connect a machine in 30 seconds</h3>
+        <p>Run <code>npx 49agents connect</code> on any machine — laptop, server, cloud VM. It appears on your canvas. Repeat for every machine you want to manage.</p>
+      </div>
+    </div>
+    <div class="how-step" data-step-index="2">
+      <div class="step-num">03</div>
+      <div class="step-content">
+        <h3>Start AI agents, watch them run in parallel</h3>
+        <p>Open terminals from the canvas and launch Claude Code or any CLI agent in each one. Pan across the canvas to see all of them running simultaneously.</p>
+      </div>
+    </div>
+    <div class="how-step" data-step-index="3">
+      <div class="step-num">04</div>
+      <div class="step-content">
+        <h3>Review, commit, and stay in control</h3>
+        <p>Use git panels to review diffs from each agent. Commit and push without leaving the canvas. Add notes to capture decisions while the context is fresh.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OSS callout -->
+<section class="oss-section">
+  <div class="oss-inner" id="oss-callout">
+    <div>
+      <h2 class="oss-headline">Free and open source — inspect it, fork it, self-host it</h2>
+      <p class="oss-body">The full source is on GitHub under an open license. Run it on your own hardware, contribute features, or just read the code and verify nothing unexpected is happening with your terminal output.</p>
+    </div>
+    <a href="https://github.com/49agents/49agents" class="oss-link" target="_blank" rel="noopener">View on GitHub &rarr;</a>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing-section" id="pricing">
+  <h2 class="pricing-headline">Simple pricing — or self-host for free</h2>
+  <p class="pricing-sub">Cloud hosting at app.49agents.com. No per-agent fees, no usage limits on terminals.</p>
+  <div class="pricing-grid">
+    <div class="pricing-plan" data-plan-index="0">
+      <div class="plan-name">Free</div>
+      <div class="plan-price">$0</div>
+      <div class="plan-period">forever</div>
+      <ul class="plan-features">
+        <li>Up to 2 connected machines</li>
+        <li>Unlimited terminals</li>
+        <li>Git panels</li>
+        <li>Notes on canvas</li>
+        <li>Resource monitoring</li>
+      </ul>
+      <a href="https://app.49agents.com" class="plan-cta plan-cta-outline">Get started</a>
+    </div>
+    <div class="pricing-plan featured" data-plan-index="1">
+      <div class="plan-name accent">Pro</div>
+      <div class="plan-price">$8 <span>/ mo</span></div>
+      <div class="plan-period">billed monthly</div>
+      <ul class="plan-features">
+        <li>Unlimited machines</li>
+        <li>Unlimited terminals</li>
+        <li>Canvas snapshots &amp; history</li>
+        <li>Priority support</li>
+        <li>Everything in Free</li>
+      </ul>
+      <a href="https://app.49agents.com" class="plan-cta plan-cta-primary">Start Pro</a>
+    </div>
+    <div class="pricing-plan" data-plan-index="2">
+      <div class="plan-name">Team</div>
+      <div class="plan-price">$6 <span>/ seat / mo</span></div>
+      <div class="plan-period">billed monthly, min 3 seats</div>
+      <ul class="plan-features">
+        <li>Shared canvases</li>
+        <li>Team machine groups</li>
+        <li>Centralized billing</li>
+        <li>SSO (coming soon)</li>
+        <li>Everything in Pro</li>
+      </ul>
+      <a href="https://app.49agents.com" class="plan-cta plan-cta-outline">Start Team</a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="site-footer">
+    <a href="https://49agents.com" class="footer-brand">49Agents</a>
+    <ul class="footer-links">
+      <li><a href="https://49agents.com/security_privacy.html">Privacy</a></li>
+      <li><a href="https://github.com/49agents/49agents" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://49agents.com/changelogs.html">Changelog</a></li>
+      <li><a href="mailto:hello@49agents.com">Contact</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // ─── Theme picker ───
+  var root = document.documentElement;
+  var swatches = document.querySelectorAll('.theme-swatch');
+  var panel = document.getElementById('theme-picker-panel');
+  var toggleBtn = document.getElementById('theme-toggle');
+  var collapsed = false;
+
+  function applyTheme(accent, rgb) {
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-rgb', rgb);
+    root.style.setProperty('--accent-dim', 'rgba(' + rgb + ', 0.45)');
+    root.style.setProperty('--accent-glow', 'rgba(' + rgb + ', 0.12)');
+  }
+
+  function setActiveSwatch(el) {
+    swatches.forEach(function (s) { s.classList.remove('active'); });
+    el.classList.add('active');
+  }
+
+  swatches.forEach(function (swatch) {
+    swatch.addEventListener('click', function () {
+      var accent = swatch.getAttribute('data-accent');
+      var rgb = swatch.getAttribute('data-rgb');
+      applyTheme(accent, rgb);
+      setActiveSwatch(swatch);
+      localStorage.setItem('49agents-theme-accent', accent);
+      localStorage.setItem('49agents-theme-rgb', rgb);
+    });
+  });
+
+  toggleBtn.addEventListener('click', function () {
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    toggleBtn.textContent = collapsed ? '+' : '—';
+  });
+
+  // Restore saved theme
+  var savedAccent = localStorage.getItem('49agents-theme-accent');
+  var savedRgb = localStorage.getItem('49agents-theme-rgb');
+  if (savedAccent && savedRgb) {
+    applyTheme(savedAccent, savedRgb);
+    swatches.forEach(function (s) {
+      if (s.getAttribute('data-accent') === savedAccent) {
+        setActiveSwatch(s);
+      }
+    });
+  }
+
+  // ─── Scroll progress bar ───
+  var progressBar = document.getElementById('scroll-progress');
+  function updateProgress() {
+    var scrollTop = window.scrollY || document.documentElement.scrollTop;
+    var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    var pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    progressBar.style.width = pct + '%';
+  }
+  window.addEventListener('scroll', updateProgress, { passive: true });
+
+  // ─── IntersectionObserver: feature items ───
+  var featureItems = document.querySelectorAll('.feature-item');
+  var totalFeatures = featureItems.length;
+  var revealedFeatures = 0;
+  var floatingCta = document.getElementById('floating-cta');
+
+  var featureObserver = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting && !entry.target.classList.contains('visible')) {
+        var idx = parseInt(entry.target.getAttribute('data-feature-index'), 10);
+        setTimeout(function () {
+          entry.target.classList.add('visible');
+          revealedFeatures++;
+          if (revealedFeatures >= totalFeatures) {
+            // All features revealed — show floating CTA
+            setTimeout(function () {
+              floatingCta.classList.add('visible');
+            }, 400);
+          }
+        }, idx * 90);
+        featureObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  featureItems.forEach(function (el) {
+    featureObserver.observe(el);
+  });
+
+  // ─── IntersectionObserver: how-it-works steps ───
+  var howHeadline = document.querySelector('.how-headline');
+  var howSteps = document.querySelectorAll('.how-step');
+
+  var headlineObserver = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        headlineObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.2 });
+
+  if (howHeadline) headlineObserver.observe(howHeadline);
+
+  var stepObserver = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting && !entry.target.classList.contains('visible')) {
+        var idx = parseInt(entry.target.getAttribute('data-step-index'), 10);
+        setTimeout(function () {
+          entry.target.classList.add('visible');
+        }, idx * 100);
+        stepObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.2 });
+
+  howSteps.forEach(function (el) { stepObserver.observe(el); });
+
+  // ─── IntersectionObserver: reveal-scale elements ───
+  var revealScaleEls = document.querySelectorAll('.reveal-scale');
+  var genericObserver = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        genericObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.2 });
+  revealScaleEls.forEach(function (el) { genericObserver.observe(el); });
+
+  // ─── IntersectionObserver: pricing headline ───
+  var pricingHeadline = document.querySelector('.pricing-headline');
+  var pricingPlans = document.querySelectorAll('.pricing-plan');
+
+  var pricingHeadlineObs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        pricingHeadlineObs.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.2 });
+  if (pricingHeadline) pricingHeadlineObs.observe(pricingHeadline);
+
+  var planObserver = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting && !entry.target.classList.contains('visible')) {
+        var idx = parseInt(entry.target.getAttribute('data-plan-index'), 10);
+        setTimeout(function () {
+          entry.target.classList.add('visible');
+        }, idx * 100);
+        planObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  pricingPlans.forEach(function (el) { planObserver.observe(el); });
+
+  // ─── IntersectionObserver: OSS callout ───
+  var ossCallout = document.getElementById('oss-callout');
+  if (ossCallout) {
+    var ossObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          ossObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.2 });
+    ossObserver.observe(ossCallout);
+  }
+})();
+</script>
+</body>
+</html>
