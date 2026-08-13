@@ -312,6 +312,11 @@ body.minimap-hidden #controls {
   flex-direction: column;
 }
 
+.pane.terminal-drop-target {
+  border: 2px dashed rgba(120, 180, 255, 0.9);
+  box-shadow: 0 0 0 2px rgba(120, 180, 255, 0.25) inset;
+}
+
 .pane-header {
   height: 32px;
   background: rgba(0, 0, 0, 0.3);

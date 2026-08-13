@@ -17,7 +17,8 @@ import { readdirSync, statSync, readFileSync, writeFileSync, existsSync, unlinkS
 
 const execAsync = promisify(exec);
 import { join, basename, resolve } from 'path';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
+import { randomBytes } from 'crypto';
 
 // Get local hostname
 let localHostname = 'localhost';
@@ -195,6 +196,38 @@ export function createMessageRouter(sendToRelay, options = {}) {
 
     [MSG.TERMINAL_INPUT]: (payload) => {
       terminalManager.sendInput(payload.terminalId, payload.data);
+    },
+
+    // Dropped/pasted images arrive as base64 over the WS channel (browser
+    // paste/drop events can't carry real image bytes through xterm's
+    // bracketed-paste text-only path). Write to a temp file and inject its
+    // path wrapped in a bracketed-paste block (ESC[200~ ... ESC[201~) —
+    // Claude Code's readline only runs its "is this a pasted image path"
+    // check on bracketed-paste content, not on plain typed keystrokes,
+    // which is why a real OS-level drag-drop (which also arrives as a
+    // bracketed paste) triggers the [Image #N] attachment and bare typed
+    // text doesn't.
+    [MSG.TERMINAL_PASTE_IMAGE]: (payload) => {
+      const EXT_BY_MIME = {
+        'image/png': 'png',
+        'image/jpeg': 'jpg',
+        'image/gif': 'gif',
+        'image/webp': 'webp',
+      };
+      const ext = EXT_BY_MIME[payload.mimeType];
+      if (!ext) return;
+
+      const filePath = join(tmpdir(), `49agents-paste-${randomBytes(6).toString('hex')}.${ext}`);
+      try {
+        writeFileSync(filePath, Buffer.from(payload.imageData, 'base64'));
+      } catch (error) {
+        console.error('[messageRouter] Failed to write pasted image:', error.message);
+        return;
+      }
+
+      const bracketed = `\x1b[200~${filePath}\x1b[201~`;
+      const encoded = Buffer.from(bracketed, 'utf-8').toString('base64');
+      terminalManager.sendInput(payload.terminalId, encoded);
     },
 
     [MSG.TERMINAL_RESIZE]: (payload) => {
