@@ -247,10 +247,44 @@ ExecStart=${process.execPath} ${join(__dirname, '49-agent.js')} start
 Restart=always
 RestartSec=5
 Environment=HOME=${process.env.HOME}
-User=${process.env.USER}
+
+# The agent spawns ttyd, which spawns tmux, in which the user runs everything.
+# All of that lands in this unit's cgroup, so the unit's lifecycle governs the
+# user's entire interactive session rather than just the connector.
+#
+# systemd's default OOMPolicy is "stop": if ANY process in the cgroup is
+# OOM-killed, systemd stops the unit — and KillMode's default "control-group"
+# then kills every remaining process in it. A single browser tab dying to the
+# kernel's global OOM killer therefore takes down every terminal, every agent
+# session running inside them, and any background work they had scheduled.
+# That is not hypothetical: it happened on 2026-08-13, where one Chrome
+# renderer launched by a browser MCP server cost 50 processes and five pending
+# timers.
+#
+# "continue" logs the child's death and leaves the unit running. It is
+# RAM-independent and correct on every host, which is why it is set here and
+# memory limits are not.
+OOMPolicy=continue
+
+# Deliberately NOT set here:
+#
+#   MemoryMax= / MemoryHigh=  A limit can only be sized against the host's RAM
+#     and the user's workload. Hardcoding one would be wrong on a 4GB VPS and
+#     arbitrary on a 64GB workstation. To add one, measure first:
+#       systemctl --user show 49-agent -p MemoryPeak
+#     then set MemoryMax well above that peak, and never below it. Note a
+#     cgroup OOM picks the largest process in the cgroup, which is usually the
+#     user's own session rather than the runaway that caused the pressure.
+#
+#   KillMode=process/mixed  Both leave ttyd holding ports 7700-7799 after a
+#     stop; "mixed" still SIGKILLs the whole cgroup once TimeoutStopSec
+#     expires, so neither actually protects the terminals.
+#
+#   OOMScoreAdjust  Inherited by every child, so a negative value shields the
+#     whole session and pushes the kernel to kill sshd or the VPN instead.
 
 [Install]
-WantedBy=multi-user.target`;
+WantedBy=default.target`;
 
     const servicePath = join(process.env.HOME, '.config', 'systemd', 'user', '49-agent.service');
     console.log('[49-agent] To install as a systemd user service:');
