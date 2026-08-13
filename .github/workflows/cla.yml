@@ -7,7 +7,11 @@ on:
     types: [opened, closed, synchronize]
 
 permissions:
-  contents: read
+  # The action commits signatures/cla.json onto the cla-signatures branch, so
+  # read is not enough -- with it the run dies on "Resource not accessible by
+  # integration" before it ever evaluates whether anyone signed, which pins the
+  # required check red and makes main unmergeable for everyone.
+  contents: write
   pull-requests: write
   statuses: write
 
@@ -28,7 +32,10 @@ jobs:
           path-to-signatures: 'signatures/cla.json'
           path-to-document: 'https://github.com/49Agents/49Agents/blob/main/CLA.md'
           branch: 'cla-signatures'
-          allowlist: 'bot*,dependabot*'
+          # Maintainers are exempt: alpbahadur holds the copyright the CLA
+          # grants rights to, so self-signing is a no-op, and MYRADhub is
+          # covered outside this workflow.
+          allowlist: 'alpbahadur,MYRADhub,bot*,dependabot*'
           custom-notsigned-prcomment: |
             Thank you for your contribution! Before we can merge this PR, you need to sign our [Contributor License Agreement](https://github.com/49Agents/49Agents/blob/main/CLA.md).
 
