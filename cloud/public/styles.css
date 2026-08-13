@@ -3874,35 +3874,35 @@ body.minimap-hidden #controls {
 }
 
 .usage-reset-icon {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   flex-shrink: 0;
-  opacity: 0.35;
+  opacity: 0.65;
 }
 
 .usage-reset-time {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.85);
   flex: 1;
   font-family: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
 }
 
 .usage-pct {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   font-family: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
   flex-shrink: 0;
 }
 
-.usage-pct.low { color: rgba(16, 185, 129, 0.9); }
-.usage-pct.medium { color: rgba(245, 178, 11, 0.9); }
-.usage-pct.high { color: rgba(239, 68, 68, 0.95); }
+.usage-pct.low { color: #34d399; }
+.usage-pct.medium { color: #fbbf24; }
+.usage-pct.high { color: #f87171; }
 
 .usage-bar-track {
   width: 100%;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.08);
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -3929,8 +3929,8 @@ body.minimap-hidden #controls {
 }
 
 .usage-period {
-  font-size: 8px;
-  color: rgba(255, 255, 255, 0.12);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
   font-family: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
   margin-top: 2px;
 }

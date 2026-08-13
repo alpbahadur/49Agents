@@ -78,15 +78,17 @@ app.use(
           "'unsafe-inline'",  // Required for Monaco AMD loader config in index.html
           "https://cdnjs.cloudflare.com",
           "https://cdn.jsdelivr.net",
+          "blob:",  // Monaco web workers + extension scripts
         ],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-        fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "data:"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
-        connectSrc: ["'self'", "ws:", "wss:"],
+        connectSrc: ["'self'", "ws:", "wss:", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
         workerSrc: ["'self'", "blob:"],  // Monaco web workers
-        frameSrc: ["'self'", "https:"],  // Iframe panes
+        frameSrc: ["'self'", "https:", "http:"],  // Iframe panes (allow HTTP for LAN)
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
+        upgradeInsecureRequests: null,  // Disable HTTPS forcing for LAN/Tailscale HTTP access
       },
     },
     crossOriginEmbedderPolicy: false, // Allow embedding iframes in the canvas
