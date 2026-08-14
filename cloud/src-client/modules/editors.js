@@ -360,7 +360,7 @@ export function setupFileEditorListeners(paneEl, paneData) {
       const content = monacoEditor.getValue();
 
       // Check if we have a native file handle for direct save
-      const fileHandle = fileHandles.get(paneData.id);
+      const fileHandle = _ctx.fileHandles.get(paneData.id);
       if (fileHandle) {
         const writable = await fileHandle.createWritable();
         await writable.write(content);
