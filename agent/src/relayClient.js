@@ -72,6 +72,9 @@ export class RelayClient extends EventEmitter {
       hostname: os.hostname(),
       os: process.platform,
       version: config.version,
+      // Lets a dev-mode cloud server tell apart several agents running on the
+      // same machine (one per local instance) instead of treating them as one.
+      instanceKey: config.instanceKey,
     });
   }
 

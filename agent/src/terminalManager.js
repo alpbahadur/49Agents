@@ -2,12 +2,17 @@ import { EventEmitter } from 'events';
 import { spawn, execSync } from 'child_process';
 import WebSocket from 'ws';
 import { tmuxService } from '../services/tmux.js';
+import { config } from './config.js';
 
 // Track ttyd processes by tmux session
 const ttydProcesses = new Map();
 const usedPorts = new Set();
-const BASE_PORT = 7700;
-const MAX_PORT = 7799;
+
+// Each instance owns a distinct slice of the ttyd range. Startup cleanup below
+// reclaims ports in this slice only, so starting a second instance cannot kill
+// the terminals of one already running.
+const BASE_PORT = config.ttydPortRange.start;
+const MAX_PORT = config.ttydPortRange.end;
 
 // Track active terminal connections: terminalId -> { ttydWs, emitter }
 const activeTerminals = new Map();
