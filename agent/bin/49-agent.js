@@ -98,22 +98,13 @@ async function handleStart() {
 
   // Foreground mode
   let token = loadToken();
-  let cloudUrl;
-
-  // Priority: TC_CLOUD_URL env var > saved cloud-url file > default
-  if (process.env.TC_CLOUD_URL) {
-    cloudUrl = process.env.TC_CLOUD_URL;
-  } else {
-    const cloudUrlFile = join(config.configDir, 'cloud-url');
-    if (existsSync(cloudUrlFile)) {
-      cloudUrl = readFileSync(cloudUrlFile, 'utf-8').trim();
-    }
-  }
+  // config.cloudUrl already applies the priority: TC_CLOUD_URL env var >
+  // saved cloud-url file for this instance > local default.
+  const cloudUrl = config.cloudUrl;
 
   if (!token) {
     // No token — default to local dev mode, no prompts needed
     token = 'dev';
-    cloudUrl = cloudUrl || 'ws://localhost:1071';
     console.log(`[49-agent] No token found — connecting to local server at ${cloudUrl}.`);
     console.log('[49-agent] To change host/port, run: 49-agent config');
   }
@@ -156,6 +147,8 @@ function handleStatus() {
 
   console.log(`49Agents Agent v${config.version}`);
   console.log(`  Cloud URL:     ${config.cloudUrl}`);
+  console.log(`  Instance:      ${config.instanceKey}`);
+  console.log(`  Terminal ports:${` ${config.ttydPortRange.start}-${config.ttydPortRange.end}`}`);
   console.log(`  Config dir:    ${config.configDir}`);
   console.log(`  Token:         ${token ? 'configured' : 'NOT configured'}`);
   console.log(`  Agent status:  ${running ? `running (PID: ${pid})` : 'stopped'}`);
@@ -271,10 +264,10 @@ async function handleConfig() {
     host = hostInput || 'localhost';
   }
 
-  const portInput = (await ask('Port the cloud server is running on [default: 3001]: ')).trim();
+  const portInput = (await ask('Port the cloud server is running on [default: 1071]: ')).trim();
   rl.close();
 
-  const port = portInput || '3001';
+  const port = portInput || '1071';
   const cloudUrl = `ws://${host}:${port}`;
 
   // Save as the agent token file with a special dev config marker
@@ -306,5 +299,9 @@ Commands:
 
 Environment:
   TC_CLOUD_URL        Override cloud relay URL (default: ws://localhost:1071)
+  TC_INSTANCE         Override the instance key used to isolate agent state
+                      (config dir and terminal port range). Set automatically
+                      from TC_CLOUD_URL; only needed to run two agents against
+                      the same cloud server.
 `);
 }

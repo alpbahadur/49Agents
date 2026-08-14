@@ -6,6 +6,9 @@
   "bin": {
     "49-agent": "./bin/49-agent.js"
   },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "dependencies": {
     "ws": "^8.14.2",
     "uuid": "^9.0.0"

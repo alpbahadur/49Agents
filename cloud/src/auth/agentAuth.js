@@ -26,10 +26,23 @@ function encodeSecret(secret) {
  * and auto-authenticates as a local dev agent without requiring login.
  *
  * @param {string} token - The JWT token string
+ * @param {string} [instanceKey] - Local instance the agent belongs to. Several
+ *   agents can run on one machine (one per local server) during development;
+ *   this keeps their dev agent IDs distinct so they do not evict each other.
  * @returns {{ agentId: string, userId: string }} Decoded agent identity
  * @throws If the token is invalid or expired
  */
-export async function verifyAgentToken(token) {
+/**
+ * The synthetic agent ID used in dev mode. The default instance keeps the
+ * original ID so existing local databases and layouts still resolve; other
+ * instances get a suffixed ID of their own.
+ */
+function devAgentId(instanceKey) {
+  if (!instanceKey || instanceKey === 'default') return 'agent_dev_local';
+  return `agent_dev_local_${String(instanceKey).replace(/[^a-z0-9_-]/gi, '')}`;
+}
+
+export async function verifyAgentToken(token, instanceKey) {
   // Dev mode: no OAuth configured AND not production — accept 'dev' token without verification
   if (devModeEnabled && token === 'dev') {
     // Escape hatch: SKIP_CLOUD_AUTH preserves old dev-user behavior
@@ -42,7 +55,7 @@ export async function verifyAgentToken(token) {
         avatarUrl: null,
       });
       return {
-        agentId: 'agent_dev_local',
+        agentId: devAgentId(instanceKey),
         userId: devUser.id,
       };
     }
@@ -59,7 +72,7 @@ export async function verifyAgentToken(token) {
       avatarUrl: localAuth.avatarUrl,
     });
     return {
-      agentId: 'agent_dev_local',
+      agentId: devAgentId(instanceKey),
       userId: user.id,
     };
   }
