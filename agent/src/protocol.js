@@ -14,6 +14,7 @@ export const MSG = {
   TERMINAL_ATTACHED: 'terminal:attached',
   TERMINAL_HISTORY: 'terminal:history',
   TERMINAL_INPUT: 'terminal:input',
+  TERMINAL_PASTE_IMAGE: 'terminal:pasteImage',
   TERMINAL_OUTPUT: 'terminal:output',
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_SCROLL: 'terminal:scroll',

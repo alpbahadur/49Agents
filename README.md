@@ -10,9 +10,10 @@
 
 <p align="center">
   <a href="https://github.com/49Agents/49Agents/stargazers"><img src="https://img.shields.io/github/stars/49Agents/49Agents?style=flat" alt="GitHub Stars" /></a>
-  <a href="https://discord.gg/rkUbxYvGj"><img src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
   <a href="https://twitter.com/49agents"><img src="https://img.shields.io/twitter/follow/49agents" alt="Twitter Follow" /></a>
 </p>
+
+https://github.com/user-attachments/assets/b2b038df-4100-490e-8bae-42965d5faca5
 
 <h1 align="center">
   Before

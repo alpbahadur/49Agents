@@ -7305,6 +7305,72 @@ import { initShortcutsDeps, setupKeyboardShortcuts } from './modules/shortcuts.j
     // Paste: xterm handles natively — its hidden textarea receives paste events,
     // which fire onData and send through WebSocket.
 
+    // --- Drag-and-drop image support ---
+    // xterm's paste path only ever forwards text/plain (bracketed-paste
+    // wraps whatever getData('text/plain') returns), so image bytes can't
+    // ride through a synthesized paste event — Chrome also won't let a
+    // script-constructed ClipboardEvent carry real clipboardData anyway.
+    // Instead we ship the raw bytes to the agent over the existing
+    // websocket; the agent writes a temp file and types its path, which
+    // Claude Code's own path auto-detection picks up as an image — the
+    // same mechanism a real OS-level drag-drop onto a native terminal uses.
+    if (xtermTextarea) {
+      let dragDepth = 0;
+
+      const isFileDrag = (e) =>
+        e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+
+      container.addEventListener('dragenter', (e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        dragDepth++;
+        paneEl.classList.add('terminal-drop-target');
+      });
+
+      container.addEventListener('dragover', (e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      });
+
+      container.addEventListener('dragleave', (e) => {
+        if (!isFileDrag(e)) return;
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) paneEl.classList.remove('terminal-drop-target');
+      });
+
+      container.addEventListener('drop', async (e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        dragDepth = 0;
+        paneEl.classList.remove('terminal-drop-target');
+
+        const imageFiles = Array.from(e.dataTransfer.files || [])
+          .filter(f => f.type.startsWith('image/'));
+        if (imageFiles.length === 0) return;
+
+        for (const file of imageFiles) {
+          const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1] || '');
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          }).catch(() => null);
+          if (!base64) continue;
+
+          sendWs('terminal:pasteImage', {
+            terminalId: paneData.id,
+            imageData: base64,
+            mimeType: file.type,
+          }, paneData.agentId);
+
+          // Space each drop apart so the agent's temp-file writes and the
+          // typed paths land in the pty in a sane order for multi-image drops.
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      });
+    }
+
     // Track last selection — right-click clears xterm selection before contextmenu fires
     let lastTerminalSelection = '';
     xterm.onSelectionChange(() => {

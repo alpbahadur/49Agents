@@ -151,7 +151,7 @@ export function handleBrowserConnection(ws, userId, userAgents, userBrowsers, la
 
       // Track last activity only for direct user actions:
       // terminal input, or pane create/update/delete (REST-over-WS mutations)
-      if (msg.type === 'terminal:input' ||
+      if (msg.type === 'terminal:input' || msg.type === 'terminal:pasteImage' ||
           (msg.type === 'request' && msg.payload?.method && msg.payload.method !== 'GET')) {
         ws._lastActivity = Date.now();
       }
