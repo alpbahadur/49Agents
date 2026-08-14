@@ -12,6 +12,8 @@ import { initShortcutsDeps, setupKeyboardShortcuts } from './modules/shortcuts.j
 import { initWsTransportDeps, sendWs, agentRequest, pendingRequests, pendingScanCallbacks } from './modules/ws-transport.js';
 import { initAgentUiDeps, showRelayNotification, showUpdateToast, showUpdateProgressToast, showUpdateCompleteToast, updateAgentOverlay, showAddMachineDialog } from './modules/agent-ui.js';
 import { initMenusDeps, setupAddPaneMenu, setupTutorialMenu, autoArrangePanes, setupMobileNavDrawer, setupToolbarButtons, setupCustomTooltips, setupCanvasInteraction, setupPasteHandlers, getTabCycleOrder, findPaneInDirection, calcMoveModeZoom } from './modules/menus.js';
+import { initClaudeStatesDeps, updateClaudeStates } from './modules/claude-states.js';
+import { initGuestDeps, showGuestRegisterModal, showGuestExpiryToast, initGuestNudge } from './modules/guest.js';
 import { initCanvasEventsDeps, setupEventListeners, handleCanvasPanStart, handleMiddleMousePan, handleRightMousePan, handleTouchStart, handleWheel, setZoom } from './modules/canvas-events.js';
 import { initMoveModeDeps, enterMoveMode, exitMoveMode, applyMoveModeVisuals, moveModeNavigate } from './modules/move-mode.js';
 import { initQuickViewDeps, addQuickViewOverlay, removeQuickViewOverlay, toggleQuickView, enterMentionMode, exitMentionMode } from './modules/quick-view.js';
@@ -628,193 +630,11 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // ============================================================================
 
   // === Guest Mode: Nudge & Forced Registration ===
-  const GUEST_HARD_LIMIT_MS = 30 * 60 * 1000;       // 30 minutes
-  const GUEST_TOAST_ID = '__guest_expiry__';
-  let guestExpiryTimers = [];
+  // GUEST_TOAST_ID -> modules/guest.js
+  // GUEST_HARD_LIMIT_MS, guestExpiryTimers -> modules/guest.js
   let guestCountdownInterval = null;
 
-  function showGuestRegisterModal(force) {
-    let overlay = document.getElementById('guest-register-overlay');
-    if (overlay) overlay.remove();
-
-    overlay = document.createElement('div');
-    overlay.id = 'guest-register-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200000;';
-
-    const card = document.createElement('div');
-    card.style.cssText = 'background:#1a1a2e;border:1px solid #8b8ff6;border-radius:14px;padding:36px;max-width:440px;width:90%;color:#e0e0e0;font-family:Montserrat,sans-serif;text-align:center;';
-
-    const title = force ? 'sorry\u{1F614}\u{1F61E} \u2014 guest session expired' : 'Guest session ending soon';
-    const msg = force
-      ? 'we are not VC funded and we are paying out of pocket. Unfortunately we can not yet afford to let people use this as guests for longer, BUT if you register now, you get to keep all your work!!'
-      : 'we are not VC funded and we are paying out of pocket. Unfortunately we can not yet afford to let people use this as guests for longer, BUT if you register now, you get to keep all your work!!';
-    const continueBtn = force
-      ? ''
-      : `<button id="guest-continue-btn" style="background:transparent;color:#5a6578;border:1px solid rgba(255,255,255,0.1);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:13px;margin-top:4px;">continue in guest mode</button>`;
-
-    // In local mode, redirect to login page instead of showing OAuth modal
-    const isLocal = !window.__tcUser || window.__tcAuthMode === 'local';
-    if (isLocal && force) {
-      window.location.href = '/login';
-      return;
-    }
-
-    card.innerHTML = `
-      <h2 style="margin:0 0 12px;color:#8b8ff6;font-size:20px;font-weight:600;">${title}</h2>
-      <p style="color:#8a8faa;margin:0 0 24px;font-size:14px;line-height:1.5;">${msg}</p>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-        <a href="/login" style="display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 20px;background:rgba(139,143,246,0.15);border:1px solid rgba(139,143,246,0.35);border-radius:8px;color:#e8ecf4;text-decoration:none;font-size:14px;transition:all 0.2s;">
-          Sign up
-        </a>
-      </div>
-      ${continueBtn}
-    `;
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-
-    // Force mode: block all interaction (no dismiss)
-    if (force) return;
-
-    // Continue in guest mode button
-    const continueEl = document.getElementById('guest-continue-btn');
-    if (continueEl) {
-      continueEl.addEventListener('click', () => overlay.remove());
-    }
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-  }
-
-  // Show a guest expiry toast using the same notification system as claude state notifs
-  function showGuestExpiryToast(remainingMs, snoozable) {
-    // Remove existing guest toast
-    const existingToast = activeToasts.get(GUEST_TOAST_ID);
-    if (existingToast) {
-      if (existingToast._guestCountdown) clearInterval(existingToast._guestCountdown);
-      activeToasts.delete(GUEST_TOAST_ID);
-      existingToast.remove();
-    }
-
-    const toast = document.createElement('div');
-    toast.className = 'notification-toast state-guest-expiry';
-    toast.dataset.terminalId = GUEST_TOAST_ID;
-    toast.dataset.claudeState = 'guest-expiry';
-
-    const minutesLeft = Math.ceil(remainingMs / 60000);
-    const timeLabel = minutesLeft > 1 ? `${minutesLeft} min` : '< 1 min';
-
-    const actionButton = snoozable
-      ? `<button class="notification-snooze" data-tooltip="Snooze">\u{1F554}</button>`
-      : '';
-
-    toast.innerHTML = `
-      <div class="notification-icon">\u{1F616}</div>
-      <div class="notification-body">
-        <div class="notification-title">Guest session ending</div>
-        <div class="notification-device guest-timer-label">${timeLabel} remaining</div>
-      </div>
-      ${actionButton}
-    `;
-
-    toast._notificationInfo = { claudeState: 'guest-expiry' };
-
-    // Click toast → open modal with "continue in guest mode" (unless expired)
-    toast.addEventListener('click', (e) => {
-      if (e.target.closest('.notification-snooze')) return;
-      const user = window.__tcUser;
-      if (!user || !user.isGuest) return;
-      const startedAt = new Date(user.guestStartedAt).getTime();
-      const nowRemaining = GUEST_HARD_LIMIT_MS - (Date.now() - startedAt);
-      showGuestRegisterModal(nowRemaining <= 0);
-    });
-
-    // Snooze button (only on 60/15 min toasts)
-    const snoozeBtn = toast.querySelector('.notification-snooze');
-    if (snoozeBtn) {
-      snoozeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (toast._guestCountdown) clearInterval(toast._guestCountdown);
-        toast.classList.add('dismissing');
-        activeToasts.delete(GUEST_TOAST_ID);
-        setTimeout(() => toast.remove(), 200);
-      });
-    }
-
-    // For the 3-min (unsnoozable) toast, run a live countdown timer
-    if (!snoozable) {
-      const timerLabel = toast.querySelector('.guest-timer-label');
-      const expiresAt = Date.now() + remainingMs;
-      toast._guestCountdown = setInterval(() => {
-        const left = Math.max(0, expiresAt - Date.now());
-        const m = Math.floor(left / 60000);
-        const s = Math.floor((left % 60000) / 1000);
-        timerLabel.textContent = `${m}:${String(s).padStart(2, '0')} remaining`;
-        if (left <= 0) {
-          clearInterval(toast._guestCountdown);
-          timerLabel.textContent = 'expired';
-          showGuestRegisterModal(true);
-        }
-      }, 1000);
-    }
-
-    if (getNotificationContainer()) {
-      getNotificationContainer().prepend(toast);
-      activeToasts.set(GUEST_TOAST_ID, toast);
-      requestAnimationFrame(() => toast.classList.add('visible'));
-    }
-  }
-
-  function initGuestNudge(user) {
-    if (!user.isGuest) return;
-
-    const startedAt = new Date(user.guestStartedAt).getTime();
-    const elapsed = Date.now() - startedAt;
-    const remaining = GUEST_HARD_LIMIT_MS - elapsed;
-
-    // Already expired
-    if (remaining <= 0) {
-      showGuestRegisterModal(true);
-      return;
-    }
-
-    // Clear any previous timers
-    guestExpiryTimers.forEach(t => clearTimeout(t));
-    guestExpiryTimers = [];
-
-    // Schedule toast at 60 min before expiry (snoozable) — only if enough time left
-    const t60 = remaining - 60 * 60 * 1000; // won't fire for 30min sessions, that's fine
-    if (t60 > 0) {
-      guestExpiryTimers.push(setTimeout(() => {
-        if (!activeToasts.has(GUEST_TOAST_ID)) showGuestExpiryToast(60 * 60 * 1000, true);
-      }, t60));
-    }
-
-    // 15 min before expiry (snoozable) — transform existing or show new
-    const t15 = remaining - 15 * 60 * 1000;
-    if (t15 > 0) {
-      guestExpiryTimers.push(setTimeout(() => {
-        showGuestExpiryToast(15 * 60 * 1000, true);
-      }, t15));
-    } else if (remaining > 3 * 60 * 1000) {
-      // Already past 15 min mark but not yet at 3 min — show immediately
-      showGuestExpiryToast(remaining, true);
-    }
-
-    // 3 min before expiry (unsnoozable + live countdown)
-    const t3 = remaining - 3 * 60 * 1000;
-    if (t3 > 0) {
-      guestExpiryTimers.push(setTimeout(() => {
-        showGuestExpiryToast(3 * 60 * 1000, false);
-      }, t3));
-    } else {
-      // Already under 3 min — show countdown immediately
-      showGuestExpiryToast(remaining, false);
-    }
-
-    // Hard expiry — force modal
-    guestExpiryTimers.push(setTimeout(() => {
-      showGuestRegisterModal(true);
-    }, remaining));
-  }
-
+  // Guest mode nudges -> modules/guest.js
   async function init() {
 
     // Auth check
@@ -976,6 +796,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getActiveAgentId: () => activeAgentId,
       telemetry: _telemetry,
     });
+    initClaudeStatesDeps({ state, terminals, claudeTerminalIds });
+    initGuestDeps({ state });
     initCanvasEventsDeps({
       state, panState, selectedPaneIds, terminals,
       init, saveViewState, updateBroadcastIndicator, updateCanvasTransform,
@@ -1241,127 +1063,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // Notification functions — imported from modules/notifications.js
 
     // Update pane headers with Claude state info (called from WS push)
-  function updateClaudeStates(states) {
-    if (getIsFirstClaudeStateUpdate()) {
-      // On first load, show notifications for existing permission/question states
-      // Sort: questions/inputNeeded first, permissions last (prepend = last added lands on top)
-      const entries = Object.entries(states).filter(([, i]) => i.isClaude &&
-        (i.state === 'permission' || i.state === 'question' || i.state === 'inputNeeded'));
-      entries.sort((a, b) => {
-        const rank = s => s === 'permission' ? 1 : 0;
-        return rank(a[1].state) - rank(b[1].state);
-      });
-      for (const [terminalId, info] of entries) {
-        handleStateTransition(terminalId, 'working', info.state, info);
-      }
-    } else {
-      // Detect state transitions and fire notifications
-      for (const [terminalId, info] of Object.entries(states)) {
-        if (!info.isClaude) continue;
-        const prevState = previousClaudeStates.get(terminalId);
-        const newState = info.state;
-
-        if (prevState !== newState) {
-          // Skip done notifications for terminals first appearing as already idle
-          if (!prevState && newState === 'idle') continue;
-          // Treat newly-seen terminals as transitioning from 'working'
-          // so sounds fire when a terminal first appears in a notifiable state
-          handleStateTransition(terminalId, prevState || 'working', newState, info);
-        }
-
-        // If state changed away from a notified state, clear dedup + auto-dismiss toast
-        if (notifiedStates.has(terminalId) && notifiedStates.get(terminalId) !== newState) {
-          notifiedStates.delete(terminalId);
-          dismissToast(terminalId);
-        }
-      }
-    }
-    setIsFirstClaudeStateUpdate(false);
-
-    // Track current states for next comparison
-    for (const [terminalId, info] of Object.entries(states)) {
-      if (info.isClaude) {
-        previousClaudeStates.set(terminalId, info.state);
-      }
-    }
-
-    // Update tab title badge
-    updateTabTitleBadge(states);
-
-    // Update DOM (original logic)
-    for (const [terminalId, info] of Object.entries(states)) {
-      // Track alternate screen state from tmux (authoritative source)
-      const termInfo = terminals.get(terminalId);
-      if (termInfo && info) {
-        termInfo._alternateOn = !!info.alternateOn;
-      }
-      // Track claude terminals for HUD counts
-      if (info && info.isClaude) claudeTerminalIds.add(terminalId);
-      else claudeTerminalIds.delete(terminalId);
-      const paneEl = document.getElementById(`pane-${terminalId}`);
-      const titleEl = paneEl?.querySelector('.pane-title');
-      const paneData = state.panes.find(p => p.id === terminalId);
-
-      // Update paneData.workingDir from live tmux cwd
-      if (paneData && info && info.cwd) {
-        paneData.workingDir = info.cwd;
-      }
-      // Update Claude session ID/name and persist to cloud when they change
-      if (paneData && info && info.claudeSessionId) {
-        const idChanged = paneData.claudeSessionId !== info.claudeSessionId;
-        const nameChanged = info.claudeSessionName && paneData.claudeSessionName !== info.claudeSessionName;
-        paneData.claudeSessionId = info.claudeSessionId;
-        if (info.claudeSessionName) paneData.claudeSessionName = info.claudeSessionName;
-        if (idChanged || nameChanged) cloudSaveLayout(paneData);
-      }
-
-      if (paneEl && titleEl && info) {
-        paneEl.classList.remove('claude-working', 'claude-idle', 'claude-permission', 'claude-question', 'claude-input-needed');
-
-        const deviceLabel = paneData?.device ? deviceLabelHtml(paneData.device) : '';
-        const beadsTag = beadsTagHtml(paneData?.beadsTag);
-
-        // Skip title update if user is editing a beads tag
-        const isEditingBeadsTag = paneEl.querySelector('.beads-tag-input');
-
-        if (info.isClaude) {
-          const stateClassMap = {
-            working: 'claude-working',
-            idle: 'claude-idle',
-            permission: 'claude-permission',
-            question: 'claude-question',
-            inputNeeded: 'claude-input-needed'
-          };
-          if (stateClassMap[info.state]) {
-            paneEl.classList.add(stateClassMap[info.state]);
-          }
-
-          const stateIndicators = CLAUDE_STATE_SVGS;
-          const stateHtml = stateIndicators[info.state] || '';
-          const locationHtml = info.location ? formatLocationPath(info.location.name) : '';
-          const sessionBadge = claudeSessionBadgeHtml(info.claudeSessionId, info.claudeSessionName);
-
-          if (!isEditingBeadsTag) {
-            titleEl.innerHTML = `
-              <span class="claude-header">
-                ${deviceLabel}
-                ${beadsTag}
-                ${sessionBadge}
-                ${sessionBadge ? '' : CLAUDE_LOGO_SVG}
-                ${stateHtml}
-                <span class="claude-location">${locationHtml}</span>
-              </span>
-            `;
-          }
-        } else {
-          if (!isEditingBeadsTag) {
-            titleEl.innerHTML = `${deviceLabel}${beadsTag}<span style="opacity:0.7;">Terminal</span>`;
-          }
-        }
-      }
-    }
-  }
-
+  // updateClaudeStates -> modules/claude-states.js
   // ============================================================================
   // SECTION 8: WEBSOCKET COMMUNICATION                           [Lines ~1944-2388]
   // connectWebSocket(), handleWsMessage() giant switch, heartbeat, reconnect,
