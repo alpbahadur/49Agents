@@ -171,13 +171,29 @@ export function setupWebSocketRelay(server, options = {}) {
     }
   });
 
-  // Heartbeat: ping agents every 30s to detect dead connections
+  // Heartbeat: ping agents every 30s and drop the ones that stopped answering.
+  //
+  // Terminating unresponsive sockets matters because a connected agent now
+  // takes precedence over a newcomer claiming the same agent ID. A socket
+  // that is half-open — the machine slept, the network dropped — still reads
+  // as OPEN locally, so without this it would hold that claim forever and the
+  // agent could never reconnect.
   const heartbeatInterval = setInterval(() => {
     for (const [userId, agents] of userAgents) {
       for (const [agentId, agentInfo] of agents) {
-        if (agentInfo.ws.readyState === WebSocket.OPEN) {
-          agentInfo.ws.send(JSON.stringify({ type: 'agent:ping' }));
+        if (agentInfo.ws.readyState !== WebSocket.OPEN) continue;
+
+        // Two consecutive unanswered pings (about 60s) is taken as dead. The
+        // agent answers every ping, so one missed round trip is already
+        // unusual; two rules out a single slow moment.
+        if (agentInfo.missedPings >= 2) {
+          console.warn(`[ws:agent] Agent ${agentId} (${agentInfo.hostname}) stopped responding to pings — closing`);
+          agentInfo.ws.terminate();
+          continue;
         }
+
+        agentInfo.missedPings = (agentInfo.missedPings || 0) + 1;
+        agentInfo.ws.send(JSON.stringify({ type: 'agent:ping' }));
       }
     }
   }, 30000);
