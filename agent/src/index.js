@@ -165,7 +165,14 @@ export async function startAgent(options = {}) {
 
   relayClient.on('authFailed', (payload) => {
     console.error('[Agent] Authentication failed:', payload?.reason);
-    console.error('[Agent] Please re-run "49-agent login" to get a new token.');
+    if (payload?.code === 'duplicate_agent') {
+      // The token is fine — another agent already holds this machine's slot,
+      // so telling the user to log in again would send them the wrong way.
+      console.error('[Agent] Stop the other agent with "49-agent stop", or set');
+      console.error('[Agent] TC_CLOUD_URL to a different server to run alongside it.');
+    } else {
+      console.error('[Agent] Please re-run "49-agent login" to get a new token.');
+    }
     stopStatePolling();
     stopMetricsPolling();
   });

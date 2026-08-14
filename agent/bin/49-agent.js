@@ -75,8 +75,64 @@ async function handleLogin() {
   }
 }
 
+/**
+ * The PID of a live agent already serving this instance, or null.
+ *
+ * Two agents on one instance share a token, so they authenticate as the same
+ * agent and the relay closes whichever connected first — the running agent
+ * disappears with no indication of why. They also drive the same tmux
+ * sessions. Checking the PID file first turns that into a refusal to start.
+ *
+ * A PID file left behind by a crash is not a running agent, so a stale entry
+ * is cleared rather than treated as a conflict.
+ */
+function findRunningAgent() {
+  if (!existsSync(PID_FILE)) return null;
+
+  let pid;
+  try {
+    pid = parseInt(readFileSync(PID_FILE, 'utf-8').trim(), 10);
+  } catch {
+    return null;
+  }
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return null;
+
+  try {
+    process.kill(pid, 0); // signal 0 tests for existence without delivering
+    return pid;
+  } catch {
+    // No such process: the file outlived the agent that wrote it.
+    try { unlinkSync(PID_FILE); } catch { /* already gone */ }
+    return null;
+  }
+}
+
+function refuseDuplicateStart(pid) {
+  console.error(`[49-agent] An agent is already running for this instance (PID: ${pid}).`);
+  console.error(`[49-agent]   Instance:  ${config.instanceKey}`);
+  console.error(`[49-agent]   Cloud URL: ${config.cloudUrl}`);
+  console.error('');
+  console.error('  Starting a second agent here would disconnect the first one and');
+  console.error('  drive the same terminals. Either stop it:');
+  console.error('');
+  console.error('    49-agent stop');
+  console.error('');
+  console.error('  or point this agent at a different server, which gives it its own');
+  console.error('  config directory, terminal ports and tmux server:');
+  console.error('');
+  console.error('    TC_CLOUD_URL=ws://localhost:<other-port> 49-agent start');
+  console.error('');
+  process.exit(1);
+}
+
 async function handleStart() {
   const isDaemon = args.includes('--daemon') || args.includes('-d');
+  const force = args.includes('--force');
+
+  const running = findRunningAgent();
+  if (running && !force) {
+    refuseDuplicateStart(running);
+  }
 
   if (isDaemon) {
     // Fork to background
