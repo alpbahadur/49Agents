@@ -53,7 +53,7 @@ export function handleAgentConnection(ws, userAgents, userBrowsers, latestAgentV
         if (msg.type === 'agent:auth') {
           // Verify the agent token
           try {
-            const result = await verifyAgentToken(msg.payload.token);
+            const result = await verifyAgentToken(msg.payload.token, msg.payload.instanceKey);
             agentId = result.agentId;
             userId = result.userId;
             authenticated = true;

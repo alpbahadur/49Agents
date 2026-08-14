@@ -2,12 +2,20 @@ import { EventEmitter } from 'events';
 import { spawn, execSync } from 'child_process';
 import WebSocket from 'ws';
 import { tmuxService } from '../services/tmux.js';
+import { config } from './config.js';
+
+// tmux command prefix for this instance (see agent/src/instance.js).
+const TMUX = config.tmuxCommand;
 
 // Track ttyd processes by tmux session
 const ttydProcesses = new Map();
 const usedPorts = new Set();
-const BASE_PORT = 7700;
-const MAX_PORT = 7799;
+
+// Each instance owns a distinct slice of the ttyd range. Startup cleanup below
+// reclaims ports in this slice only, so starting a second instance cannot kill
+// the terminals of one already running.
+const BASE_PORT = config.ttydPortRange.start;
+const MAX_PORT = config.ttydPortRange.end;
 
 // Track active terminal connections: terminalId -> { ttydWs, emitter }
 const activeTerminals = new Map();
@@ -57,7 +65,7 @@ function emitOutput(terminalId, data) {
 
 // Serialize ttyd spawns to avoid tmux server lock contention.
 // When multiple terminals are created back-to-back, concurrent ttyd processes
-// each call `tmux attach-session`, which contends for tmux's internal lock.
+// each call `${TMUX} attach-session`, which contends for tmux's internal lock.
 // This queue ensures only one ttyd spawn runs at a time.
 let spawnQueue = Promise.resolve();
 

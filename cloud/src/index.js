@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join } from 'path';
 import { existsSync } from 'fs';
 import { initDatabase } from './db/index.js';
 import { setupGitHubAuth } from './auth/github.js';
@@ -18,6 +18,7 @@ import { setupPreferencesRoutes } from './routes/preferences.js';
 import { setupAnalyticsRoutes } from './routes/analytics.js';
 import { setupWebSocketRelay } from './ws/relay.js';
 import { setupNotificationRoutes } from './routes/notifications.js';
+import { ensureAgentTarball } from './utils/agentTarball.js';
 import { setupCloudCallbackRoutes } from './auth/cloudCallback.js';
 import { ensureLocalAuthTable, isLocalMode } from './auth/localAuth.js';
 import { ensureEmailAuthTable, setupEmailAuthRoutes, getEmailAuth, issueEmailInstanceToken } from './auth/emailAuth.js';
@@ -266,10 +267,15 @@ async function start() {
   ensureEmailAuthTable();
   initLocalTelemetryCollector();
 
+  // Build the downloadable agent tarball if it is missing or out of date, and
+  // drop builds that have gone untouched for days.
+  const dlDir = resolve(__dirname, '..', 'dl');
+  ensureAgentTarball(resolve(__dirname, '..', '..'), dlDir);
+
   // Read latest agent version from the tarball
   let latestAgentVersion = null;
   try {
-    const tarballPath = resolve(__dirname, '..', 'dl', '49-agent.tar.gz');
+    const tarballPath = join(dlDir, '49-agent.tar.gz');
     const result = spawnSync('tar', ['xzf', tarballPath, '--to-stdout', 'agent/package.json'], {
       encoding: 'utf-8',
       timeout: 10000,

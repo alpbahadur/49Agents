@@ -11,10 +11,18 @@ if (isProduction) {
   }
 }
 
+const port = parseInt(process.env.PORT || '1071');
+
+// Two servers on one machine must not share a database: the local_auth table
+// holds a single identity row (CHECK id = 1), so a shared file makes the second
+// instance impersonate the first. The default port keeps the original path so
+// existing installs are untouched; any other port gets its own database file.
+const defaultDbPath = port === 1071 ? './data/tc.db' : `./data/tc-${port}.db`;
+
 export const config = {
-  port: parseInt(process.env.PORT || '1071'),
+  port,
   host: process.env.HOST || '0.0.0.0',
-  dbPath: process.env.DATABASE_PATH || './data/tc.db',
+  dbPath: process.env.DATABASE_PATH || defaultDbPath,
   github: {
     clientId: process.env.GITHUB_CLIENT_ID || '',
     clientSecret: process.env.GITHUB_CLIENT_SECRET || '',

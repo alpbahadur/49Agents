@@ -195,6 +195,12 @@ fi
 if [ "$RUN_AGENT" = true ]; then
   echo -e "  Agent  → ${CYAN}${AGENT_CLOUD_URL}${NC}"
 fi
+if [ "$CLOUD_PORT" != "1071" ]; then
+  echo ""
+  echo "  Running on a non-default port: this instance keeps its own database"
+  echo "  (cloud/data/tc-${CLOUD_PORT}.db), its own agent config directory, and"
+  echo "  its own terminal port range, so it will not disturb an instance on 1071."
+fi
 echo ""
 echo "Press Ctrl+C to stop."
 echo ""
