@@ -36,6 +36,75 @@ cp -rf source dest          # NOT: cp -r source dest
 - `apt-get` - use `-y` flag
 - `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
 
+## Running Several Instances Side by Side (development)
+
+Each worktree can run its own full stack — cloud server plus agent — without
+touching the others. This exists for development: reviewing a branch while the
+main instance keeps running, or testing a change against a scratch database.
+It is not a user-facing feature.
+
+An instance is identified by the cloud URL its agent connects to. Everything
+that could collide is derived from that key:
+
+| Resource | Default instance (port 1071) | Any other instance |
+|---|---|---|
+| Database | `cloud/data/tc.db` | `cloud/data/tc-<port>.db` |
+| Agent config, token, PID | `~/.49agents/` | `~/.49agents/instances/<key>/` |
+| Terminal (ttyd) ports | 7700-7719 | a distinct 20-port block in 7700-7899 |
+| tmux server | the default socket | `tmux -L <key>` |
+
+The default instance deliberately keeps the original paths and the standard
+tmux socket, so a normal single-instance setup is unaffected and existing
+sessions stay visible.
+
+### Starting one
+
+```bash
+# Cloud server on its own port — the database path follows from PORT
+PORT=2400 node cloud/src/index.js
+
+# Agent for that server — the instance key follows from TC_CLOUD_URL
+TC_CLOUD_URL=ws://localhost:2400 node agent/bin/49-agent.js start
+```
+
+`TC_INSTANCE` overrides the derived key, which is only needed to run two
+agents against the *same* server — an unusual case.
+
+Terminals created in one instance live on that instance's tmux server, so they
+never appear in another instance's dashboard and cannot be closed from it.
+
+### One agent per instance
+
+Starting a second agent for an instance that already has one is refused, by
+the CLI (via the instance's PID file) and by the relay (a connection whose
+socket is still open is not replaced). Both print what is already running and
+how to proceed.
+
+This matters because two agents sharing an instance share its token, so they
+authenticate as the same agent and the relay drops one of them — and both
+drive the same tmux sessions in the meantime. If an agent needs to run
+alongside another, give it a different `TC_CLOUD_URL` rather than forcing it
+onto the same instance.
+
+`--force` skips the CLI check. It is for recovering from a PID file that
+survived a hard kill, not for running two agents on one instance.
+
+### Cleaning up
+
+A stopped instance leaves its database, config directory and tmux server
+behind. To remove one completely:
+
+```bash
+49-agent stop                                  # with TC_CLOUD_URL set
+tmux -L <key> kill-server                      # its terminals
+rm -rf ~/.49agents/instances/<key>             # its config and token
+rm -f cloud/data/tc-<port>.db*                 # its database
+```
+
+Kill agents by the PID recorded in the instance's PID file. Pattern-matching
+on the process name (`pkill -f 49-agent`) hits every agent on the machine,
+including the one serving the main instance.
+
 <!-- BEGIN BEADS INTEGRATION -->
 ## Issue Tracking with bd (beads)
 
