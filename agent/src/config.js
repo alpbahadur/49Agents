@@ -3,7 +3,7 @@ import { homedir } from 'os';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { DEFAULT_CLOUD_URL, getInstanceKey, isDefaultInstance, getTtydPortRange } from './instance.js';
+import { DEFAULT_CLOUD_URL, getInstanceKey, isDefaultInstance, getTtydPortRange, getTmuxCommand } from './instance.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -52,5 +52,6 @@ export const config = {
   dataDir: configDir,
   instanceKey,
   ttydPortRange: getTtydPortRange(instanceKey),
+  tmuxCommand: getTmuxCommand(instanceKey),
   version,
 };

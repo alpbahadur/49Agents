@@ -71,6 +71,19 @@ export function isDefaultInstance(instanceKey) {
 }
 
 /**
+ * The tmux command prefix for an instance.
+ *
+ * tmux keeps its sessions per server, and a server is identified by its socket.
+ * The default instance uses the standard socket so the sessions a user already
+ * has keep working untouched. Any other instance gets a socket of its own, so
+ * its terminals never appear in — or get closed by — another instance.
+ */
+export function getTmuxCommand(instanceKey) {
+  if (isDefaultInstance(instanceKey)) return 'tmux';
+  return `tmux -L ${instanceKey}`;
+}
+
+/**
  * The ttyd port block owned by an instance.
  *
  * 'default' always takes the first block so its terminals keep the ports they

@@ -4,6 +4,9 @@ import WebSocket from 'ws';
 import { tmuxService } from '../services/tmux.js';
 import { config } from './config.js';
 
+// tmux command prefix for this instance (see agent/src/instance.js).
+const TMUX = config.tmuxCommand;
+
 // Track ttyd processes by tmux session
 const ttydProcesses = new Map();
 const usedPorts = new Set();
@@ -62,7 +65,7 @@ function emitOutput(terminalId, data) {
 
 // Serialize ttyd spawns to avoid tmux server lock contention.
 // When multiple terminals are created back-to-back, concurrent ttyd processes
-// each call `tmux attach-session`, which contends for tmux's internal lock.
+// each call `${TMUX} attach-session`, which contends for tmux's internal lock.
 // This queue ensures only one ttyd spawn runs at a time.
 let spawnQueue = Promise.resolve();
 

@@ -7,6 +7,11 @@ import { homedir } from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import { escapeShellArg, validateWorkingDirectory, validatePositiveInt } from './sanitize.js';
 import { loadTerminalState, saveTerminalState, removeTerminalFromStorage } from './storage.js';
+import { config } from '../src/config.js';
+
+// tmux command prefix for this instance. Non-default instances run their own
+// tmux server (tmux -L <key>) so their terminals stay separate.
+const TMUX = config.tmuxCommand;
 
 const execAsync = promisify(exec);
 
@@ -289,12 +294,12 @@ export class TmuxService {
       const savedTerminals = loadTerminalState();
 
       // Set scroll speed to 2 lines per wheel tick
-      await execAsync(`tmux bind-key -T copy-mode WheelUpPane send-keys -X -N 2 scroll-up 2>/dev/null || true`);
-      await execAsync(`tmux bind-key -T copy-mode WheelDownPane send-keys -X -N 2 scroll-down 2>/dev/null || true`);
-      await execAsync(`tmux bind-key -T copy-mode-vi WheelUpPane send-keys -X -N 2 scroll-up 2>/dev/null || true`);
-      await execAsync(`tmux bind-key -T copy-mode-vi WheelDownPane send-keys -X -N 2 scroll-down 2>/dev/null || true`);
+      await execAsync(`${TMUX} bind-key -T copy-mode WheelUpPane send-keys -X -N 2 scroll-up 2>/dev/null || true`);
+      await execAsync(`${TMUX} bind-key -T copy-mode WheelDownPane send-keys -X -N 2 scroll-down 2>/dev/null || true`);
+      await execAsync(`${TMUX} bind-key -T copy-mode-vi WheelUpPane send-keys -X -N 2 scroll-up 2>/dev/null || true`);
+      await execAsync(`${TMUX} bind-key -T copy-mode-vi WheelDownPane send-keys -X -N 2 scroll-down 2>/dev/null || true`);
 
-      const { stdout } = await execAsync('tmux list-sessions -F "#{session_name}" 2>/dev/null || true');
+      const { stdout } = await execAsync(`${TMUX} list-sessions -F "#{session_name}" 2>/dev/null || true`);
       const sessions = stdout.trim().split('\n').filter(s => s.startsWith('tc2-'));
 
       for (const session of sessions) {
@@ -329,10 +334,10 @@ export class TmuxService {
 
         terminals.set(id, terminal);
         // Configure tmux for restored sessions
-        await execAsync(`tmux set-option -t ${escapeShellArg(session)} status off 2>/dev/null || true`);
+        await execAsync(`${TMUX} set-option -t ${escapeShellArg(session)} status off 2>/dev/null || true`);
         // mouse mode intentionally OFF — see createTerminal comment
-        await execAsync(`tmux set-option -t ${escapeShellArg(session)} mouse off 2>/dev/null || true`);
-        await execAsync(`tmux set-option -t ${escapeShellArg(session)} history-limit 50000 2>/dev/null || true`);
+        await execAsync(`${TMUX} set-option -t ${escapeShellArg(session)} mouse off 2>/dev/null || true`);
+        await execAsync(`${TMUX} set-option -t ${escapeShellArg(session)} history-limit 50000 2>/dev/null || true`);
       }
 
       this.persistState();
@@ -366,13 +371,13 @@ export class TmuxService {
     const validatedDir = validateWorkingDirectory(workingDir);
 
     // Local only: create tmux session in the specified directory
-    await execAsync(`tmux new-session -d -s ${escapeShellArg(sessionName)} -c ${escapeShellArg(validatedDir)}`);
+    await execAsync(`${TMUX} new-session -d -s ${escapeShellArg(sessionName)} -c ${escapeShellArg(validatedDir)}`);
 
     // Configure tmux for this session
-    await execAsync(`tmux set-option -t ${escapeShellArg(sessionName)} status off 2>/dev/null || true`);
+    await execAsync(`${TMUX} set-option -t ${escapeShellArg(sessionName)} status off 2>/dev/null || true`);
     // NOTE: mouse mode intentionally OFF — it disables xterm.js text selection.
     // Scroll-through-history is handled by forwarding wheel events as SGR sequences from the client.
-    await execAsync(`tmux set-option -t ${escapeShellArg(sessionName)} history-limit 50000 2>/dev/null || true`);
+    await execAsync(`${TMUX} set-option -t ${escapeShellArg(sessionName)} history-limit 50000 2>/dev/null || true`);
 
     const terminal = {
       id,
@@ -400,17 +405,17 @@ export class TmuxService {
 
     // Kill old session if it still exists (cleanup)
     try {
-      await execAsync(`tmux kill-session -t ${escapeShellArg(sessionName)} 2>/dev/null`);
+      await execAsync(`${TMUX} kill-session -t ${escapeShellArg(sessionName)} 2>/dev/null`);
     } catch { /* session already dead */ }
 
     // Create fresh tmux session
-    await execAsync(`tmux new-session -d -s ${escapeShellArg(sessionName)} -c ${escapeShellArg(validatedDir)}`);
-    await execAsync(`tmux set-option -t ${escapeShellArg(sessionName)} status off 2>/dev/null || true`);
-    await execAsync(`tmux set-option -t ${escapeShellArg(sessionName)} history-limit 50000 2>/dev/null || true`);
+    await execAsync(`${TMUX} new-session -d -s ${escapeShellArg(sessionName)} -c ${escapeShellArg(validatedDir)}`);
+    await execAsync(`${TMUX} set-option -t ${escapeShellArg(sessionName)} status off 2>/dev/null || true`);
+    await execAsync(`${TMUX} set-option -t ${escapeShellArg(sessionName)} history-limit 50000 2>/dev/null || true`);
 
     // Run command if provided (e.g. claude --resume <id>)
     if (command) {
-      await execAsync(`tmux send-keys -t ${escapeShellArg(sessionName)} ${escapeShellArg(command)} Enter`);
+      await execAsync(`${TMUX} send-keys -t ${escapeShellArg(sessionName)} ${escapeShellArg(command)} Enter`);
     }
 
     const terminal = {
@@ -434,7 +439,7 @@ export class TmuxService {
     if (!terminal) throw new Error('Terminal not found');
 
     try {
-      await execAsync(`tmux kill-session -t ${escapeShellArg(terminal.tmuxSession)}`);
+      await execAsync(`${TMUX} kill-session -t ${escapeShellArg(terminal.tmuxSession)}`);
     } catch {
       // Session might already be dead
     }
@@ -449,7 +454,7 @@ export class TmuxService {
 
     try {
       const { stdout } = await execAsync(
-        `tmux capture-pane -t ${escapeShellArg(terminal.tmuxSession)} -p -S -500`
+        `${TMUX} capture-pane -t ${escapeShellArg(terminal.tmuxSession)} -p -S -500`
       );
       return stdout;
     } catch {
@@ -466,7 +471,7 @@ export class TmuxService {
       // TUI apps don't need scrollback history — skip capture entirely to
       // prevent stale scrollback that breaks scroll behavior after reattach.
       const { stdout: altOn } = await execAsync(
-        `tmux display-message -p -t ${escapeShellArg(terminal.tmuxSession)} '#{alternate_on}'`,
+        `${TMUX} display-message -p -t ${escapeShellArg(terminal.tmuxSession)} '#{alternate_on}'`,
         { timeout: 2000 }
       );
       if (altOn.trim() === '1') {
@@ -481,7 +486,7 @@ export class TmuxService {
       // stale '_' glyphs at the start of lines throughout the scrollback.
       // maxBuffer raised to 10MB — default 1MB silently truncates long histories
       const { stdout } = await execAsync(
-        `tmux capture-pane -t ${escapeShellArg(terminal.tmuxSession)} -p -S - -E -1`,
+        `${TMUX} capture-pane -t ${escapeShellArg(terminal.tmuxSession)} -p -S - -E -1`,
         { maxBuffer: 10 * 1024 * 1024, timeout: 3000 }
       );
       return stdout;
@@ -497,7 +502,7 @@ export class TmuxService {
     try {
       const validCols = validatePositiveInt(cols, 500);
       const validRows = validatePositiveInt(rows, 500);
-      await execAsync(`tmux resize-pane -t ${escapeShellArg(terminal.tmuxSession)} -x ${validCols} -y ${validRows}`);
+      await execAsync(`${TMUX} resize-pane -t ${escapeShellArg(terminal.tmuxSession)} -x ${validCols} -y ${validRows}`);
     } catch {
       // Resize might fail if terminal is detached
     }
@@ -521,8 +526,8 @@ export class TmuxService {
       const session = escapeShellArg(terminal.tmuxSession);
       const validCols = validatePositiveInt(cols, 500);
       const validRows = validatePositiveInt(rows, 500);
-      await execAsync(`tmux resize-pane -t ${session} -x ${validCols} -y ${validRows + 1} 2>/dev/null || true`);
-      await execAsync(`tmux resize-pane -t ${session} -x ${validCols} -y ${validRows} 2>/dev/null || true`);
+      await execAsync(`${TMUX} resize-pane -t ${session} -x ${validCols} -y ${validRows + 1} 2>/dev/null || true`);
+      await execAsync(`${TMUX} resize-pane -t ${session} -x ${validCols} -y ${validRows} 2>/dev/null || true`);
     } catch {
       // Redraw might fail if terminal is detached
     }
@@ -536,9 +541,9 @@ export class TmuxService {
     const count = Math.min(Math.abs(lines), 15);
     try {
       // Enter copy-mode with -e (auto-exit at bottom), then scroll
-      await execAsync(`tmux copy-mode -e -t ${session} 2>/dev/null || true`);
+      await execAsync(`${TMUX} copy-mode -e -t ${session} 2>/dev/null || true`);
       for (let i = 0; i < count; i++) {
-        await execAsync(`tmux send-keys -t ${session} -X ${direction}`);
+        await execAsync(`${TMUX} send-keys -t ${session} -X ${direction}`);
       }
     } catch {
       // Scroll might fail if terminal is detached
@@ -555,7 +560,7 @@ export class TmuxService {
 
     try {
       const { stdout } = await execAsync(
-        `tmux display-message -t ${escapeShellArg(terminal.tmuxSession)} -p "#{pane_current_command}" 2>/dev/null`
+        `${TMUX} display-message -t ${escapeShellArg(terminal.tmuxSession)} -p "#{pane_current_command}" 2>/dev/null`
       );
       const command = stdout.trim();
       return {
@@ -572,7 +577,7 @@ export class TmuxService {
     for (const [id, terminal] of terminals) {
       try {
         const { stdout } = await execAsync(
-          `tmux display-message -t ${escapeShellArg(terminal.tmuxSession)} -p "#{pane_current_command}" 2>/dev/null`
+          `${TMUX} display-message -t ${escapeShellArg(terminal.tmuxSession)} -p "#{pane_current_command}" 2>/dev/null`
         );
         const command = stdout.trim();
         results[id] = { command, isClaude: command === 'claude' };
@@ -588,7 +593,7 @@ export class TmuxService {
     const results = {};
     try {
       const { stdout } = await execAsync(
-        `tmux list-panes -a -F "#{session_name}|#{pane_current_command}|#{pane_current_path}|#{pane_active}|#{pane_pid}|#{alternate_on}" 2>/dev/null`
+        `${TMUX} list-panes -a -F "#{session_name}|#{pane_current_command}|#{pane_current_path}|#{pane_active}|#{pane_pid}|#{alternate_on}" 2>/dev/null`
       );
       for (const line of stdout.trim().split('\n')) {
         if (!line || !line.startsWith('tc2-')) continue;
@@ -760,7 +765,7 @@ export class TmuxService {
       try {
         const terminal = terminals.get(id);
         const { stdout: paneContent } = await execAsync(
-          `tmux capture-pane -t ${escapeShellArg(terminal.tmuxSession)} -p 2>/dev/null`
+          `${TMUX} capture-pane -t ${escapeShellArg(terminal.tmuxSession)} -p 2>/dev/null`
         );
         const state = this.detectClaudeState(paneContent);
         const location = await this.getCachedLocation(info.cwd);

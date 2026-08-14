@@ -8,6 +8,7 @@ import {
   TTYD_BLOCK_SIZE,
   getInstanceKey,
   getTtydPortRange,
+  getTmuxCommand,
   isDefaultInstance,
 } from '../src/instance.js';
 
@@ -86,4 +87,24 @@ test('the port block for an instance is stable across calls', () => {
   const first = getTtydPortRange('localhost-2000');
   const second = getTtydPortRange('localhost-2000');
   assert.deepEqual(first, second);
+});
+
+test('the default instance uses the standard tmux server', () => {
+  // Sessions a user already has live on the default socket, so the default
+  // instance must not pass -L or they would disappear from their dashboard.
+  assert.equal(getTmuxCommand('default'), 'tmux');
+});
+
+test('other instances get their own tmux socket', () => {
+  assert.equal(getTmuxCommand('localhost-2000'), 'tmux -L localhost-2000');
+  assert.notEqual(getTmuxCommand('localhost-2000'), getTmuxCommand('localhost-2001'));
+});
+
+test('tmux socket names contain no shell-significant characters', () => {
+  // The command is interpolated into a shell string, and the socket name also
+  // becomes a filename, so the sanitized key must stay simple.
+  for (const url of ['ws://localhost:2000', 'ws://192.168.1.10:1071', 'ws://my host:80/x']) {
+    const cmd = getTmuxCommand(getInstanceKey(url));
+    assert.match(cmd, /^tmux(?: -L [a-z0-9-]+)?$/, `unsafe tmux command: ${cmd}`);
+  }
 });
