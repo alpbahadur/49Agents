@@ -198,7 +198,7 @@ export async function createConversationsPane(dirPath, placementPos, targetAgent
       includeSubdirs: false,
     };
 
-    _ctx.state.panes.push(pane); _telemetry.trackPaneOpen(pane);
+    _ctx.state.panes.push(pane); _ctx.telemetry.trackPaneOpen(pane);
     renderConversationsPane(pane);
     _ctx.cloudSaveLayout(pane);
     _ctx.saveRecentContext('conversations', pane.dirPath, pane.dirPath.split('/').filter(Boolean).pop() || pane.dirPath, resolvedAgentId);
