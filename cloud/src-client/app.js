@@ -710,13 +710,17 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   let panStartX, panStartY;
   let lastPanX, lastPanY;
 
-  // Touch/drag state
-  let activePane = null;
-  let holdTimer = null;
-  let isDragging = false;
-  let isResizing = false;
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
+  // Touch/drag state. Grouped into one object so it can be passed to
+  // modules by reference — assignments to imported bindings are not
+  // allowed, and six getter/setter pairs would be the alternative.
+  const dragState = {
+    activePane: null,
+    holdTimer: null,
+    isDragging: false,
+    isResizing: false,
+    offsetX: 0,
+    offsetY: 0,
+  };
 
   // ============================================================================
   // SECTION 5: MULTI-SELECT & BROADCAST                           [Lines ~445-497]
@@ -1174,8 +1178,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getCanvas: () => canvas,
       getCurrentTerminalTheme: () => currentTerminalTheme,
       getExpandedPaneId: () => expandedPaneId,
-      getIsDragging: () => isDragging,
-      getIsResizing: () => isResizing,
+      getIsDragging: () => dragState.isDragging,
+      getIsResizing: () => dragState.isResizing,
       getTabHeld: () => tabHeld,
       getTerminalMouseDown: () => terminalMouseDown,
       setTerminalMouseDown: (v) => { terminalMouseDown = v; },
@@ -6009,7 +6013,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       }
       if (moveModeActive) return;
       if (focusMode !== 'hover') return; // click-to-focus: don't blur on leave
-      if (!isDragging && !isResizing && !isPanning) {
+      if (!dragState.isDragging && !dragState.isResizing && !isPanning) {
         const termInfo = terminals.get(paneData.id);
         const hasSelection = termInfo && termInfo.xterm && termInfo.xterm.hasSelection();
         const isSelectDrag = (e.buttons & 1) !== 0; // primary button still held
@@ -6298,16 +6302,16 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // Start dragging immediately (for header)
   function startDrag(e, paneEl, paneData) {
     e.preventDefault();
-    isDragging = true;
-    activePane = paneEl;
+    dragState.isDragging = true;
+    dragState.activePane = paneEl;
     paneEl.classList.add('dragging');
     document.body.classList.add('no-select');
     showIframeOverlays();
 
     const point = e.touches ? e.touches[0] : e;
     const rect = paneEl.getBoundingClientRect();
-    dragOffsetX = (point.clientX - rect.left) / state.zoom;
-    dragOffsetY = (point.clientY - rect.top) / state.zoom;
+    dragState.offsetX = (point.clientX - rect.left) / state.zoom;
+    dragState.offsetY = (point.clientY - rect.top) / state.zoom;
 
     if (navigator.vibrate) {
       navigator.vibrate(30);
@@ -6335,8 +6339,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     const moveHandler = (moveE) => {
       moveE.preventDefault();
       const movePoint = moveE.touches ? moveE.touches[0] : moveE;
-      let newX = (movePoint.clientX - state.panX) / state.zoom - dragOffsetX;
-      let newY = (movePoint.clientY - state.panY) / state.zoom - dragOffsetY;
+      let newX = (movePoint.clientX - state.panX) / state.zoom - dragState.offsetX;
+      let newY = (movePoint.clientY - state.panY) / state.zoom - dragState.offsetY;
 
       // Snap-to-edge (unless Shift held)
       if (!moveE.shiftKey) {
@@ -6374,10 +6378,10 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
     const endHandler = () => {
       removeSnapGuides();
-      isDragging = false;
+      dragState.isDragging = false;
       paneEl.classList.remove('dragging');
       document.body.classList.remove('no-select');
-      activePane = null;
+      dragState.activePane = null;
       hideIframeOverlays();
 
       // Save position to server (use correct endpoint based on pane type)
@@ -6412,13 +6416,13 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
     resizeHandle.classList.add('hold-active');
 
-    holdTimer = setTimeout(() => {
+    dragState.holdTimer = setTimeout(() => {
       activateResize(paneEl, paneData, point);
     }, RESIZE_HOLD_DURATION);
 
     const endHandler = () => {
-      clearTimeout(holdTimer);
-      if (!isResizing) {
+      clearTimeout(dragState.holdTimer);
+      if (!dragState.isResizing) {
         resizeHandle.classList.remove('hold-active');
       }
       document.removeEventListener('mouseup', endHandler);
@@ -6431,7 +6435,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
   // Activate resize mode
   function activateResize(paneEl, paneData, startPoint) {
-    isResizing = true;
+    dragState.isResizing = true;
     paneEl.classList.add('resizing');
     document.body.classList.add('no-select');
     showIframeOverlays();
@@ -6490,7 +6494,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
     const endHandler = () => {
       removeSnapGuides();
-      isResizing = false;
+      dragState.isResizing = false;
       paneEl.classList.remove('resizing');
       paneEl.querySelector('.pane-resize-handle').classList.remove('hold-active');
       document.body.classList.remove('no-select');
@@ -6753,7 +6757,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
             if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
             // Threshold exceeded — start dragging
             dragging = true;
-            isDragging = true;
+            dragState.isDragging = true;
             document.body.classList.add('no-select');
             groupPanes.forEach(({ paneEl: el }) => el.classList.add('dragging'));
             showIframeOverlays();
@@ -6784,7 +6788,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
           if (dragging) {
-            isDragging = false;
+            dragState.isDragging = false;
             document.body.classList.remove('no-select');
             groupPanes.forEach(({ paneEl: el }) => el.classList.remove('dragging'));
             hideIframeOverlays();
