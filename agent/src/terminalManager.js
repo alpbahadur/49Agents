@@ -95,6 +95,39 @@ try {
   // Ignore errors
 }
 
+/**
+ * True while a ttyd socket can still carry traffic. CONNECTING counts: the
+ * attach path awaits the open handshake, so a socket mid-handshake is a
+ * pending attachment rather than a dead one.
+ */
+function isSocketUsable(ws) {
+  return !!ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING);
+}
+
+/**
+ * Drop an attachment: silence its listeners, close its socket, and forget it.
+ *
+ * Removing the listeners is the part that matters. A closed socket stops
+ * delivering, but one that is merely superseded keeps its 'message' handler
+ * alive and keeps writing into the same terminal's emitter — which is how a
+ * terminal ends up echoing each keystroke once per stale attachment.
+ */
+function discardAttachment(terminalId, attachment) {
+  if (!attachment) return;
+  const { ttydWs } = attachment;
+  if (ttydWs) {
+    try { ttydWs.removeAllListeners(); } catch { /* already gone */ }
+    try {
+      if (ttydWs.readyState === WebSocket.OPEN || ttydWs.readyState === WebSocket.CONNECTING) {
+        ttydWs.close();
+      }
+    } catch { /* already closing */ }
+  }
+  if (activeTerminals.get(terminalId) === attachment) {
+    activeTerminals.delete(terminalId);
+  }
+}
+
 function getAvailablePort() {
   for (let port = BASE_PORT; port <= MAX_PORT; port++) {
     if (!usedPorts.has(port)) {
@@ -230,10 +263,20 @@ export const terminalManager = {
    *   'error' (message) — error occurred
    */
   async attachTerminal(terminalId, cols, rows) {
-    // If already attached, return existing emitter
+    // Reuse the existing attachment only while its socket is actually usable.
+    // A cached entry whose ttyd connection has died (agent restart, ttyd
+    // killed, network drop) would otherwise be handed back forever, and the
+    // terminal would look attached while receiving nothing.
     const existing = activeTerminals.get(terminalId);
     if (existing) {
-      return existing.emitter;
+      if (isSocketUsable(existing.ttydWs)) {
+        return existing.emitter;
+      }
+      // Dead socket: tear it down before attaching again, so its listeners
+      // stop forwarding and we do not end up with two sockets feeding the
+      // same terminal (which duplicates every keystroke and every byte of
+      // output the terminal produces).
+      discardAttachment(terminalId, existing);
     }
 
     // If another attachTerminal call is already in-flight for this id,
@@ -281,6 +324,15 @@ export const terminalManager = {
         } else {
           throw err;
         }
+      }
+
+      // Another attachment may have been registered while we were connecting.
+      // Replacing it without closing it would leave its listeners forwarding
+      // the same terminal, so every keystroke and every byte of output would
+      // arrive twice.
+      const superseded = activeTerminals.get(terminalId);
+      if (superseded && superseded.ttydWs !== ttydWs) {
+        discardAttachment(terminalId, superseded);
       }
 
       activeTerminals.set(terminalId, { ttydWs, emitter });
@@ -379,8 +431,7 @@ export const terminalManager = {
     const conn = activeTerminals.get(terminalId);
     if (conn && conn.ttydWs) {
       flushOutput(terminalId);
-      conn.ttydWs.close();
-      activeTerminals.delete(terminalId);
+      discardAttachment(terminalId, conn);
     }
 
     if (terminal) {
@@ -396,8 +447,7 @@ export const terminalManager = {
     const conn = activeTerminals.get(terminalId);
     if (conn && conn.ttydWs) {
       flushOutput(terminalId);
-      conn.ttydWs.close();
-      activeTerminals.delete(terminalId);
+      discardAttachment(terminalId, conn);
     }
   },
 
