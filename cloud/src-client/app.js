@@ -8,6 +8,7 @@ import { initMinimap, startMinimapLoop, hideMinimap, renderMinimap, getCanvasBou
 import { initNotificationDeps, initNotifications, showPromoToasts, showToast, dismissToast, snoozeNotification, sendBrowserNotification, updateTabTitleBadge, handleStateTransition, previousClaudeStates, notifiedStates, activeToasts, snoozedNotifications, snoozeCount, getIsFirstClaudeStateUpdate, setIsFirstClaudeStateUpdate, getNotificationContainer, showAdminToast, dismissAdminToast } from './modules/notifications.js';
 import { initGitGraphDeps, renderGitGraphPane, fetchGitGraphData } from './modules/git-graph.js';
 import { initSettingsDeps, showSettingsModal, savePrefsToCloud, getAllPrefs, setCanvasBackground, setNightMode, getCurrentTerminalFont, setCurrentTerminalFont } from './modules/settings.js';
+import { initShortcutsDeps, setupKeyboardShortcuts } from './modules/shortcuts.js';
 
 // 49Agents - Mobile-first terminal pane management
 (function() {
@@ -2088,6 +2089,44 @@ import { initSettingsDeps, showSettingsModal, savePrefsToCloud, getAllPrefs, set
       getHudHidden: () => hudHidden,
       getDeviceColorOverrides: () => deviceColorOverrides,
       getTutorialsCompleted: () => tutorialsCompleted,
+    });
+    initShortcutsDeps({
+      getState: () => state,
+      // Pane and canvas operations
+      panToPane, jumpToPane, focusPane, focusTerminalInput, deletePane,
+      applyPaneZoom, cloudSaveLayout, setZoom, clearMultiSelect,
+      isInsideBroadcastPane, getTabCycleOrder, getTabGroupPanes,
+      switchTab, closeTabInGroup, createTabInGroup,
+      navigateToProject, navigateToCheckpointPane, toggleProjectsSidebar,
+      // HUD operations
+      applyNoHudMode, applyPaneVisibility, checkAutoHideHud,
+      renderHud, renderAgentsHud, restartHudPolling, toggleHudHidden,
+      // Move and mention modes
+      moveModeNavigate, enterMoveMode, exitMoveMode,
+      enterMentionMode, exitMentionMode,
+      getMoveModeActive: () => moveModeActive,
+      getMentionModeActive: () => mentionModeActive,
+      // Live collections
+      getSelectedPaneIds: () => selectedPaneIds,
+      getFileEditors: () => fileEditors,
+      getLastFocusedPaneId: () => lastFocusedPaneId,
+      // Mutable state owned by app.js. tabHeld is also read by the wheel
+      // handlers for Tab+scroll panning, so it cannot move into the module.
+      getTabHeld: () => tabHeld,
+      setTabHeld: (v) => { tabHeld = v; },
+      getLastTabUpTime: () => lastTabUpTime,
+      setLastTabUpTime: (v) => { lastTabUpTime = v; },
+      getHudExpanded: () => hudExpanded,
+      setHudExpanded: (v) => { hudExpanded = v; },
+      getAgentsHudExpanded: () => agentsHudExpanded,
+      setAgentsHudExpanded: (v) => { agentsHudExpanded = v; },
+      getFeedbackHudExpanded: () => feedbackHudExpanded,
+      getHudHidden: () => hudHidden,
+      setHudHidden: (v) => { hudHidden = v; },
+      getFleetPaneHidden: () => fleetPaneHidden,
+      setFleetPaneHidden: (v) => { fleetPaneHidden = v; },
+      getAgentsPaneHidden: () => agentsPaneHidden,
+      setAgentsPaneHidden: (v) => { agentsPaneHidden = v; },
     });
 
     canvas = document.getElementById('canvas');
@@ -11479,458 +11518,9 @@ import { initSettingsDeps, showSettingsModal, savePrefsToCloud, getAllPrefs, set
   }
 
   // ============================================================================
-  // SECTION 22: KEYBOARD SHORTCUTS                               [Lines ~9586-9975]
-  // setupKeyboardShortcuts() (~390 lines):
-  //   Tab chords: Tab+Q (cycle), Tab+A (add), Tab+D (device), Tab+1-9 (jump)
-  //   Double-tap Tab -> move mode, Tab+Scroll -> canvas pan
-  //   Arrow key/mouse pan, Ctrl+Scroll zoom, Escape mode exit
+  // SECTION 22: KEYBOARD SHORTCUTS
+  // Extracted to modules/shortcuts.js — see initShortcutsDeps() wiring below.
   // ============================================================================
-
-  function setupKeyboardShortcuts() {
-    // Tab+key chords: hold Tab, press key for shortcuts (Q=cycle, A=add, D=fleet, etc.)
-    // Double-tap Tab (outside terminal): enter move mode (WASD pane navigation).
-    // Tab inside terminal: passes through to terminal as normal.
-    // Uses capture phase so keys are intercepted before xterm processes them.
-    // tabHeld is declared at module scope (used by wheel handlers too)
-    let tabChordUsed = false;
-    let tabPressedInTerminal = false;
-
-    document.addEventListener('keydown', (e) => {
-      // Move mode: intercept all keys. Tab gets preventDefault but flows to keyup for exit.
-      if (moveModeActive) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.key === 'Tab') return; // keyup handler will call exitMoveMode
-        // Map WASD and arrow keys to directions
-        const arrowMap = { ArrowUp: 'w', ArrowLeft: 'a', ArrowDown: 's', ArrowRight: 'd' };
-        const dir = arrowMap[e.key] || e.key.toLowerCase();
-        if ((dir === 'w' || dir === 'a' || dir === 's' || dir === 'd') && !e.repeat) {
-          moveModeNavigate(dir);
-        } else if (e.key === 'Enter') {
-          exitMoveMode(true);   // confirm: keep zoom
-        } else if (e.key === 'Escape') {
-          exitMoveMode(false);  // cancel: restore zoom
-        }
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        if (!e.repeat) {
-          tabHeld = true;
-          tabChordUsed = false;
-          // Detect if a terminal pane currently has focus
-          const active = document.activeElement;
-          const paneEl = active && active.closest('.pane');
-          const paneId = paneEl && paneEl.id.replace('pane-', '');
-          const paneData = paneId && state.panes.find(p => p.id === paneId);
-          tabPressedInTerminal = !!(paneData && paneData.type === 'terminal');
-        }
-        // Always prevent default Tab (browser tab-cycling and terminal tab insertion)
-        if (!isExternalInputFocused()) {
-          e.preventDefault();
-        }
-        return;
-      }
-      if (e.key === 'q' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-
-        const order = getTabCycleOrder();
-        if (order.length === 0) return;
-
-        const currentIdx = order.findIndex(p => p.id === lastFocusedPaneId);
-        const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % order.length;
-        panToPane(order[nextIdx].id);
-        return;
-      }
-      if (e.key === 'a' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        const addMenu = document.getElementById('add-pane-menu');
-        addMenu.classList.toggle('hidden');
-        return;
-      }
-      // Tab+D: toggle fleet (machines) pane collapse/expand
-      if (e.key === 'd' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        if (hudHidden) {
-          // From dot mode: unhide HUD, show only machines pane expanded
-          hudHidden = false;
-          fleetPaneHidden = false;
-          agentsPaneHidden = true;
-          hudExpanded = true;
-          const container = document.getElementById('hud-container');
-          const dot = document.getElementById('hud-restore-dot');
-          if (container) container.style.display = '';
-          if (dot) dot.style.display = 'none';
-          applyNoHudMode(false);
-          applyPaneVisibility();
-          const hudEl = document.getElementById('hud-overlay');
-          if (hudEl) hudEl.classList.remove('collapsed');
-          savePrefsToCloud({ hudState: { fleet_expanded: hudExpanded, agents_expanded: agentsHudExpanded, feedback_expanded: feedbackHudExpanded, hud_hidden: hudHidden } });
-          restartHudPolling();
-          renderHud();
-        } else if (fleetPaneHidden || agentsPaneHidden) {
-          // Selective mode: some panes individually hidden
-          if (fleetPaneHidden) {
-            // Show this pane (expanded)
-            fleetPaneHidden = false;
-            hudExpanded = true;
-            applyPaneVisibility();
-            const hudEl = document.getElementById('hud-overlay');
-            if (hudEl) hudEl.classList.remove('collapsed');
-            savePrefsToCloud({ hudState: { fleet_expanded: hudExpanded, agents_expanded: agentsHudExpanded, feedback_expanded: feedbackHudExpanded } });
-            restartHudPolling();
-            renderHud();
-          } else {
-            // Hide this pane
-            fleetPaneHidden = true;
-            applyPaneVisibility();
-            checkAutoHideHud();
-          }
-        } else {
-          // Normal mode: all panes visible, toggle collapsed/expanded as before
-          const hudEl = document.getElementById('hud-overlay');
-          if (hudEl) {
-            hudExpanded = !hudExpanded;
-            hudEl.classList.toggle('collapsed', !hudExpanded);
-            savePrefsToCloud({ hudState: { fleet_expanded: hudExpanded, agents_expanded: agentsHudExpanded, feedback_expanded: feedbackHudExpanded } });
-            restartHudPolling();
-            renderHud();
-          }
-        }
-        return;
-      }
-      // Tab+U: toggle agents (usage) pane collapse/expand
-      if (e.key === 'u' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        if (hudHidden) {
-          // From dot mode: unhide HUD, show only usage pane expanded
-          hudHidden = false;
-          fleetPaneHidden = true;
-          agentsPaneHidden = false;
-          agentsHudExpanded = true;
-          const container = document.getElementById('hud-container');
-          const dot = document.getElementById('hud-restore-dot');
-          if (container) container.style.display = '';
-          if (dot) dot.style.display = 'none';
-          applyNoHudMode(false);
-          applyPaneVisibility();
-          const agentsEl = document.getElementById('agents-hud');
-          if (agentsEl) agentsEl.classList.remove('collapsed');
-          savePrefsToCloud({ hudState: { fleet_expanded: hudExpanded, agents_expanded: agentsHudExpanded, feedback_expanded: feedbackHudExpanded, hud_hidden: hudHidden } });
-          renderAgentsHud();
-        } else if (fleetPaneHidden || agentsPaneHidden) {
-          // Selective mode
-          if (agentsPaneHidden) {
-            agentsPaneHidden = false;
-            agentsHudExpanded = true;
-            applyPaneVisibility();
-            const agentsEl = document.getElementById('agents-hud');
-            if (agentsEl) agentsEl.classList.remove('collapsed');
-            savePrefsToCloud({ hudState: { fleet_expanded: hudExpanded, agents_expanded: agentsHudExpanded, feedback_expanded: feedbackHudExpanded } });
-            renderAgentsHud();
-          } else {
-            agentsPaneHidden = true;
-            applyPaneVisibility();
-            checkAutoHideHud();
-          }
-        } else {
-          // Normal mode: toggle collapsed/expanded
-          const agentsEl = document.getElementById('agents-hud');
-          if (agentsEl) {
-            agentsHudExpanded = !agentsHudExpanded;
-            agentsEl.classList.toggle('collapsed', !agentsHudExpanded);
-            savePrefsToCloud({ hudState: { fleet_expanded: hudExpanded, agents_expanded: agentsHudExpanded, feedback_expanded: feedbackHudExpanded } });
-            renderAgentsHud();
-          }
-        }
-        return;
-      }
-      // Tab+H: toggle hide/show all HUD panes
-      if (e.key === 'h' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        toggleHudHidden();
-        return;
-      }
-
-      // Tab+S: open settings modal
-      if (e.key === 's' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        showSettingsModal();
-        return;
-      }
-      // Tab+W: close focused pane (or all broadcasted if in broadcast mode)
-      if (e.key === 'w' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        if (selectedPaneIds.size > 1) {
-          // Broadcast mode: close all selected panes
-          const idsToClose = Array.from(selectedPaneIds);
-          clearMultiSelect();
-          for (const id of idsToClose) {
-            deletePane(id);
-          }
-        } else {
-          // Single mode: close focused pane (fallback to DOM query if lastFocusedPaneId is stale)
-          const targetId = lastFocusedPaneId || (document.querySelector('.pane.focused')?.dataset?.paneId);
-          if (targetId) {
-            const targetPane = state.panes.find(p => p.id === targetId);
-            if (targetPane && targetPane.tabGroupId) closeTabInGroup(targetId);
-            else deletePane(targetId);
-          }
-        }
-        return;
-      }
-      // Tab+M: toggle minimap
-      if (e.key === 'm' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        setMinimapEnabled(!getMinimapEnabled());
-        if (!getMinimapEnabled()) {
-          hideMinimap();
-        } else {
-          startMinimapLoop();
-        }
-        return;
-      }
-      // Tab+P: toggle projects sidebar
-      if (e.key === 'p' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        toggleProjectsSidebar();
-        return;
-      }
-      // Tab+`: cycle to next tab in focused pane's tab group
-      if (e.key === '`' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        const focusedPane = lastFocusedPaneId && state.panes.find(p => p.id === lastFocusedPaneId);
-        if (focusedPane && focusedPane.tabGroupId) {
-          const groupPanes = getTabGroupPanes(focusedPane.tabGroupId);
-          if (groupPanes.length > 1) {
-            const activeIdx = groupPanes.findIndex(p => p.tabGroupActive);
-            const nextIdx = (activeIdx + 1) % groupPanes.length;
-            switchTab(groupPanes[nextIdx].id);
-          }
-        }
-        return;
-      }
-      // Tab+=: create new tab in focused pane's group
-      if (e.key === '=' && tabHeld) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        if (lastFocusedPaneId) {
-          const focusedPane = state.panes.find(p => p.id === lastFocusedPaneId);
-          if (focusedPane && focusedPane.type === 'terminal') {
-            createTabInGroup(lastFocusedPaneId);
-          }
-        }
-        return;
-      }
-      // Tab+1..9: jump to pane or project with that shortcut number (shared pool)
-      if (tabHeld && e.key >= '1' && e.key <= '9') {
-        const num = parseInt(e.key, 10);
-        // Check panes first (includes checkpoint panes)
-        const targetPane = state.panes.find(p => p.shortcutNumber === num);
-        if (targetPane) {
-          tabChordUsed = true;
-          e.preventDefault();
-          e.stopPropagation();
-          if (targetPane.type === 'checkpoint') {
-            navigateToCheckpointPane(targetPane);
-          } else {
-            jumpToPane(targetPane);
-          }
-          return;
-        }
-        // Check projects (zoom-to-fit)
-        const targetProject = state.projects.find(p => p.shortcutNumber === num);
-        if (targetProject) {
-          tabChordUsed = true;
-          e.preventDefault();
-          e.stopPropagation();
-          navigateToProject(targetProject);
-          return;
-        }
-        return;
-      }
-    }, true); // capture phase
-
-    document.addEventListener('keyup', (e) => {
-      if (e.key === 'Tab') {
-        const wasChord = tabChordUsed;
-        const wasInTerminal = tabPressedInTerminal;
-        tabHeld = false;
-        tabChordUsed = false;
-        tabPressedInTerminal = false;
-
-        if (wasChord || isExternalInputFocused()) {
-          lastTabUpTime = 0;
-          return;
-        }
-
-        // Move mode: Tab exits move mode
-        if (moveModeActive) {
-          exitMoveMode(true);  // Tab = confirm (keep zoom)
-          lastTabUpTime = 0;
-          return;
-        }
-
-        // Double-tap detection
-        const now = Date.now();
-        if (now - lastTabUpTime < 300) {
-          lastTabUpTime = 0;
-          enterMoveMode();
-          return;
-        }
-        lastTabUpTime = now;
-        // Solo Tab (first tap): no-op, just records timestamp for double-tap detection
-      }
-    }, true);
-
-    window.addEventListener('blur', () => { tabHeld = false; tabChordUsed = false; tabPressedInTerminal = false; if (moveModeActive) exitMoveMode(false); });
-
-    // Escape: exit mention mode or clear broadcast selection
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (mentionModeActive) {
-          exitMentionMode();
-          return;
-        }
-        if (selectedPaneIds.size > 0) {
-          clearMultiSelect();
-        }
-      }
-    });
-
-    // Ctrl+Shift+@ → toggle mention mode
-    document.addEventListener('keydown', (e) => {
-      if (!(e.ctrlKey && e.shiftKey && e.key === '@')) return;
-      e.preventDefault();
-      if (mentionModeActive) {
-        exitMentionMode();
-      } else {
-        enterMentionMode();
-      }
-    });
-
-    // Non-Shift click outside broadcast panes clears selection
-    document.addEventListener('mousedown', (e) => {
-      if (e.shiftKey) return;
-      if (selectedPaneIds.size === 0) return;
-      // Don't clear if clicking inside a broadcast-selected pane
-      if (isInsideBroadcastPane(e.target)) return;
-      clearMultiSelect();
-    });
-
-    // Ctrl/Cmd +/-/0 : pane zoom if focused, canvas zoom otherwise
-    document.addEventListener('keydown', (e) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      const isPlus = e.key === '=' || e.key === '+';
-      const isMinus = e.key === '-';
-      const isReset = e.key === '0';
-      if (!isPlus && !isMinus && !isReset) return;
-
-      e.preventDefault();
-
-      if (isReset) {
-        const focusedPaneEl = document.querySelector('.pane.focused');
-        if (focusedPaneEl) {
-          const paneId = focusedPaneEl.dataset.paneId;
-          const paneData = state.panes.find(p => p.id === paneId);
-          if (!paneData) return;
-          paneData.zoomLevel = 100;
-          applyPaneZoom(paneData, focusedPaneEl);
-          cloudSaveLayout(paneData);
-        } else {
-          setZoom(1, window.innerWidth / 2, window.innerHeight / 2);
-        }
-        return;
-      }
-
-      const focusedPaneEl = document.querySelector('.pane.focused');
-      if (focusedPaneEl) {
-        const paneId = focusedPaneEl.dataset.paneId;
-        const paneData = state.panes.find(p => p.id === paneId);
-        if (!paneData) return;
-
-        if (!paneData.zoomLevel) paneData.zoomLevel = 100;
-        paneData.zoomLevel = isPlus
-          ? Math.min(500, paneData.zoomLevel + 10)
-          : Math.max(20, paneData.zoomLevel - 10);
-        applyPaneZoom(paneData, focusedPaneEl);
-        cloudSaveLayout(paneData);
-      } else {
-        const factor = isPlus ? 1.2 : 1 / 1.2;
-        setZoom(state.zoom * factor, window.innerWidth / 2, window.innerHeight / 2);
-      }
-    });
-
-    // Ctrl/Cmd+S: save focused file pane; Ctrl/Cmd+W: close focused pane
-    document.addEventListener('keydown', (e) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      if (e.key !== 's' && e.key !== 'w') return;
-
-      const focusedPaneEl = document.querySelector('.pane.focused');
-      if (!focusedPaneEl) return;
-
-      const paneId = focusedPaneEl.dataset.paneId;
-      const paneData = state.panes.find(p => p.id === paneId);
-      if (!paneData) return;
-
-      if (e.key === 's' && paneData.type === 'file') {
-        e.preventDefault();
-        const saveBtn = focusedPaneEl.querySelector('.save-btn');
-        if (saveBtn) saveBtn.click();
-      } else if (e.key === 'w') {
-        e.preventDefault();
-        deletePane(paneId);
-      }
-    });
-
-    // Auto-refocus last pane when typing with nothing focused
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Tab' || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (isExternalInputFocused()) return;
-      const active = document.activeElement;
-      if (active && active !== document.body && active.closest('.pane')) return;
-      if (document.querySelector('.pane.focused')) return;
-      if (!lastFocusedPaneId) return;
-      const paneData = state.panes.find(p => p.id === lastFocusedPaneId);
-      if (!paneData) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      focusPane(paneData);
-      if (paneData.type === 'terminal') {
-        focusTerminalInput(paneData.id);
-      } else if (paneData.type === 'note') {
-        const paneEl = document.getElementById(`pane-${paneData.id}`);
-        const noteEditor = paneEl?.querySelector('.note-editor');
-        if (noteEditor) noteEditor.focus();
-      } else if (paneData.type === 'file') {
-        const edInfo = fileEditors.get(paneData.id);
-        if (edInfo?.monacoEditor) edInfo.monacoEditor.focus();
-      }
-    });
-  }
 
   // ============================================================================
   // SECTION 23: CANVAS EVENT LISTENERS                           [Lines ~9976-10289]
