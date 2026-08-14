@@ -12,6 +12,9 @@ import { initShortcutsDeps, setupKeyboardShortcuts } from './modules/shortcuts.j
 import { initWsTransportDeps, sendWs, agentRequest, pendingRequests, pendingScanCallbacks } from './modules/ws-transport.js';
 import { initAgentUiDeps, showRelayNotification, showUpdateToast, showUpdateProgressToast, showUpdateCompleteToast, updateAgentOverlay, showAddMachineDialog } from './modules/agent-ui.js';
 import { initMenusDeps, setupAddPaneMenu, setupTutorialMenu, autoArrangePanes, setupMobileNavDrawer, setupToolbarButtons, setupCustomTooltips, setupCanvasInteraction, setupPasteHandlers, getTabCycleOrder, findPaneInDirection, calcMoveModeZoom } from './modules/menus.js';
+import { initCanvasEventsDeps, setupEventListeners, handleCanvasPanStart, handleMiddleMousePan, handleRightMousePan, handleTouchStart, handleWheel, setZoom } from './modules/canvas-events.js';
+import { initMoveModeDeps, enterMoveMode, exitMoveMode, applyMoveModeVisuals, moveModeNavigate } from './modules/move-mode.js';
+import { initQuickViewDeps, addQuickViewOverlay, removeQuickViewOverlay, toggleQuickView, enterMentionMode, exitMentionMode } from './modules/quick-view.js';
 import { initTerminalLifecycleDeps, attachTerminal, reattachTerminal, renderPane, renderFilePane, getDeviceColor, claudeSessionBadgeHtml, beadsTagHtml, refreshBeadsTagStatus, deviceLabelHtml, applyDeviceHeaderColor } from './modules/terminal-lifecycle.js';
 import { initTabGroupsDeps, getTabGroupPanes, getActiveTabPane, switchTab, syncTabGroupGeometry, createTabInGroup, refreshTabBars, renderTabBar, closeTabInGroup } from './modules/tab-groups.js';
 import { initConnectionDeps, updateConnectionStatus, findOnlineAgentForDevice, setDisconnectOverlay, renderOfflinePlaceholder } from './modules/connection.js';
@@ -516,8 +519,16 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // cloudFetch, layout/view/note sync, recent contexts -> modules/cloud.js
   let canvas, canvasContainer;
   let isPanning = false;
-  let panStartX, panStartY;
-  let lastPanX, lastPanY;
+  // Canvas pan/pinch gesture state. Grouped so the canvas event handlers can
+  // take it by reference, the same way dragState works for panes.
+  const panState = {
+    startX: 0, startY: 0,
+    lastX: 0, lastY: 0,
+    momentumRaf: null,
+    scrollLockTarget: null, // 'pane' | 'canvas' | null
+    initialPinchDistance: 0,
+    initialZoom: 1,
+  };
 
   // Touch/drag state. Grouped into one object so it can be passed to
   // modules by reference — assignments to imported bindings are not
@@ -586,9 +597,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     }
   }
 
-  // Pinch zoom state
-  let initialPinchDistance = 0;
-  let initialZoom = 1;
+  // Pinch zoom state lives in panState above.
 
   // ============================================================================
   // SECTION 6: HUD SYSTEM (Fleet, Agents, Chat)                  [Lines ~499-1488]
@@ -966,6 +975,47 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getWs: () => ws,
       getActiveAgentId: () => activeAgentId,
       telemetry: _telemetry,
+    });
+    initCanvasEventsDeps({
+      state, panState, selectedPaneIds, terminals,
+      init, saveViewState, updateBroadcastIndicator, updateCanvasTransform,
+      getCanvas: () => canvas,
+      getCanvasContainer: () => canvasContainer,
+      getIsPanning: () => isPanning,
+      setIsPanning: (v) => { isPanning = v; },
+      getExpandedPaneId: () => expandedPaneId,
+      getMoveModeActive: () => moveModeActive,
+      getQuickViewActive: () => quickViewActive,
+      getTabHeld: () => tabHeld,
+    });
+    initMoveModeDeps({
+      state, terminals,
+      getLastFocusedPaneId: () => lastFocusedPaneId,
+      focusPane, focusTerminalInput, saveViewState, updateCanvasTransform,
+      getCanvas: () => canvas,
+      getExpandedPaneId: () => expandedPaneId,
+      getMoveModeActive: () => moveModeActive,
+      setMoveModeActive: (v) => { moveModeActive = v; },
+      getMoveModeOriginalZoom: () => moveModeOriginalZoom,
+      setMoveModeOriginalZoom: (v) => { moveModeOriginalZoom = v; },
+      getMoveModePaneId: () => moveModePaneId,
+      setMoveModePaneId: (v) => { moveModePaneId = v; },
+    });
+    initQuickViewDeps({
+      state, selectedPaneIds, terminals, dragState,
+      clearMultiSelect, exitMoveMode, focusPane, focusTerminalInput,
+      getQuickViewInfo, togglePaneSelection, updateBroadcastIndicator,
+      getCanvas: () => canvas,
+      getDeviceHoverActive: () => deviceHoverActive,
+      getQuickViewActive: () => quickViewActive,
+      setQuickViewActive: (v) => { quickViewActive = v; },
+      getMoveModeActive: () => moveModeActive,
+      getMentionModeActive: () => mentionModeActive,
+      setMentionModeActive: (v) => { mentionModeActive = v; },
+      getMentionStage: () => mentionStage,
+      setMentionStage: (v) => { mentionStage = v; },
+      getMentionPayload: () => mentionPayload,
+      setMentionPayload: (v) => { mentionPayload = v; },
     });
     initTerminalLifecycleDeps({
       state, terminals, fileEditors, pendingAttachments,
@@ -1988,404 +2038,9 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   }
 
   // ============================================================================
-  // SECTION 18: QUICK VIEW & MENTION MODE                        [Lines ~8299-8700]
-  // addQuickViewOverlay() (git, beads, claude metadata overlays),
-  // removeQuickViewOverlay(), toggleQuickView(),
-  // enterMentionMode(), exitMentionMode(), mention stage overlays
+  // SECTION 18: QUICK VIEW & MENTION MODE  -> modules/quick-view.js
   // ============================================================================
 
-  function addQuickViewOverlay(paneEl, paneData) {
-    if (paneEl.querySelector('.quick-view-overlay')) return;
-
-    const info = getQuickViewInfo(paneData, paneEl);
-    const overlay = document.createElement('div');
-    overlay.className = 'quick-view-overlay';
-
-    const typeIcons = {
-      Terminal: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v12h16V6H4zm2 2l4 4-4 4 1.5 1.5L9 12l-5.5-5.5L2 8zm6 8h6v2h-6v-2z"/></svg>',
-      Claude: CLAUDE_LOGO_SVG,
-      File: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>',
-      Note: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4l2-2 2 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H6zm0 2h12v16h-3l-3-3-3 3H6V4z"/></svg>',
-      'Git Graph': `<svg viewBox="0 0 24 24">${ICON_GIT_GRAPH}</svg>`,
-      Iframe: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3" y1="12" x2="8" y2="12" stroke="currentColor" stroke-width="2"/><line x1="16" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"/><path d="M12 3c-2 3-2 6 0 9s2 6 0 9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
-      Beads: `<svg viewBox="0 0 24 24">${ICON_BEADS}</svg>`
-    };
-
-    // Top-left: device name + path (colored per device)
-    const qvColor = getDeviceColor(info.device);
-    const qvStyle = qvColor ? ` style="background:${qvColor.bg}; border-color:${qvColor.border}; color:${qvColor.text}"` : '';
-    let topLeft = `<div class="quick-view-device"${qvStyle}>${escapeHtml(info.device)}</div>`;
-    if (info.path) {
-      topLeft += `<div class="quick-view-path">${escapeHtml(info.path)}</div>`;
-    }
-
-    // Center: pane type icon + claude state below
-    let center = `<div class="quick-view-type">${typeIcons[info.type] || ''}</div>`;
-    if (info.claudeState) {
-      center += `<div class="quick-view-claude-state">${info.claudeState}</div>`;
-    }
-
-    // Scale down content proportionally if pane is too small
-    // Use paneData dimensions (not offsetWidth which includes canvas zoom)
-    const paneW = paneData.width || 400;
-    const paneH = paneData.height || 350;
-    const scaleX = Math.min(1, paneW / 400);
-    const scaleY = Math.min(1, paneH / 350);
-    const scale = Math.min(scaleX, scaleY);
-    const scaleStyle = scale < 1 ? ` style="transform:scale(${scale});transform-origin:center"` : '';
-
-    overlay.innerHTML = `<div class="quick-view-content"${scaleStyle}>
-      <div class="quick-view-top-left">${topLeft}</div>
-      <div class="quick-view-center">${center}</div>
-    </div>`;
-
-    // Overlay click handler for Quick View interactions
-    overlay.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const isSelected = selectedPaneIds.has(paneData.id);
-
-      if (e.shiftKey && !isSelected) {
-        // Shift+Click unselected pane: select it
-        togglePaneSelection(paneData.id);
-        updateBroadcastIndicator();
-        return;
-      }
-
-      if (e.shiftKey && isSelected) {
-        // Already selected: distinguish click (deselect) vs drag
-        const DRAG_THRESHOLD = 5;
-        const mouseDownX = e.clientX;
-        const mouseDownY = e.clientY;
-        let dragging = false;
-
-        // Prepare group drag state up front
-        const rect = paneEl.getBoundingClientRect();
-        const offsetX = (e.clientX - rect.left) / state.zoom;
-        const offsetY = (e.clientY - rect.top) / state.zoom;
-        const groupPanes = [];
-        selectedPaneIds.forEach(id => {
-          const p = state.panes.find(x => x.id === id);
-          const el = document.getElementById(`pane-${id}`);
-          if (p && el) groupPanes.push({ paneData: p, paneEl: el, startX: p.x, startY: p.y });
-        });
-        const anchorStartX = paneData.x;
-        const anchorStartY = paneData.y;
-
-        const onMove = (moveE) => {
-          const dx = moveE.clientX - mouseDownX;
-          const dy = moveE.clientY - mouseDownY;
-
-          if (!dragging) {
-            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
-            // Threshold exceeded — start dragging
-            dragging = true;
-            dragState.isDragging = true;
-            document.body.classList.add('no-select');
-            groupPanes.forEach(({ paneEl: el }) => el.classList.add('dragging'));
-            showIframeOverlays();
-          }
-
-          // Move anchor pane
-          const newX = (moveE.clientX - state.panX) / state.zoom - offsetX;
-          const newY = (moveE.clientY - state.panY) / state.zoom - offsetY;
-          paneEl.style.left = `${newX}px`;
-          paneEl.style.top = `${newY}px`;
-          paneData.x = newX;
-          paneData.y = newY;
-          syncTabGroupGeometry(paneData);
-
-          // Move rest of group by same delta
-          const groupDx = newX - anchorStartX;
-          const groupDy = newY - anchorStartY;
-          groupPanes.forEach(({ paneData: p, paneEl: el, startX: sx, startY: sy }) => {
-            if (p.id === paneData.id) return;
-            p.x = sx + groupDx;
-            p.y = sy + groupDy;
-            el.style.left = `${p.x}px`;
-            el.style.top = `${p.y}px`;
-          });
-        };
-
-        const onUp = () => {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          if (dragging) {
-            dragState.isDragging = false;
-            document.body.classList.remove('no-select');
-            groupPanes.forEach(({ paneEl: el }) => el.classList.remove('dragging'));
-            hideIframeOverlays();
-            // Save all positions (cloud-only)
-            groupPanes.forEach(({ paneData: p }) => {
-              cloudSaveLayout(p);
-            });
-          } else {
-            // Quick click — deselect
-            togglePaneSelection(paneData.id);
-            updateBroadcastIndicator();
-          }
-        };
-
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-        return;
-      }
-
-      // Click without Shift on unselected pane: exit overlay mode, focus
-      if (quickViewActive) {
-        toggleQuickView();
-      } else if (deviceHoverActive) {
-        setHoveredDeviceName(null);
-        clearDeviceHighlight();
-      }
-      focusPane(paneData);
-      focusTerminalInput(paneData.id);
-    });
-
-    paneEl.appendChild(overlay);
-  }
-
-  function removeQuickViewOverlay(paneEl) {
-    const overlay = paneEl.querySelector('.quick-view-overlay');
-    if (overlay) overlay.remove();
-  }
-
-  function toggleQuickView() {
-    if (mentionModeActive) exitMentionMode();
-    quickViewActive = !quickViewActive;
-
-    if (quickViewActive) {
-      // Clear any broadcast selection from normal mode
-      clearMultiSelect();
-      // Overlay ALL panes — no interaction allowed in Quick View
-      document.querySelectorAll('.pane').forEach(paneEl => {
-        const paneId = paneEl.dataset.paneId;
-        const paneData = state.panes.find(p => p.id === paneId);
-        if (!paneData) return;
-        addQuickViewOverlay(paneEl, paneData);
-      });
-      // Remove focused state from all panes
-      document.querySelectorAll('.pane.focused').forEach(p => p.classList.remove('focused'));
-    } else {
-      document.querySelectorAll('.quick-view-overlay').forEach(o => o.remove());
-      document.querySelectorAll('.pane.qv-hover').forEach(p => p.classList.remove('qv-hover'));
-      clearMultiSelect();
-    }
-  }
-
-  // === Mention Mode (two-stage) ===
-  // Stage 1: pick what to mention (file, iframe, beads issue)
-  // Stage 2: pick which Claude Code terminal to paste into
-  function enterMentionMode(payload) {
-    if (moveModeActive) exitMoveMode();
-    if (mentionModeActive) clearMentionOverlays();
-    if (quickViewActive) toggleQuickView();
-    if (deviceHoverActive) { setHoveredDeviceName(null); clearDeviceHighlight(); }
-    mentionModeActive = true;
-
-    if (payload) {
-      // Direct to stage 2 (called from @ buttons)
-      mentionStage = 2;
-      mentionPayload = payload;
-      addMentionStage2Overlays();
-      const label = payload.type === 'beads'
-        ? payload.text.replace('work on this beads issue: ', '').replace(', abide claude.md rules!!!', '')
-        : payload.text;
-      showMentionIndicator(`@ ${escapeHtml(label)}`);
-    } else {
-      // Stage 1: pick source
-      mentionStage = 1;
-      mentionPayload = null;
-      addMentionStage1Overlays();
-      showMentionIndicator('Select a file, URL, or issue');
-    }
-  }
-
-  function addMentionStage1Overlays() {
-    document.querySelectorAll('.pane').forEach(paneEl => {
-      const paneId = paneEl.dataset.paneId;
-      const paneData = state.panes.find(p => p.id === paneId);
-      if (!paneData) return;
-      if (paneEl.querySelector('.mention-overlay')) return;
-
-      if (paneData.type === 'file') {
-        paneEl.classList.add('mention-target-pane');
-        const overlay = document.createElement('div');
-        overlay.className = 'mention-overlay mention-source';
-        overlay.innerHTML = `<div class="mention-overlay-content">
-          <div class="mention-label"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>${escapeHtml(paneData.fileName || paneData.filePath || 'File')}</div>
-          <div class="mention-path">${escapeHtml(paneData.filePath || '')}</div>
-        </div>`;
-        overlay.addEventListener('click', (e) => {
-          e.stopPropagation();
-          enterMentionMode({
-            type: 'file',
-            text: paneData.filePath || paneData.fileName || 'untitled',
-            sourceAgentId: paneData.agentId
-          });
-        });
-        paneEl.appendChild(overlay);
-      } else if (paneData.type === 'iframe') {
-        paneEl.classList.add('mention-target-pane');
-        const overlay = document.createElement('div');
-        overlay.className = 'mention-overlay mention-source';
-        overlay.innerHTML = `<div class="mention-overlay-content">
-          <div class="mention-label"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/><line x1="3" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="21" y2="12"/><path d="M12 3c-2 3-2 6 0 9s2 6 0 9" stroke-width="1.5"/></svg>URL</div>
-          <div class="mention-path">${escapeHtml(paneData.url || '')}</div>
-        </div>`;
-        overlay.addEventListener('click', (e) => {
-          e.stopPropagation();
-          enterMentionMode({
-            type: 'iframe',
-            text: paneData.url,
-            sourceAgentId: paneData.agentId
-          });
-        });
-        paneEl.appendChild(overlay);
-      } else if (paneData.type === 'beads') {
-        paneEl.classList.add('mention-target-pane');
-        const overlay = document.createElement('div');
-        overlay.className = 'mention-overlay mention-source';
-        overlay.innerHTML = `<div class="mention-overlay-content">
-          <div class="mention-label"><svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle; margin-right:4px;">${ICON_BEADS}</svg>Beads Issues</div>
-          <div class="mention-path">Click to choose an issue</div>
-        </div>`;
-        overlay.addEventListener('click', (e) => {
-          e.stopPropagation();
-          // Remove overlay to reveal beads rows for issue selection
-          overlay.remove();
-          paneEl.classList.add('mention-beads-picking');
-        });
-        paneEl.appendChild(overlay);
-      } else {
-        // Dark overlay for non-mentionable panes (terminals)
-        const overlay = document.createElement('div');
-        overlay.className = 'mention-overlay ' + (paneData.beadsTag ? 'mention-dark-beads' : 'mention-dark');
-        if (paneData.beadsTag) {
-          const shortId = paneData.beadsTag.id.replace(/^.*-/, '');
-          overlay.innerHTML = `<div class="mention-overlay-content">
-            <div class="mention-label"><svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle; margin-right:4px;">${ICON_BEADS}</svg>${escapeHtml(shortId)}</div>
-            <div class="mention-path">${escapeHtml((paneData.beadsTag.title || '').slice(0, 80))}</div>
-          </div>`;
-        }
-        overlay.addEventListener('click', (e) => {
-          e.stopPropagation();
-          exitMentionMode();
-        });
-        paneEl.appendChild(overlay);
-      }
-    });
-  }
-
-  function addMentionStage2Overlays() {
-    document.querySelectorAll('.pane').forEach(paneEl => {
-      const paneId = paneEl.dataset.paneId;
-      const paneData = state.panes.find(p => p.id === paneId);
-      if (!paneData) return;
-      if (paneEl.querySelector('.mention-overlay')) return;
-
-      const info = getQuickViewInfo(paneData, paneEl);
-      const isClaude = info.type === 'Claude';
-      const sameDevice = paneData.agentId === mentionPayload.sourceAgentId
-        || (!paneData.agentId && !mentionPayload.sourceAgentId);
-      const isTarget = isClaude && sameDevice;
-
-      const hasBeadsTag = !!paneData.beadsTag;
-      const overlay = document.createElement('div');
-      if (isTarget) {
-        overlay.className = 'mention-overlay mention-target' + (hasBeadsTag ? ' mention-target-beads' : '');
-      } else {
-        overlay.className = 'mention-overlay ' + (hasBeadsTag ? 'mention-dark-beads' : 'mention-dark');
-      }
-
-      if (isTarget) {
-        paneEl.classList.add('mention-target-pane');
-        const beadsInfo = hasBeadsTag ? `<div class="mention-beads-info"><svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle; margin-right:3px;">${ICON_BEADS}</svg>${escapeHtml(paneData.beadsTag.id.replace(/^.*-/, ''))} — ${escapeHtml((paneData.beadsTag.title || '').slice(0, 60))}</div>` : '';
-        overlay.innerHTML = `<div class="mention-overlay-content">
-          <div class="mention-label">@ Mention here</div>
-          <div class="mention-device">${escapeHtml(info.device)}</div>
-          <div class="mention-path">${escapeHtml(info.path)}</div>
-          ${beadsInfo}
-        </div>`;
-        overlay.addEventListener('click', (e) => {
-          e.stopPropagation();
-          sendWs('terminal:input', {
-            terminalId: paneData.id,
-            data: btoa(mentionPayload.text)
-          }, paneData.agentId);
-          // Auto-set beads tag when mentioning a beads issue to a terminal
-          if (mentionPayload.type === 'beads' && mentionPayload.issueId) {
-            paneData.beadsTag = { id: mentionPayload.issueId, title: mentionPayload.issueTitle || '', status: mentionPayload.issueStatus || 'open', blocked: !!mentionPayload.issueBlocked };
-            cloudSaveLayout(paneData);
-            // Update the badge in the header
-            const titleEl = paneEl.querySelector('.pane-title');
-            if (titleEl) {
-              const existing = titleEl.querySelector('.beads-tag-badge');
-              if (existing) existing.remove();
-              const temp = document.createElement('span');
-              temp.innerHTML = beadsTagHtml(paneData.beadsTag);
-              const badge = temp.firstChild;
-              const insertBefore = titleEl.querySelector('span[style*="opacity"]') || titleEl.querySelector('.claude-header');
-              if (insertBefore) titleEl.insertBefore(badge, insertBefore);
-              else titleEl.appendChild(badge);
-            }
-          }
-          exitMentionMode();
-          focusPane(paneData);
-          focusTerminalInput(paneData.id);
-        });
-      } else {
-        if (hasBeadsTag) {
-          const shortId = paneData.beadsTag.id.replace(/^.*-/, '');
-          overlay.innerHTML = `<div class="mention-overlay-content">
-            <div class="mention-label"><svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle; margin-right:4px;">${ICON_BEADS}</svg>${escapeHtml(shortId)}</div>
-            <div class="mention-path">${escapeHtml((paneData.beadsTag.title || '').slice(0, 80))}</div>
-          </div>`;
-        }
-        overlay.addEventListener('click', (e) => {
-          e.stopPropagation();
-          exitMentionMode();
-        });
-      }
-
-      paneEl.appendChild(overlay);
-    });
-  }
-
-  function showMentionIndicator(html) {
-    let indicator = document.getElementById('mention-indicator');
-    if (!indicator) {
-      indicator = document.createElement('div');
-      indicator.id = 'mention-indicator';
-      indicator.className = 'mention-indicator';
-      document.body.appendChild(indicator);
-    }
-    indicator.innerHTML = `<span class="mention-indicator-icon">@</span> MENTION — ${html}`;
-    indicator.style.display = 'flex';
-  }
-
-  function clearMentionOverlays() {
-    document.querySelectorAll('.mention-overlay').forEach(o => o.remove());
-    document.querySelectorAll('.pane.mention-target-pane').forEach(p => p.classList.remove('mention-target-pane'));
-    document.querySelectorAll('.pane.mention-beads-picking').forEach(p => p.classList.remove('mention-beads-picking'));
-  }
-
-  function exitMentionMode() {
-    mentionModeActive = false;
-    mentionStage = 0;
-    mentionPayload = null;
-    clearMentionOverlays();
-    const indicator = document.getElementById('mention-indicator');
-    if (indicator) indicator.style.display = 'none';
-  }
-
-  // === Placement Mode ===
-  // Placement ghost sizes derived from PANE_DEFAULTS
-  // placementSizes, placementLabels -> modules/placement.js
-
-  // Enter placement mode with all picker data already resolved
-  // createFn(placementPos) will be called on click
   // ============================================================================
   // SECTION 19: PLACEMENT MODE  -> modules/placement.js
   // ============================================================================
@@ -2399,190 +2054,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // ============================================================================
 
   // ============================================================================
-  // SECTION 21: MOVE MODE (WASD NAVIGATION)                      [Lines ~9406-9585]
-  // enterMoveMode(), exitMoveMode(), applyMoveModeVisuals(),
-  // moveModeNavigate(), findPaneInDirection() (spatial lookup)
+  // SECTION 21: MOVE MODE  -> modules/move-mode.js
   // ============================================================================
-
-  function enterMoveMode() {
-    if (moveModeActive) return;
-    moveModeActive = true;
-    // Hide cursor and kill pointer-events on panes — prevents hover focus stealing
-    document.body.classList.add('cursor-suppressed');
-    // Clear all focused outlines — move mode has its own visual system
-    document.querySelectorAll('.pane.focused').forEach(p => p.classList.remove('focused'));
-    moveModeOriginalZoom = state.zoom;
-
-    // Determine starting pane: last focused, or nearest to screen center
-    let startPane = lastFocusedPaneId && state.panes.find(p => p.id === lastFocusedPaneId);
-    if (!startPane && state.panes.length > 0) {
-      const vcx = (window.innerWidth / 2 - state.panX) / state.zoom;
-      const vcy = (window.innerHeight / 2 - state.panY) / state.zoom;
-      let bestDist = Infinity;
-      for (const p of state.panes) {
-        const cx = p.x + p.width / 2;
-        const cy = p.y + p.height / 2;
-        const d = Math.sqrt((cx - vcx) ** 2 + (cy - vcy) ** 2);
-        if (d < bestDist) { bestDist = d; startPane = p; }
-      }
-    }
-    if (!startPane) { moveModeActive = false; return; }
-
-    moveModePaneId = startPane.id;
-
-    // Zoom to fit starting pane at ~70% of viewport
-    const targetZoom = calcMoveModeZoom(startPane);
-    state.zoom = targetZoom;
-    const paneCenterX = startPane.x + startPane.width / 2;
-    const paneCenterY = startPane.y + startPane.height / 2;
-    state.panX = window.innerWidth / 2 - paneCenterX * state.zoom;
-    state.panY = window.innerHeight / 2 - paneCenterY * state.zoom;
-
-    // Animate the transition
-    canvas.style.transition = 'transform 100ms ease';
-    updateCanvasTransform();
-    setTimeout(() => { canvas.style.transition = ''; }, 120);
-
-    // Blur ALL terminals so no xterm holds focus during move mode
-    terminals.forEach(({ xterm }) => { if (xterm) xterm.blur(); });
-
-    // Apply visual classes
-    applyMoveModeVisuals();
-
-    // Add indicator (same style as broadcast/mention indicators)
-    let indicator = document.getElementById('move-mode-indicator');
-    if (!indicator) {
-      indicator = document.createElement('div');
-      indicator.id = 'move-mode-indicator';
-      indicator.className = 'move-mode-indicator';
-      document.body.appendChild(indicator);
-    }
-    indicator.innerHTML = `<span class="move-mode-indicator-icon">⇄</span> MOVE — WASD to navigate, Enter to select, Esc to cancel`;
-    indicator.style.display = 'flex';
-  }
-
-  function exitMoveMode(confirm = true) {
-    if (!moveModeActive) return;
-    moveModeActive = false;
-
-    // Esc (cancel): restore original zoom, centered on current pane
-    if (!confirm) {
-      state.zoom = moveModeOriginalZoom;
-      if (moveModePaneId) {
-        const pd = state.panes.find(p => p.id === moveModePaneId);
-        if (pd) {
-          const cx = pd.x + pd.width / 2;
-          const cy = pd.y + pd.height / 2;
-          state.panX = window.innerWidth / 2 - cx * state.zoom;
-          state.panY = window.innerHeight / 2 - cy * state.zoom;
-        }
-      }
-    }
-    // Enter/Tab (confirm): keep current zoom and pan as-is
-
-    // Animate transition
-    canvas.style.transition = 'transform 100ms ease';
-    updateCanvasTransform();
-    setTimeout(() => { canvas.style.transition = ''; }, 120);
-
-    // Remove visual classes and overlays
-    document.querySelectorAll('.pane.move-mode-active').forEach(p => p.classList.remove('move-mode-active'));
-    document.querySelectorAll('.pane.move-mode-dimmed').forEach(p => p.classList.remove('move-mode-dimmed'));
-    document.querySelectorAll('.pane .pane-hover-overlay').forEach(o => o.remove());
-
-    // Hide indicator
-    const indicator = document.getElementById('move-mode-indicator');
-    if (indicator) indicator.style.display = 'none';
-
-    // Blur ALL terminals to ensure clean slate — prevents stale xterm focus
-    terminals.forEach(({ xterm }) => { if (xterm) xterm.blur(); });
-
-    // Focus the highlighted pane (delay terminal focus so browser settles DOM changes)
-    if (moveModePaneId) {
-      const paneData = state.panes.find(p => p.id === moveModePaneId);
-      const focusPaneId = moveModePaneId;
-      if (paneData) {
-        focusPane(paneData);
-        setTimeout(() => { focusTerminalInput(focusPaneId); }, 50);
-      }
-    }
-    moveModePaneId = null;
-    saveViewState();
-
-    // Keep cursor/pointer suppressed until actual mouse movement
-    // (prevents browser-fired mouseenter from stealing focus when overlays are removed)
-    const reEnableMouse = () => {
-      document.body.classList.remove('cursor-suppressed');
-      document.removeEventListener('mousemove', reEnableMouse);
-    };
-    document.addEventListener('mousemove', reEnableMouse);
-  }
-
-  function applyMoveModeVisuals() {
-    document.querySelectorAll('.pane.move-mode-active').forEach(p => p.classList.remove('move-mode-active'));
-    document.querySelectorAll('.pane.move-mode-dimmed').forEach(p => p.classList.remove('move-mode-dimmed'));
-    document.querySelectorAll('.pane .pane-hover-overlay').forEach(o => o.remove());
-
-    document.querySelectorAll('.pane').forEach(paneEl => {
-      const id = paneEl.dataset.paneId || paneEl.id.replace('pane-', '');
-      if (id === moveModePaneId) {
-        paneEl.classList.add('move-mode-active');
-      } else {
-        paneEl.classList.add('move-mode-dimmed');
-      }
-      const paneData = state.panes.find(p => p.id === id);
-      if (paneData && id !== moveModePaneId) {
-        const hasBeads = !!paneData.beadsTag;
-        const hasSession = !!paneData.claudeSessionId;
-        if (hasBeads || hasSession) {
-          const overlay = document.createElement('div');
-          overlay.className = 'pane-hover-overlay';
-          let html = '';
-          if (hasSession) {
-            const nameText = paneData.claudeSessionName ? escapeHtml(paneData.claudeSessionName.slice(0, 50)) : '';
-            html += `<div class="claude-session-card">
-              <div class="claude-session-card-id">${CLAUDE_LOGO_SVG.replace('class="claude-logo"', 'class="claude-session-card-logo"')}${escapeHtml(paneData.claudeSessionId)}</div>
-              ${nameText ? `<div class="claude-session-card-name">${nameText}</div>` : ''}
-            </div>`;
-          }
-          if (hasBeads) {
-            html += `<div class="beads-hover-card">
-              <div class="beads-hover-id"><svg viewBox="0 0 24 24" width="14" height="14">${ICON_BEADS}</svg>${escapeHtml(paneData.beadsTag.id)}</div>
-              <div class="beads-hover-title">${escapeHtml((paneData.beadsTag.title || '').slice(0, 100))}</div>
-            </div>`;
-          }
-          overlay.innerHTML = html;
-          paneEl.appendChild(overlay);
-        }
-      }
-    });
-  }
-
-  function moveModeNavigate(direction) {
-    if (!moveModeActive || !moveModePaneId) return;
-    const target = findPaneInDirection(moveModePaneId, direction);
-    if (!target) return;
-
-    moveModePaneId = target.id;
-
-    // Zoom to fit target pane at ~70% viewport and center
-    const targetZoom = calcMoveModeZoom(target);
-    state.zoom = targetZoom;
-    const cx = target.x + target.width / 2;
-    const cy = target.y + target.height / 2;
-    state.panX = window.innerWidth / 2 - cx * state.zoom;
-    state.panY = window.innerHeight / 2 - cy * state.zoom;
-
-    canvas.style.transition = 'transform 100ms ease';
-    updateCanvasTransform();
-    setTimeout(() => { canvas.style.transition = ''; }, 120);
-
-    // Re-blur terminal so keys stay in move mode
-    const termInfo = terminals.get(target.id);
-    if (termInfo && termInfo.xterm) termInfo.xterm.blur();
-
-    applyMoveModeVisuals();
-  }
 
   // ============================================================================
   // SECTION 22: KEYBOARD SHORTCUTS
@@ -2590,379 +2063,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // ============================================================================
 
   // ============================================================================
-  // SECTION 23: CANVAS EVENT LISTENERS                           [Lines ~9976-10289]
-  // setupEventListeners(): canvas mouse/touch handlers,
-  //   handleCanvasPanStart(), selection rect (Shift+drag),
-  //   middle/right mouse pan, touch pinch zoom,
-  //   handleWheel(), setZoom()
+  // SECTION 23: CANVAS EVENT LISTENERS  -> modules/canvas-events.js
   // ============================================================================
-
-  function setupEventListeners() {
-    setupAddPaneMenu();
-    setupToolbarButtons();
-    setupCustomTooltips();
-    setupCanvasInteraction();
-    setupPasteHandlers();
-    setupKeyboardShortcuts();
-    setupMobileNavDrawer();
-
-    // Prevent Safari's native pinch-to-zoom (bypasses touch-action: none)
-    document.addEventListener('gesturestart', e => e.preventDefault());
-    document.addEventListener('gesturechange', e => e.preventDefault());
-  }
-
-  // Handle canvas pan start (mouse)
-  function handleCanvasPanStart(e) {
-    if (isPlacementActive()) return;
-    if (e.target !== canvas && e.target !== canvasContainer) return;
-
-    // Shift+drag on empty canvas: selection rectangle for broadcast
-    if (e.shiftKey) {
-      startSelectionRect(e);
-      return;
-    }
-
-    isPanning = true;
-    panStartX = e.clientX - state.panX;
-    panStartY = e.clientY - state.panY;
-    showIframeOverlays();
-
-    const moveHandler = (moveE) => {
-      if (!isPanning) return;
-      state.panX = moveE.clientX - panStartX;
-      state.panY = moveE.clientY - panStartY;
-      updateCanvasTransform();
-    };
-
-    const endHandler = () => {
-      isPanning = false;
-      hideIframeOverlays();
-      saveViewState();
-      document.removeEventListener('mousemove', moveHandler);
-      document.removeEventListener('mouseup', endHandler);
-    };
-
-    document.addEventListener('mousemove', moveHandler);
-    document.addEventListener('mouseup', endHandler);
-  }
-
-  function startSelectionRect(e) {
-    const selRect = document.getElementById('selection-rect');
-    if (!selRect) return;
-
-    // Convert client coords to canvas coords (account for pan and zoom)
-    const startCanvasX = (e.clientX - state.panX) / state.zoom;
-    const startCanvasY = (e.clientY - state.panY) / state.zoom;
-
-    selRect.style.left = startCanvasX + 'px';
-    selRect.style.top = startCanvasY + 'px';
-    selRect.style.width = '0px';
-    selRect.style.height = '0px';
-    selRect.style.display = 'block';
-
-    showIframeOverlays();
-
-    const moveHandler = (moveE) => {
-      const curCanvasX = (moveE.clientX - state.panX) / state.zoom;
-      const curCanvasY = (moveE.clientY - state.panY) / state.zoom;
-
-      const x = Math.min(startCanvasX, curCanvasX);
-      const y = Math.min(startCanvasY, curCanvasY);
-      const w = Math.abs(curCanvasX - startCanvasX);
-      const h = Math.abs(curCanvasY - startCanvasY);
-
-      selRect.style.left = x + 'px';
-      selRect.style.top = y + 'px';
-      selRect.style.width = w + 'px';
-      selRect.style.height = h + 'px';
-    };
-
-    const endHandler = () => {
-      selRect.style.display = 'none';
-      hideIframeOverlays();
-
-      // Get the final rectangle bounds in canvas coords
-      const rx = parseFloat(selRect.style.left);
-      const ry = parseFloat(selRect.style.top);
-      const rw = parseFloat(selRect.style.width);
-      const rh = parseFloat(selRect.style.height);
-
-      // Only select if the user actually dragged (not just a shift+click on canvas)
-      if (rw > 5 || rh > 5) {
-        // Find all panes that overlap the selection rectangle
-        state.panes.forEach(p => {
-          const overlaps =
-            p.x < rx + rw &&
-            p.x + p.width > rx &&
-            p.y < ry + rh &&
-            p.y + p.height > ry;
-
-          if (overlaps && !selectedPaneIds.has(p.id)) {
-            selectedPaneIds.add(p.id);
-            const el = document.getElementById(`pane-${p.id}`);
-            if (el) el.classList.add('broadcast-selected');
-          }
-        });
-        updateBroadcastIndicator();
-      }
-
-      document.removeEventListener('mousemove', moveHandler);
-      document.removeEventListener('mouseup', endHandler);
-    };
-
-    document.addEventListener('mousemove', moveHandler);
-    document.addEventListener('mouseup', endHandler);
-  }
-
-  // Middle mouse button pan — works even over panes
-  function handleMiddleMousePan(e) {
-    if (e.button !== 1) return; // only middle mouse
-    e.preventDefault();  // prevent browser auto-scroll
-    e.stopPropagation(); // prevent pane drag/focus handlers
-
-    isPanning = true;
-    panStartX = e.clientX - state.panX;
-    panStartY = e.clientY - state.panY;
-    document.body.style.cursor = 'grabbing';
-    canvasContainer.classList.add('middle-panning');
-    showIframeOverlays();
-
-    const moveHandler = (moveE) => {
-      if (!isPanning) return;
-      moveE.preventDefault();
-      state.panX = moveE.clientX - panStartX;
-      state.panY = moveE.clientY - panStartY;
-      updateCanvasTransform();
-    };
-
-    const endHandler = (upE) => {
-      if (upE.button !== 1) return; // only release on middle mouse up
-      isPanning = false;
-      document.body.style.cursor = '';
-      canvasContainer.classList.remove('middle-panning');
-      hideIframeOverlays();
-      saveViewState();
-      document.removeEventListener('mousemove', moveHandler);
-      document.removeEventListener('mouseup', endHandler);
-    };
-
-    document.addEventListener('mousemove', moveHandler);
-    document.addEventListener('mouseup', endHandler);
-  }
-
-  // Right mouse button pan — works even over panes (terminals, editors, etc.)
-  function handleRightMousePan(e) {
-    if (e.button !== 2) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    isPanning = true;
-    let didMove = false;
-    panStartX = e.clientX - state.panX;
-    panStartY = e.clientY - state.panY;
-    document.body.style.cursor = 'grabbing';
-    showIframeOverlays();
-
-    // Suppress context menu while dragging
-    const suppressContextMenu = (ce) => { ce.preventDefault(); };
-    document.addEventListener('contextmenu', suppressContextMenu, true);
-
-    const moveHandler = (moveE) => {
-      if (!isPanning) return;
-      moveE.preventDefault();
-      didMove = true;
-      state.panX = moveE.clientX - panStartX;
-      state.panY = moveE.clientY - panStartY;
-      updateCanvasTransform();
-    };
-
-    const endHandler = (upE) => {
-      if (upE.button !== 2) return;
-      isPanning = false;
-      document.body.style.cursor = '';
-      hideIframeOverlays();
-      saveViewState();
-      document.removeEventListener('mousemove', moveHandler);
-      document.removeEventListener('mouseup', endHandler);
-      // Remove context menu suppression after a tick (so the mouseup's contextmenu is still caught)
-      setTimeout(() => {
-        document.removeEventListener('contextmenu', suppressContextMenu, true);
-      }, 0);
-    };
-
-    document.addEventListener('mousemove', moveHandler);
-    document.addEventListener('mouseup', endHandler);
-  }
-
-  // Handle touch start for pan/pinch
-  // Momentum state for touch pan inertia
-  let momentumRaf = null;
-
-  function handleTouchStart(e) {
-    if (e.target !== canvas && e.target !== canvasContainer) return;
-
-    // Cancel any in-flight momentum animation
-    if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = null; }
-
-    if (e.touches.length === 1) {
-      e.preventDefault();
-      isPanning = true;
-      panStartX = e.touches[0].clientX - state.panX;
-      panStartY = e.touches[0].clientY - state.panY;
-      lastPanX = state.panX;
-      lastPanY = state.panY;
-      showIframeOverlays();
-    } else if (e.touches.length === 2) {
-      e.preventDefault();
-      isPanning = false;
-      initialPinchDistance = getPinchDistance(e.touches);
-      initialZoom = state.zoom;
-    }
-
-    // Velocity tracking: store last 3 touch samples for momentum calculation
-    const samples = []; // { x, y, t }
-
-    const moveHandler = (moveE) => {
-      if (moveE.touches.length === 1 && isPanning) {
-        moveE.preventDefault();
-        state.panX = moveE.touches[0].clientX - panStartX;
-        state.panY = moveE.touches[0].clientY - panStartY;
-        updateCanvasTransform();
-
-        const now = Date.now();
-        samples.push({ x: state.panX, y: state.panY, t: now });
-        if (samples.length > 3) samples.shift();
-      } else if (moveE.touches.length === 2) {
-        moveE.preventDefault();
-        const currentDistance = getPinchDistance(moveE.touches);
-        const scale = currentDistance / initialPinchDistance;
-        const newZoom = Math.max(0.05, Math.min(4, initialZoom * scale));
-
-        const centerX = (moveE.touches[0].clientX + moveE.touches[1].clientX) / 2;
-        const centerY = (moveE.touches[0].clientY + moveE.touches[1].clientY) / 2;
-
-        setZoom(newZoom, centerX, centerY);
-      }
-    };
-
-    const endHandler = () => {
-      isPanning = false;
-      hideIframeOverlays();
-      canvasContainer.removeEventListener('touchmove', moveHandler);
-      canvasContainer.removeEventListener('touchend', endHandler);
-
-      // Compute velocity from recent samples and apply momentum
-      if (samples.length >= 2) {
-        const oldest = samples[0];
-        const newest = samples[samples.length - 1];
-        const dt = newest.t - oldest.t;
-        if (dt > 0 && dt < 200) { // Only if recent enough to be intentional
-          let vx = (newest.x - oldest.x) / dt * 16; // px per frame (~16ms)
-          let vy = (newest.y - oldest.y) / dt * 16;
-          const friction = 0.92;
-          const minV = 0.3;
-
-          const animate = () => {
-            vx *= friction;
-            vy *= friction;
-            if (Math.abs(vx) < minV && Math.abs(vy) < minV) {
-              momentumRaf = null;
-              saveViewState();
-              return;
-            }
-            state.panX += vx;
-            state.panY += vy;
-            updateCanvasTransform();
-            momentumRaf = requestAnimationFrame(animate);
-          };
-          momentumRaf = requestAnimationFrame(animate);
-          return; // saveViewState called when momentum ends
-        }
-      }
-      saveViewState();
-    };
-
-    canvasContainer.addEventListener('touchmove', moveHandler, { passive: false });
-    canvasContainer.addEventListener('touchend', endHandler);
-  }
-
-  // Get distance between two touch points
-  function getPinchDistance(touches) {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  // Scroll target lock: once a scroll gesture starts on a pane (or canvas),
-  // keep routing to that target until the gesture ends.
-  // Touchpad gestures produce small frequent deltas with momentum/inertia gaps,
-  // so use a longer lock (500ms) to cover the full gesture including inertia.
-  let scrollLockTarget = null; // 'pane' or 'canvas' or null
-  let scrollLockTimer = null;
-
-  function handleWheel(e) {
-    // Ctrl+Scroll anywhere = always canvas zoom
-    if (e.ctrlKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom(state.zoom * delta, e.clientX, e.clientY);
-      return;
-    }
-
-    // Tab+Scroll anywhere = always pan canvas (even over panes)
-    if (tabHeld) {
-      e.preventDefault();
-      e.stopPropagation();
-      state.panX -= e.deltaX || 0;
-      state.panY -= e.deltaY;
-      updateCanvasTransform();
-      saveViewState();
-      return;
-    }
-
-    // Check if mouse is currently over a pane
-    const paneEl = e.target.closest('.pane');
-    const onPane = !!paneEl;
-
-    // If mouse is on canvas background, pan the canvas (zoom only via Ctrl+Scroll above)
-    if (!onPane) {
-      e.preventDefault();
-      scrollLockTarget = null;
-      state.panX -= e.deltaX || 0;
-      state.panY -= e.deltaY;
-      updateCanvasTransform();
-      saveViewState();
-      return;
-    }
-
-    // Mouse is on a pane — Shift+Scroll = pan canvas, normal scroll = let pane handle
-    if (e.shiftKey) {
-      e.preventDefault();
-      state.panX -= e.deltaX || e.deltaY;
-      state.panY -= e.deltaY;
-      updateCanvasTransform();
-      saveViewState();
-    }
-    // Normal scroll on pane: don't preventDefault — let terminal/editor handle it
-  }
-
-  // Set zoom centered on a point
-  function setZoom(newZoom, centerX, centerY) {
-    newZoom = Math.max(0.05, Math.min(4, newZoom));
-    const zoomRatio = newZoom / state.zoom;
-    state.panX = centerX - (centerX - state.panX) * zoomRatio;
-    state.panY = centerY - (centerY - state.panY) * zoomRatio;
-    state.zoom = newZoom;
-
-    updateCanvasTransform();
-    saveViewState();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
 
   // ============================================================================
   // SECTION 24: DEBUG EXPORTS                                    [Lines ~10297-10344]
@@ -3017,4 +2119,12 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     hideMinimap,
     startMinimapLoop,
   };
+
+  // Bootstrap. Kept in app.js because init() and everything it wires lives
+  // here; a module cannot run it before its own context is initialised.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();

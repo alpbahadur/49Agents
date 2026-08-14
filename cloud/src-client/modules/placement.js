@@ -8,7 +8,7 @@
 // while a placement is in flight, through the exported accessor.
 
 import { escapeHtml, formatBytes, formatLocationPath } from './utils.js';
-import { PANE_DEFAULTS, ICON_CONVERSATIONS } from './constants.js';
+import { ICON_BEADS, ICON_CONVERSATIONS, ICON_FOLDER, PANE_DEFAULTS } from './constants.js';
 import { agentRequest, sendWs } from './ws-transport.js';
 import { calcPlacementPos } from './minimap.js';
 import { setupPaneListeners, findSnapTargets, showSnapGuides, removeSnapGuides } from './pane-interaction.js';
@@ -479,7 +479,7 @@ export async function showConversationDetail(pane, paneData, convo, isActive, cl
         device: paneData.device || null,
         agentId: paneData.agentId,
       };
-      _ctx.state.panes.push(tPane); _telemetry.trackPaneOpen(tPane);
+      _ctx.state.panes.push(tPane); _ctx.telemetry.trackPaneOpen(tPane);
       _ctx.renderPane(tPane);
       _ctx.cloudSaveLayout(tPane);
 

@@ -7,7 +7,7 @@
 // interleave their layout writes; that queue is local to this module.
 
 import { escapeHtml, formatBytes } from './utils.js';
-import { PANE_DEFAULTS, PANE_ENDPOINT_MAP } from './constants.js';
+import { ICON_GIT_GRAPH, PANE_DEFAULTS, PANE_ENDPOINT_MAP } from './constants.js';
 import { agentRequest, sendWs } from './ws-transport.js';
 import { calcPlacementPos } from './minimap.js';
 import { renderGitGraphPane } from './git-graph.js';

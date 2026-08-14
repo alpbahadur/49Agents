@@ -4,7 +4,7 @@
 // placeholder for panes restored from the layout whose device is offline.
 
 import { escapeHtml, formatLocationPath, truncateUrl } from './utils.js';
-import { WIFI_OFF_SVG } from './constants.js';
+import { ICON_BEADS, ICON_CONVERSATIONS, ICON_FOLDER, ICON_GIT_GRAPH, WIFI_OFF_SVG } from './constants.js';
 import { setupPaneListeners } from './pane-interaction.js';
 
 let _ctx = null;

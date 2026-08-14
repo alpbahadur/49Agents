@@ -12,6 +12,7 @@
 // separate bindings, so this module mutates them in place.
 
 import { escapeHtml, isExternalInputFocused } from './utils.js';
+import { CLAUDE_LOGO_SVG, ICON_BEADS } from './constants.js';
 import { sendWs } from './ws-transport.js';
 
 // Snapping and gesture tuning. Only this module uses them.
