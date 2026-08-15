@@ -16,6 +16,9 @@ export function setupPreferencesRoutes(app) {
       hudState:           prefs.hud_state ? JSON.parse(prefs.hud_state) : {},
       tutorialsCompleted: prefs.tutorials_completed ? JSON.parse(prefs.tutorials_completed) : {},
       projects:           prefs.projects ? JSON.parse(prefs.projects) : [],
+      focusMode:          prefs.focus_mode || 'hover',
+      teleportAnimation:  prefs.teleport_animation === undefined ? true : !!prefs.teleport_animation,
+      projectsSidebarPosition: prefs.projects_sidebar_position || 'right',
     });
   });
 
@@ -23,12 +26,12 @@ export function setupPreferencesRoutes(app) {
     const {
       nightMode, terminalTheme, notificationSound, autoRemoveDone,
       canvasBg, snoozeDuration, terminalFont, hudState, tutorialsCompleted,
-      projects,
+      projects, focusMode, teleportAnimation, projectsSidebarPosition,
     } = req.body;
     savePreferences(req.user.id, {
       nightMode, terminalTheme, notificationSound, autoRemoveDone,
       canvasBg, snoozeDuration, terminalFont, hudState, tutorialsCompleted,
-      projects,
+      projects, focusMode, teleportAnimation, projectsSidebarPosition,
     });
     res.json({ ok: true });
   });

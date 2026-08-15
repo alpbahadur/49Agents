@@ -75,6 +75,9 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   hud_state          TEXT NOT NULL DEFAULT '{}',
   tutorials_completed TEXT NOT NULL DEFAULT '{}',
   projects           TEXT NOT NULL DEFAULT '[]',
+  focus_mode         TEXT NOT NULL DEFAULT 'hover',
+  teleport_animation INTEGER NOT NULL DEFAULT 1,
+  projects_sidebar_position TEXT NOT NULL DEFAULT 'right',
   updated_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

@@ -9,7 +9,9 @@
 import { jwtVerify, SignJWT } from 'jose';
 import { config } from '../config.js';
 import { upsertUser, getUserById } from '../db/users.js';
+import { upsertDevAgent } from '../db/agents.js';
 import { getLocalAuth } from './localAuth.js';
+import { hostname as osHostname } from 'os';
 
 const hasOAuth = !!(config.github.clientId || config.google.clientId);
 const isProduction = config.nodeEnv === 'production';
@@ -42,6 +44,22 @@ function devAgentId(instanceKey) {
   return `agent_dev_local_${String(instanceKey).replace(/[^a-z0-9_-]/gi, '')}`;
 }
 
+/**
+ * Resolve the dev agent identity, recording it in the agents table.
+ *
+ * pane_layouts.agent_id references agents(id). Dev mode does not go through
+ * the pairing routes that populate that table, so without this every layout
+ * save fails the foreign key and no pane position is ever persisted.
+ *
+ * upsertDevAgent returns the id actually stored, which differs from the
+ * synthetic one when a real agent already holds this (user, hostname) pair.
+ * Returning that id keeps the reference valid in both cases.
+ */
+function resolveDevAgent(instanceKey, userId) {
+  const id = devAgentId(instanceKey);
+  return upsertDevAgent(id, userId, osHostname(), process.platform);
+}
+
 export async function verifyAgentToken(token, instanceKey) {
   // Dev mode: no OAuth configured AND not production — accept 'dev' token without verification
   if (devModeEnabled && token === 'dev') {
@@ -55,7 +73,7 @@ export async function verifyAgentToken(token, instanceKey) {
         avatarUrl: null,
       });
       return {
-        agentId: devAgentId(instanceKey),
+        agentId: resolveDevAgent(instanceKey, devUser.id),
         userId: devUser.id,
       };
     }
@@ -72,7 +90,7 @@ export async function verifyAgentToken(token, instanceKey) {
       avatarUrl: localAuth.avatarUrl,
     });
     return {
-      agentId: devAgentId(instanceKey),
+      agentId: resolveDevAgent(instanceKey, user.id),
       userId: user.id,
     };
   }

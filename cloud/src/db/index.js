@@ -186,6 +186,20 @@ export function initDatabase() {
     console.log('[db] Migration: Added projects column to user_preferences');
   } catch (e) { /* already exists */ }
 
+  // Migration: canvas preferences that were only ever held client-side
+  try {
+    db.prepare("ALTER TABLE user_preferences ADD COLUMN focus_mode TEXT NOT NULL DEFAULT 'hover'").run();
+    console.log('[db] Migration: Added focus_mode column to user_preferences');
+  } catch (e) { /* already exists */ }
+  try {
+    db.prepare('ALTER TABLE user_preferences ADD COLUMN teleport_animation INTEGER NOT NULL DEFAULT 1').run();
+    console.log('[db] Migration: Added teleport_animation column to user_preferences');
+  } catch (e) { /* already exists */ }
+  try {
+    db.prepare("ALTER TABLE user_preferences ADD COLUMN projects_sidebar_position TEXT NOT NULL DEFAULT 'right'").run();
+    console.log('[db] Migration: Added projects_sidebar_position column to user_preferences');
+  } catch (e) { /* already exists */ }
+
   // Migration: notifications tables
   try {
     db.prepare('SELECT id FROM notifications LIMIT 1').get();

@@ -11,6 +11,9 @@ const DEFAULTS = {
   hud_state: '{}',
   tutorials_completed: '{}',
   projects: '[]',
+  focus_mode: 'hover',
+  teleport_animation: 1,
+  projects_sidebar_position: 'right',
 };
 
 export function getPreferences(userId) {
@@ -22,8 +25,8 @@ export function getPreferences(userId) {
 export function savePreferences(userId, prefs) {
   const db = getDb();
   db.prepare(`
-    INSERT INTO user_preferences (user_id, night_mode, terminal_theme, notification_sound, auto_remove_done, canvas_bg, snooze_duration, terminal_font, hud_state, tutorials_completed, projects, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO user_preferences (user_id, night_mode, terminal_theme, notification_sound, auto_remove_done, canvas_bg, snooze_duration, terminal_font, hud_state, tutorials_completed, projects, focus_mode, teleport_animation, projects_sidebar_position, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(user_id) DO UPDATE SET
       night_mode = excluded.night_mode,
       terminal_theme = excluded.terminal_theme,
@@ -35,6 +38,9 @@ export function savePreferences(userId, prefs) {
       hud_state = excluded.hud_state,
       tutorials_completed = excluded.tutorials_completed,
       projects = excluded.projects,
+      focus_mode = excluded.focus_mode,
+      teleport_animation = excluded.teleport_animation,
+      projects_sidebar_position = excluded.projects_sidebar_position,
       updated_at = datetime('now')
   `).run(
     userId,
@@ -47,6 +53,9 @@ export function savePreferences(userId, prefs) {
     prefs.terminalFont || 'JetBrains Mono',
     prefs.hudState ? JSON.stringify(prefs.hudState) : '{}',
     prefs.tutorialsCompleted ? JSON.stringify(prefs.tutorialsCompleted) : '{}',
-    prefs.projects ? JSON.stringify(prefs.projects) : '[]'
+    prefs.projects ? JSON.stringify(prefs.projects) : '[]',
+    prefs.focusMode || 'hover',
+    prefs.teleportAnimation === false ? 0 : 1,
+    prefs.projectsSidebarPosition || 'right'
   );
 }
