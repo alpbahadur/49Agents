@@ -80,11 +80,33 @@ export function handleAgentConnection(ws, userAgents, userBrowsers, latestAgentV
             if (!userAgents.has(userId)) {
               userAgents.set(userId, new Map());
             }
-            // Close any existing connection for this agent (stale reconnect)
+            // An existing connection for this agent is either a reconnect
+            // whose old socket has not been cleaned up yet, or a genuine
+            // second agent started against the same instance.
+            //
+            // Replacing a live connection is what makes a running agent
+            // vanish: both processes drive the same terminals, and whichever
+            // authenticated first is silently dropped. So a connection that
+            // is still open wins, and the newcomer is turned away with an
+            // explanation. A socket that is closing or closed is a stale
+            // reconnect and gets replaced as before.
             const existingAgent = userAgents.get(userId).get(agentId);
             if (existingAgent && existingAgent.ws !== ws) {
-              existingAgent.ws._replaced = true;
-              existingAgent.ws.close();
+              const previous = existingAgent.ws;
+              if (previous.readyState === WebSocket.OPEN) {
+                console.warn(`[ws:agent] Rejected duplicate connection for ${agentId} (${msg.payload.hostname}) — an agent is already connected`);
+                ws.send(JSON.stringify({
+                  type: 'agent:auth:fail',
+                  payload: {
+                    reason: 'Another agent is already connected for this machine. Stop it first, or point this agent at a different server.',
+                    code: 'duplicate_agent',
+                  },
+                }));
+                ws.close();
+                return;
+              }
+              previous._replaced = true;
+              previous.close();
             }
             // Normalize OS name: Node's process.platform reports 'darwin' but UI expects 'macos'
             const agentOs = msg.payload.os === 'darwin' ? 'macos' : (msg.payload.os || 'unknown');
@@ -98,6 +120,7 @@ export function handleAgentConnection(ws, userAgents, userBrowsers, latestAgentV
               os: agentOs,
               version: msg.payload.version || null,
               createdAt,
+              missedPings: 0,
             });
 
             // Update last_seen in DB
@@ -165,8 +188,11 @@ export function handleAgentConnection(ws, userAgents, userBrowsers, latestAgentV
 
       // --- Authenticated message handling ---
 
-      // Handle agent:pong (heartbeat response) -- just update last_seen
+      // Handle agent:pong (heartbeat response) -- update last_seen and mark
+      // the connection live again, so the heartbeat does not terminate it.
       if (msg.type === 'agent:pong') {
+        const agentInfo = userAgents.get(userId)?.get(agentId);
+        if (agentInfo) agentInfo.missedPings = 0;
         updateLastSeen(agentId);
         return;
       }
