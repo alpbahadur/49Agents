@@ -15,6 +15,7 @@ import { agentRequest, sendWs } from './ws-transport.js';
 import { setupPaneListeners } from './pane-interaction.js';
 import { setupImageButtonHandlers, setupTextOnlyToggle } from './editors.js';
 import { calcPlacementPos } from './minimap.js';
+import { clearPaneRefresh } from './pane-refresh.js';
 
 let _ctx = null;
 
@@ -573,6 +574,9 @@ export async function createBeadsPane(projectPath, placementPos, targetAgentId, 
 }
 
 export function renderBeadsPane(paneData) {
+  // See renderGitGraphPane: re-render must stop the previous poll first.
+  clearPaneRefresh(_ctx.beadsPanes, paneData.id);
+
   const existingPane = document.getElementById(`pane-${paneData.id}`);
   if (existingPane) existingPane.remove();
 
@@ -661,6 +665,9 @@ export function renderBeadsPane(paneData) {
 }
 
 export function renderFolderPane(paneData) {
+  // See renderGitGraphPane: re-render must stop the previous poll first.
+  clearPaneRefresh(_ctx.folderPanes, paneData.id);
+
   const existingPane = document.getElementById(`pane-${paneData.id}`);
   if (existingPane) existingPane.remove();
 

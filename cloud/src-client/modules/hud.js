@@ -15,6 +15,7 @@ import { RESET_ICON_SVG, DEVICE_COLORS, osIcon, CLAUDE_STATE_SVGS, CLAUDE_LOGO_S
 import { agentRequest } from './ws-transport.js';
 import { showAddMachineDialog } from './agent-ui.js';
 import { savePrefsToCloud } from './settings.js';
+import { clearTerminalNotificationState } from './notifications.js';
 
 // Loaded by themes.js onto window before this module runs.
 const TERMINAL_THEMES = window.TERMINAL_THEMES || {};
@@ -459,6 +460,9 @@ export function renderHud() {
             _ctx.terminals.delete(pane.id);
             _ctx.termDeferredBuffers.delete(pane.id);
           }
+          // See deletePane: these outlive the terminal otherwise.
+          _ctx.claudeTerminalIds.delete(pane.id);
+          clearTerminalNotificationState(pane.id);
           // Clean up editor instances
           const editorInfo = _ctx.fileEditors.get(pane.id);
           if (editorInfo) {

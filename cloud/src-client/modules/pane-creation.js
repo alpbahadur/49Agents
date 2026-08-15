@@ -10,6 +10,7 @@ import { escapeHtml, formatBytes } from './utils.js';
 import { ICON_GIT_GRAPH, PANE_DEFAULTS, PANE_ENDPOINT_MAP } from './constants.js';
 import { agentRequest, sendWs } from './ws-transport.js';
 import { calcPlacementPos } from './minimap.js';
+import { clearTerminalNotificationState } from './notifications.js';
 import { renderGitGraphPane } from './git-graph.js';
 import { renderCheckpointPane, renderProjectRectangles, startProjectsSidebarRefresh } from './projects.js';
 import { collapsePane, createBeadsPane, createFolderPane, renderBeadsPane, renderFolderPane, renderIframePane, renderNotePane } from './pane-renderers.js';
@@ -1327,6 +1328,11 @@ export async function deletePane(paneId) {
         _ctx.terminals.delete(paneId);
         _ctx.termDeferredBuffers.delete(paneId);
       }
+      // Claude state and notification records are keyed by terminal id and are
+      // otherwise only pruned on a state transition, which a closed terminal
+      // never produces again.
+      _ctx.claudeTerminalIds.delete(paneId);
+      clearTerminalNotificationState(paneId);
     } else if (paneType === 'file') {
       // Check for unsaved changes
       const editorInfo = _ctx.fileEditors.get(paneId);

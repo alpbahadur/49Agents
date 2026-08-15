@@ -479,6 +479,24 @@ export function setupFileEditorListeners(paneEl, paneData) {
   }
 }
 
+// The mouseup that ends a terminal drag-selection can land anywhere, so the
+// listener has to be on window rather than the pane. It only clears a single
+// global flag and captures nothing per-terminal, so one listener serves every
+// terminal. Registering it inside initTerminal instead left one handler per
+// terminal ever opened — never removed, since deletePane disposes the xterm
+// but cannot reach an anonymous window listener — making every mouse release
+// do work proportional to the number of terminals opened this session.
+let terminalMouseUpListenerAttached = false;
+
+function ensureTerminalMouseUpListener() {
+  if (terminalMouseUpListenerAttached) return;
+  terminalMouseUpListenerAttached = true;
+  window.addEventListener('mouseup', () => {
+    if (_ctx.getTerminalMouseDown()) console.log(`[DBG-MOUSE] mouseup → terminalMouseDown=false`);
+    _ctx.setTerminalMouseDown(false);
+  }, true);
+}
+
 // Initialize xterm.js for a pane
 export function initTerminal(paneEl, paneData) {
   const container = paneEl.querySelector('.terminal-container');
@@ -490,7 +508,13 @@ export function initTerminal(paneEl, paneData) {
     fontSize: 13,
     cursorBlink: true,
     cursorStyle: 'block',
-    scrollback: 50000,
+    // xterm keeps every scrollback line resident as cell data and never shrinks
+    // the buffer, so this is a per-terminal memory ceiling, not an average.
+    // Measured against this xterm build at 200 cols: 50000 cost ~45 MB per
+    // fully-scrolled terminal versus ~2 MB at the 1000-line default. tmux holds
+    // the real history server-side, so a shorter in-browser buffer loses
+    // nothing that capture-pane cannot recover.
+    scrollback: 5000,
     allowProposedApi: true,
   });
 
@@ -605,10 +629,7 @@ export function initTerminal(paneEl, paneData) {
       console.log(`[DBG-MOUSE] mousedown on ${paneData.id.slice(0,8)} → _ctx.setTerminalMouseDown(true)`);
     }
   }, true); // capture phase — must fire before zoom interceptor's stopImmediatePropagation
-  window.addEventListener('mouseup', () => {
-    if (_ctx.getTerminalMouseDown()) console.log(`[DBG-MOUSE] mouseup → terminalMouseDown=false`);
-    _ctx.setTerminalMouseDown(false);
-  }, true);
+  ensureTerminalMouseUpListener();
 
   // Right-click on terminal: copy last selected text, always suppress context menu
   container.addEventListener('contextmenu', (e) => {
