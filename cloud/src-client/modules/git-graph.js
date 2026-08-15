@@ -3,6 +3,7 @@
 
 import { escapeHtml } from './utils.js';
 import { ICON_GIT_GRAPH } from './constants.js';
+import { clearPaneRefresh } from './pane-refresh.js';
 
 let _ctx = null;
 
@@ -24,6 +25,11 @@ const GG = {
 };
 
 export function renderGitGraphPane(paneData) {
+  // Re-entrant: an agent reconnect re-renders every one of its panes. Stop the
+  // previous poll before dropping the node it refreshes, or its timer id is
+  // lost and it keeps firing against a detached subtree.
+  clearPaneRefresh(_ctx.gitGraphPanes, paneData.id);
+
   const existingPane = document.getElementById(`pane-${paneData.id}`);
   if (existingPane) existingPane.remove();
 
