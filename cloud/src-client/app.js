@@ -880,6 +880,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     initPaneCreationDeps({
       state, terminals, selectedPaneIds, fileEditors, noteEditors, beadsPanes,
       folderPanes, gitGraphPanes, fileHandles, termDeferredBuffers,
+      claudeTerminalIds,
       telemetry: _telemetry,
       get agents() { return agents; },
       attachTerminal, cloudDeleteLayout, cloudFetch, cloudSaveLayout, cloudSaveNote,

@@ -25,6 +25,27 @@ function getAutoRemoveDoneNotifs() { return _ctx.getAutoRemoveDoneNotifs(); }
 
 // Expose for updateClaudeStates (still in app.js)
 export { previousClaudeStates, notifiedStates, activeToasts, snoozedNotifications, snoozeCount };
+
+/**
+ * Forget every per-terminal notification record for a closed pane.
+ *
+ * These maps are keyed by terminal id and were only ever pruned on a state
+ * transition, which a closed terminal never produces again — so each open and
+ * close cycle left entries behind for the lifetime of the tab. The entries are
+ * small, but the growth is unbounded across a long session.
+ *
+ * snoozeCount is keyed `terminalId:state`, so it needs a prefix sweep rather
+ * than a single delete.
+ */
+export function clearTerminalNotificationState(terminalId) {
+  previousClaudeStates.delete(terminalId);
+  notifiedStates.delete(terminalId);
+  snoozedNotifications.delete(terminalId);
+  const prefix = `${terminalId}:`;
+  for (const key of snoozeCount.keys()) {
+    if (key.startsWith(prefix)) snoozeCount.delete(key);
+  }
+}
 export function getNotificationContainer() { return notificationContainer; }
 export function getIsFirstClaudeStateUpdate() { return isFirstClaudeStateUpdate; }
 export function setIsFirstClaudeStateUpdate(val) { isFirstClaudeStateUpdate = val; }
