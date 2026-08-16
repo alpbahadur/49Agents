@@ -354,21 +354,33 @@ test('a telemetry choice made on step 1 survives moving to step 2', () => {
   assert.ok(/id="onboarding-consent"/.test(html), 'the checkbox is a persistent node');
 });
 
-test('marketing consent is its own unticked opt-in', () => {
+test('marketing consent is a separate control the user can see and undo', () => {
   const html = appHtml();
   const tag = html.match(/<input[^>]*id="onboarding-marketing"[^>]*>/)[0];
-
-  // GDPR requires marketing consent to be specific, unbundled and affirmative.
-  // Pre-ticking it, or folding it into the telemetry toggle, invalidates it.
-  assert.ok(!/\bchecked\b/.test(tag), 'marketing is not pre-ticked');
-  assert.ok(/\bdisabled\b/.test(tag), 'inert until an address is entered');
-
   const telemetry = html.match(/<input[^>]*id="onboarding-consent"[^>]*>/)[0];
-  assert.ok(telemetry !== tag, 'marketing is a separate control from telemetry');
 
-  // And the page has to say what they are agreeing to receive.
+  // Pre-ticked at the product owner's direction. This is NOT valid consent
+  // under GDPR (Planet49, C-673/17), so EU/UK sends on this basis are unlawful;
+  // the pre-tick is a deliberate, documented business decision. If it is ever
+  // reversed, drop `checked` here rather than reworking the copy.
+  assert.ok(/\bchecked\b/.test(tag), 'ships pre-ticked (deliberate)');
+
+  // Whatever the default, it must remain a distinct control with its own label,
+  // never folded into the telemetry toggle.
+  assert.ok(telemetry !== tag, 'marketing is separate from telemetry');
   assert.ok(/marketing/i.test(html), 'names marketing plainly');
   assert.ok(/unsubscribe/i.test(html), 'promises a way out');
+});
+
+test('an explicit untick is never silently reversed', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  // The box re-ticks itself as the email field changes, so a user who unticked
+  // it deliberately must be remembered. Re-ticking over their choice would turn
+  // a weak default into an outright dark pattern.
+  assert.ok(/userClearedMarketing/.test(block), 'tracks a deliberate untick');
+  assert.ok(/marketing\.checked = !userClearedMarketing/.test(block), 'respects it on re-sync');
 });
 
 test('marketing consent cannot be set without an email', () => {
@@ -376,8 +388,8 @@ test('marketing consent cannot be set without an email', () => {
   const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
   const server = readFileSync(join(here, '..', 'src', 'auth', 'emailAuth.js'), 'utf-8');
 
-  // Client un-ticks it when the field is cleared.
-  assert.ok(/if \(!hasEmail\) marketing\.checked = false/.test(block), 'client clears it with the email');
+  // The box may be ticked before an address is typed, so the submit path is
+  // what actually gates it client-side.
   assert.ok(/marketingConsent: !!\(email && marketingInput/.test(block), 'client will not claim it without one');
 
   // And the server refuses it regardless of what the client sends.

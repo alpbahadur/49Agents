@@ -214,12 +214,14 @@
           </p>
         </div>
 
-        <!-- Deliberately unticked. Under GDPR marketing consent has to be
-             specific, unbundled and affirmative, and a pre-ticked box is not
-             consent at all (Planet49, C-673/17). Prominence is the lawful way
-             to raise opt-in rates, so this is styled to stand out instead. -->
+        <!-- Pre-ticked at the product owner's explicit direction.
+             NOTE: a pre-ticked marketing box is not valid consent under GDPR
+             (Planet49, C-673/17), so sends to EU/UK recipients on this basis are
+             unlawful. CAN-SPAM does not require prior consent, so US sending is
+             fine. If that exposure ever needs closing, remove `checked` here, or
+             clear it for EU/UK visitors, rather than changing the copy. -->
         <label class="consent-row marketing-row" for="onboarding-marketing">
-          <input type="checkbox" id="onboarding-marketing" class="consent-checkbox" disabled />
+          <input type="checkbox" id="onboarding-marketing" class="consent-checkbox" checked disabled />
           <span>
             <span class="consent-label">Send me occasional updates 🥳🤗</span>
             <span class="consent-detail">

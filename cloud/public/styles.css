@@ -7069,8 +7069,10 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   color: #e8ecf4;
 }
 
+/* Before an address is entered there is nothing to send to, so the row reads as
+   waiting rather than off. It ships ticked, so it must not look unavailable. */
 .marketing-row.inactive {
-  opacity: 0.45;
+  opacity: 0.6;
   cursor: default;
 }
 

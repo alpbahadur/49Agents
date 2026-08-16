@@ -277,13 +277,22 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       const marketing = document.getElementById('onboarding-marketing');
       const marketingRow = marketing?.closest('.consent-row');
 
-      // Marketing consent needs an address to attach to, so the box stays inert
-      // until one is typed, and un-ticks itself if the field is cleared again.
+      // Marketing consent needs an address to attach to, so the box is inert
+      // until one is typed. It ships ticked, so re-tick on the way back in
+      // unless the user has already unticked it themselves.
+      let userClearedMarketing = false;
+      marketing?.addEventListener('change', () => {
+        if (!marketing.checked) userClearedMarketing = true;
+      });
+
+      // The tick stays visible even before an address is typed, so the default
+      // is something the user can see and undo rather than a surprise. Consent
+      // is still only recorded when an address is actually supplied.
       const syncMarketing = () => {
         const hasEmail = emailInput.value.trim().length > 0;
         marketing.disabled = !hasEmail;
         marketingRow?.classList.toggle('inactive', !hasEmail);
-        if (!hasEmail) marketing.checked = false;
+        marketing.checked = !userClearedMarketing;
       };
       syncMarketing();
       emailInput?.addEventListener('input', syncMarketing);
