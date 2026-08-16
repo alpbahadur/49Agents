@@ -192,45 +192,39 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   //
   // Appears after ten minutes of *active* use, not ten minutes of wall clock.
   // Someone who opens the app and walks away has not formed an opinion worth
-  // asking for, so the timer pauses whenever the tab is hidden and the elapsed
-  // total carries across sessions in localStorage.
+  // asking for, so time only accrues while the tab is visible.
+  //
+  // The clock and the answer both live on the server. Keeping them in the
+  // browser meant clearing site data or opening a private window silently
+  // restarted the ten minutes, and the modal could be dodged forever. Once it
+  // is up it stays up, across reloads, until Continue is pressed: the server
+  // keeps reporting the question as unanswered and every load re-opens it.
   // ---------------------------------------------------------------------------
   const _onboarding = {
-    REQUIRED_MS: 10 * 60 * 1000,
-    STORAGE_KEY: '_49a_active_ms',
     _timer: null,
     _lastTick: null,
     _shown: false,
+    _guard: null,
 
     init() {
-      fetch('/api/auth/mode')
+      // One request, so the modal can be up on the first paint rather than
+      // flashing in a couple of seconds later.
+      fetch('/api/auth/onboarding', { credentials: 'include' })
         .then(r => r.json())
-        .then(m => {
-          if (m.mode !== 'local') return null;
-          return fetch('/api/auth/telemetry-consent', { credentials: 'include' }).then(r => r.json());
-        })
-        .then(d => {
-          // 'pending' means they have never answered. Any other status, including
-          // a decline, means the question is settled and must not be asked again.
-          if (!d || d.status !== 'pending') return;
-          this._startTracking();
+        .then(state => {
+          if (!state || !state.applicable) return;
+          if (state.due) {
+            this.show();
+          } else {
+            this._startTracking();
+          }
         })
         .catch(() => {});
     },
 
-    _elapsed() {
-      const stored = parseInt(localStorage.getItem(this.STORAGE_KEY) || '0', 10);
-      return Number.isFinite(stored) ? stored : 0;
-    },
-
     _startTracking() {
-      if (this._elapsed() >= this.REQUIRED_MS) {
-        this.show();
-        return;
-      }
-
       this._lastTick = Date.now();
-      this._timer = setInterval(() => this._tick(), 5000);
+      this._timer = setInterval(() => this._tick(), 15000);
 
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
@@ -247,11 +241,20 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       if (document.visibilityState !== 'visible' || this._lastTick === null) return;
 
       const now = Date.now();
-      const total = this._elapsed() + (now - this._lastTick);
+      const delta = now - this._lastTick;
       this._lastTick = now;
-      localStorage.setItem(this.STORAGE_KEY, String(total));
 
-      if (total >= this.REQUIRED_MS) this.show();
+      fetch('/api/auth/onboarding/tick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ deltaMs: delta }),
+      })
+        .then(r => r.json())
+        .then(state => {
+          if (state && state.due) this.show();
+        })
+        .catch(() => {});
     },
 
     show() {
@@ -267,6 +270,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
       el.classList.add('visible');
       this._startEyeTracking();
+      this._startGuard(el);
 
       const submit = document.getElementById('onboarding-submit');
       const emailInput = document.getElementById('onboarding-email');
@@ -278,6 +282,30 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
           this._submit();
         }
       });
+    },
+
+    // Continue is the only way out, so put the modal back if anything else
+    // removes or hides it.
+    _startGuard(el) {
+      const parent = el.parentNode;
+
+      this._guard = new MutationObserver(() => {
+        if (this._shown === false) return;
+
+        if (!el.isConnected) {
+          parent.appendChild(el);
+        }
+        if (!el.classList.contains('visible')) {
+          el.classList.add('visible');
+        }
+        const style = el.getAttribute('style');
+        if (style && /display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0/.test(style)) {
+          el.removeAttribute('style');
+        }
+      });
+
+      this._guard.observe(parent, { childList: true });
+      this._guard.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
     },
 
     async _submit() {
@@ -304,8 +332,11 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
         const data = await res.json().catch(() => ({}));
 
         if (res.ok) {
+          // Answered, so the guard stands down and the modal closes for good.
+          this._shown = false;
+          this._guard?.disconnect();
+          this._guard = null;
           document.getElementById('onboarding').classList.remove('visible');
-          localStorage.removeItem(this.STORAGE_KEY);
           // Consent may have just been granted, so start the client tracker
           // rather than waiting for the next page load.
           if (consentInput.checked && !_telemetry._active) _telemetry.init();

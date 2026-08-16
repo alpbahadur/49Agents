@@ -12,7 +12,8 @@ import { nanoid } from 'nanoid';
 import { config } from '../config.js';
 import { upsertUser } from '../db/users.js';
 import { saveLocalAuth, clearLocalAuth, getLocalAuth, setTelemetryConsent } from './localAuth.js';
-import { getEmailAuth, setEmailTelemetryConsent, setCloudInstanceId } from './emailAuth.js';
+import { getEmailAuth, setEmailTelemetryConsent, setCloudInstanceId, getActiveMs, addActiveMs } from './emailAuth.js';
+import { isLocalMode } from './localAuth.js';
 import { issueAccessToken, issueRefreshToken, setAuthCookies } from './github.js';
 import { recordEvent } from '../db/events.js';
 import { refreshTelemetryState } from '../telemetry/localCollector.js';
@@ -146,6 +147,59 @@ export function setupCloudCallbackRoutes(app) {
       consent: raw === 1,
       status: raw === -1 ? 'pending' : (raw === 1 ? 'accepted' : 'declined'),
     });
+  });
+
+  // GET/POST /api/auth/onboarding — drives the consent modal.
+  //
+  // One endpoint so the modal can be decided on the first paint instead of
+  // waiting on two chained requests, which made it flash in a second or two
+  // after the app had already rendered.
+  //
+  // POST also accumulates active time. The clock lives here rather than in the
+  // browser so clearing site data or opening a private window cannot restart
+  // the ten minutes.
+  const ONBOARDING_REQUIRED_MS = 10 * 60 * 1000;
+
+  function onboardingState(deltaMs) {
+    if (!isLocalMode()) {
+      return { applicable: false, due: false };
+    }
+
+    const localAuth = getLocalAuth();
+    const raw = localAuth ? localAuth.telemetryConsent : (getEmailAuth() || {}).telemetryConsent;
+
+    // No local identity yet, or the question is already settled in either
+    // direction. Either way there is nothing to ask.
+    if (raw === undefined || raw === null || raw !== -1) {
+      return { applicable: false, due: false };
+    }
+
+    const activeMs = deltaMs ? addActiveMs(deltaMs) : getActiveMs();
+    return {
+      applicable: true,
+      due: activeMs >= ONBOARDING_REQUIRED_MS,
+      activeMs,
+      requiredMs: ONBOARDING_REQUIRED_MS,
+    };
+  }
+
+  app.get('/api/auth/onboarding', (req, res) => {
+    try {
+      res.json(onboardingState(0));
+    } catch (err) {
+      console.error('[cloud-callback] Onboarding state error:', err);
+      res.status(500).json({ applicable: false, due: false });
+    }
+  });
+
+  app.post('/api/auth/onboarding/tick', (req, res) => {
+    try {
+      const delta = Number(req.body?.deltaMs) || 0;
+      res.json(onboardingState(delta));
+    } catch (err) {
+      console.error('[cloud-callback] Onboarding tick error:', err);
+      res.status(500).json({ applicable: false, due: false });
+    }
   });
 
   // POST /api/auth/telemetry-consent — set telemetry preference

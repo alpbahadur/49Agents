@@ -325,17 +325,56 @@ test('onboarding waits for real usage, not wall-clock time', () => {
   const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
   const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
 
-  assert.ok(/REQUIRED_MS: 10 \* 60 \* 1000/.test(block), 'threshold is ten minutes');
   // Time must only accrue while the tab is visible, otherwise someone who walks
   // away meets the modal on a screen they abandoned.
   assert.ok(/visibilityState !== 'visible'/.test(block), 'hidden tabs do not accrue time');
-  assert.ok(/localStorage/.test(block), 'elapsed time survives across sessions');
+});
+
+test('the onboarding clock lives on the server, not in the browser', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  // Storing elapsed time client-side meant clearing site data or opening a
+  // private window silently restarted the ten minutes.
+  assert.ok(!/localStorage/.test(block), 'no browser storage drives the trigger');
+  assert.ok(/api\/auth\/onboarding\/tick/.test(block), 'elapsed time is reported to the server');
+  assert.ok(/api\/auth\/onboarding/.test(block), 'due state is read from the server');
+});
+
+test('an unanswered modal is restored if something removes it', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  // Continue is the only way out, so hiding or deleting the node must not work.
+  assert.ok(/MutationObserver/.test(block), 'the modal watches for tampering');
+  assert.ok(/isConnected/.test(block), 'a removed modal is reattached');
+  assert.ok(/display\\s\*:\\s\*none/.test(block), 'inline hiding is undone');
+});
+
+test('answering disconnects the guard so the modal can close', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+  assert.ok(/_guard\?\.disconnect\(\)/.test(block), 'guard stands down once answered');
+});
+
+test('a client cannot jump the onboarding clock in one call', () => {
+  const src = readFileSync(join(here, '..', 'src', 'auth', 'emailAuth.js'), 'utf-8');
+  // deltaMs arrives from the browser, so a single tick is clamped.
+  assert.ok(/Math\.min\(Number\(deltaMs\)[^,]*, 60000\)/.test(src), 'per-call increment is capped');
 });
 
 test('an answered consent question is never asked again', () => {
   const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
   const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+  const server = readFileSync(join(here, '..', 'src', 'auth', 'cloudCallback.js'), 'utf-8');
 
-  // Only 'pending' reopens the modal. A decline is an answer and must stick.
-  assert.ok(/status !== 'pending'/.test(block), 'only an unanswered question shows the modal');
+  // The client only opens the modal when the server says it applies.
+  assert.ok(/!state\.applicable/.test(block), 'client defers to the server');
+
+  // And the server only says so while consent is genuinely unanswered (-1).
+  // A decline is an answer and must stick.
+  assert.ok(
+    /raw !== -1[\s\S]*?applicable: false/.test(server),
+    'an answered question is no longer applicable'
+  );
 });

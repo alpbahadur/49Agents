@@ -44,6 +44,7 @@ export function ensureEmailAuthTable() {
       email             TEXT,
       telemetry_consent INTEGER NOT NULL DEFAULT -1,
       cloud_instance_id TEXT,
+      active_ms         INTEGER NOT NULL DEFAULT 0,
       created_at        TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
@@ -73,6 +74,14 @@ export function ensureEmailAuthTable() {
   // already had telemetry_consent may still be missing it.
   try {
     db.prepare('ALTER TABLE local_email_auth ADD COLUMN cloud_instance_id TEXT').run();
+  } catch {
+    // Column already exists, ignore
+  }
+
+  // active_ms moved the onboarding clock server-side so it cannot be reset by
+  // clearing browser storage.
+  try {
+    db.prepare('ALTER TABLE local_email_auth ADD COLUMN active_ms INTEGER NOT NULL DEFAULT 0').run();
   } catch {
     // Column already exists, ignore
   }
@@ -137,6 +146,31 @@ export function ensureLocalSession() {
   const instanceId = `lei_${nanoid(16)}`;
   saveEmailAuth({ instanceId, email: null, telemetryConsent: -1 });
   return { instanceId, created: true };
+}
+
+/**
+ * Accumulated active-use milliseconds for this instance.
+ *
+ * The onboarding clock is kept server-side on purpose. Holding it in the
+ * browser meant clearing site data, opening a private window, or switching
+ * browsers silently restarted the ten minutes, and the modal could be dodged
+ * indefinitely without ever answering it.
+ */
+export function getActiveMs() {
+  const db = getDb();
+  const row = db.prepare('SELECT active_ms FROM local_email_auth WHERE id = 1').get();
+  return row ? (row.active_ms || 0) : 0;
+}
+
+/**
+ * Add to the accumulated active time and return the new total.
+ * Increments are clamped: a client cannot jump the counter in one call.
+ */
+export function addActiveMs(deltaMs) {
+  const db = getDb();
+  const capped = Math.max(0, Math.min(Number(deltaMs) || 0, 60000));
+  db.prepare('UPDATE local_email_auth SET active_ms = COALESCE(active_ms, 0) + ? WHERE id = 1').run(capped);
+  return getActiveMs();
 }
 
 export async function issueEmailInstanceToken(instanceId, email) {
