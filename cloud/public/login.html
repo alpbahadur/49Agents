@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <script>if (location.protocol === 'https:' && !location.hostname.includes('49agents')) location.replace('http:' + location.href.slice('https:'.length));</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>49Agents — Sign In</title>
+  <title>49Agents Sign In</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
@@ -273,8 +273,8 @@
        aligned with the face at any rendered size. */
     .eye {
       position: absolute;
-      width: 13%;
-      height: 13%;
+      width: 9.1%;
+      height: 9.1%;
       border-radius: 50%;
       background: #f6f6f2;
       border: 1px solid rgba(0, 0, 0, 0.55);
@@ -284,8 +284,8 @@
     /* Tuned against the rendered portrait rather than the raw source: the face
        sits slightly right of and below the centre of the circular crop, so these
        do not match the source-pixel coordinates directly. */
-    .eye.left  { left: 42.0%; top: 51.5%; }
-    .eye.right { left: 53.5%; top: 51.2%; }
+    .eye.left  { left: 40.5%; top: 47.3%; }
+    .eye.right { left: 55.0%; top: 47.0%; }
 
     .pupil {
       position: absolute;
@@ -550,16 +550,17 @@
   <div class="onboarding" id="onboarding">
     <div class="onboarding-card">
       <div class="portrait">
-        <img src="img/latif.jpg" alt="Latif, founder of 49Agents" />
+        <img src="img/alp.jpg" alt="Alp, founder of 49Agents" />
         <div class="eye left"><div class="pupil" data-pupil></div></div>
         <div class="eye right"><div class="pupil" data-pupil></div></div>
       </div>
 
-      <h2>Hi, I'm Latif &mdash; I founded 49Agents</h2>
+      <h2>Hi, I'm Alp. I built 49Agents.</h2>
 
       <p class="onboarding-intro">
-        This project is young and built in the open. Seeing how it actually gets
-        used is the clearest signal we have for what to fix next.
+        We're not VC-funded. It's a small team, and we're hoping to raise
+        sometime soon. Until then the only way we know what's worth working
+        on is by seeing what people actually use.
       </p>
 
       <label class="consent-row" for="onboarding-consent">
@@ -568,7 +569,8 @@
           <span class="consent-label">Share anonymous usage data</span>
           <span class="consent-detail">
             Which features get used, how long sessions run, how many panes you open.
-            Never terminal output, file contents, or commands.
+            Never your terminal output, your files, or the commands you run. We
+            can't see any of that and we don't want to.
           </span>
         </span>
       </label>
@@ -577,7 +579,8 @@
         <label class="field-label" for="onboarding-email">Email <span>(optional)</span></label>
         <input type="email" id="onboarding-email" class="email-input" placeholder="you@example.com" autocomplete="email" />
         <p class="field-hint">
-          Only so we can reach out about the project. No marketing, no list.
+          Leave it blank if you'd rather not. If you put it in, it's so we can
+          ask you what's broken. You won't get a newsletter.
         </p>
       </div>
 
@@ -585,7 +588,7 @@
 
       <button type="button" id="onboarding-submit" class="email-submit">Continue</button>
 
-      <p class="onboarding-footer">You can change either of these anytime in Settings.</p>
+      <p class="onboarding-footer">Both of these live in Settings if you change your mind.</p>
     </div>
   </div>
 
@@ -710,7 +713,7 @@
         render();
       }
 
-      // Onboarding submit — email optional, telemetry consent separate
+      // Onboarding submit. Email optional, telemetry consent separate.
       document.getElementById('onboarding-submit')?.addEventListener('click', async function() {
         var submitBtn = this;
         var emailInput = document.getElementById('onboarding-email');

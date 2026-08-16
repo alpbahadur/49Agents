@@ -281,7 +281,7 @@ test('onboarding page sends email and consent as separate fields', () => {
   assert.ok(html.includes('telemetryConsent: consentInput.checked'), 'consent posted from the checkbox');
   assert.ok(html.includes('email: email || null'), 'blank email posts as null rather than an empty string');
 
-  // The email input must not be required — that would reinstate the old gate.
+  // The email input must not be required. That would reinstate the old gate.
   const emailTag = html.match(/<input[^>]*id="onboarding-email"[^>]*>/);
   assert.ok(emailTag, 'email input found');
   assert.ok(!/\brequired\b/.test(emailTag[0]), 'email field is optional');
@@ -291,10 +291,15 @@ test('onboarding page sends email and consent as separate fields', () => {
   assert.ok(/\bchecked\b/.test(consentTag[0]), 'consent defaults to checked');
 });
 
+test('onboarding page still points at the photo it ships with', () => {
+  const html = readFileSync(join(here, '..', 'public', 'login.html'), 'utf-8');
+  assert.ok(html.includes('img/alp.jpg'), 'portrait source matches the committed file');
+});
+
 test('onboarding page states what is and is not collected', () => {
   const html = readFileSync(join(here, '..', 'public', 'login.html'), 'utf-8');
   assert.ok(
-    /Never terminal output, file contents, or commands/.test(html),
+    /Never your terminal output, your files, or the commands you run/.test(html),
     'page discloses the collection boundary'
   );
 });

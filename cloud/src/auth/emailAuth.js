@@ -181,7 +181,7 @@ export function setupEmailAuthRoutes(app) {
       recordEvent('user.login', localUser.id, { provider: 'email', instanceId });
 
       // Enroll with the cloud so telemetry has somewhere to go. Only when the user
-      // consented — an instance that opted out never contacts the cloud at all.
+      // consented. An instance that opted out never contacts the cloud at all.
       //
       // Fire-and-forget: a network failure must not block someone from using the
       // app. refreshTelemetryState() runs once the id comes back, which is what

@@ -1,13 +1,13 @@
 /**
- * Local Telemetry Collector — batches events and sends them to the cloud server.
+ * Local Telemetry Collector batches events and sends them to the cloud server.
  *
  * Only active when running in local mode with telemetry consent. Flushes every
  * 60 seconds, and does a final flush on process shutdown.
  *
  * Two identity paths exist and either can carry consent:
- *   - local_auth        — the OAuth cloud-auth flow, authenticates with a cloud token
- *   - local_email_auth  — the onboarding flow, authenticates with a server-issued
- *                         instance id sent as X-Instance-Id
+ *   - local_auth        the OAuth cloud-auth flow, authenticates with a cloud token
+ *   - local_email_auth  the onboarding flow, authenticates with a server-issued
+ *                       instance id sent as X-Instance-Id
  */
 
 import { hostname } from 'os';
@@ -107,10 +107,10 @@ async function flush() {
 
     if (!res.ok) {
       console.warn(`[telemetry] Cloud rejected telemetry: ${res.status}`);
-      // Don't re-queue on rejection — the data is lost
+      // Don't re-queue on rejection. The data is lost.
     }
   } catch (err) {
-    // Network error — re-queue the events for next flush
+    // Network error. Re-queue the events for next flush.
     if (queue.length + batch.length <= MAX_QUEUE_SIZE) {
       queue.unshift(...batch);
     }

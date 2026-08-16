@@ -132,7 +132,7 @@ export function setupCloudCallbackRoutes(app) {
     res.redirect('/login');
   });
 
-  // GET /api/auth/telemetry-consent — get current telemetry preference.
+  // GET /api/auth/telemetry-consent returns the current telemetry preference.
   // Reads from whichever identity path is in use (OAuth cloud auth or onboarding email).
   app.get('/api/auth/telemetry-consent', (req, res) => {
     const localAuth = getLocalAuth();
@@ -172,7 +172,7 @@ export function setupCloudCallbackRoutes(app) {
       // Both directions matter. Turning consent ON may be this instance's first
       // ever contact (someone who declined during onboarding), so it needs an id
       // before the collector has anywhere to send. Turning it OFF must mark the
-      // cloud record as revoked — otherwise stopping the local collector is the
+      // cloud record as revoked. Otherwise stopping the local collector is the
       // only thing protecting the user, and anything still holding the instance
       // id could keep writing events against it.
       if (emailAuth) {

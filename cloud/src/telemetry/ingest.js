@@ -1,5 +1,5 @@
 /**
- * Telemetry Ingest — cloud-side receiver for local instance telemetry.
+ * Telemetry Ingest: cloud-side receiver for local instance telemetry.
  *
  * Local-hosted instances enroll once (POST /api/local-email-signup) and receive a
  * server-issued instance id. Every later telemetry batch (POST /api/telemetry/local)
@@ -118,7 +118,7 @@ function normalizeEmail(raw) {
 }
 
 export function setupTelemetryIngestRoutes(app) {
-  // POST /api/local-email-signup — first contact from a local instance.
+  // POST /api/local-email-signup is the first contact from a local instance.
   // Returns the instance id the instance must send on later telemetry posts.
   app.post('/api/local-email-signup', (req, res) => {
     try {
@@ -140,7 +140,7 @@ export function setupTelemetryIngestRoutes(app) {
     }
   });
 
-  // POST /api/telemetry/local — batched events from an enrolled instance.
+  // POST /api/telemetry/local takes batched events from an enrolled instance.
   app.post('/api/telemetry/local', (req, res) => {
     try {
       const headerId = req.get('X-Instance-Id');
@@ -166,7 +166,7 @@ export function setupTelemetryIngestRoutes(app) {
       // instance that has genuinely never enrolled calls /api/local-email-signup
       // first, which is where consent is actually established.
       if (!known) {
-        return res.status(404).json({ error: 'Unknown instance — enroll first' });
+        return res.status(404).json({ error: 'Unknown instance, enroll first' });
       }
 
       if (known.consent !== 1) {
@@ -205,7 +205,7 @@ export function setupTelemetryIngestRoutes(app) {
             const encoded = JSON.stringify(ev.metadata || {});
             if (encoded.length <= MAX_METADATA_BYTES) metadata = encoded;
           } catch {
-            // Unserializable metadata — keep the event, drop the payload.
+            // Unserializable metadata. Keep the event, drop the payload.
           }
           insert.run(
             instanceId,
@@ -227,7 +227,7 @@ export function setupTelemetryIngestRoutes(app) {
     }
   });
 
-  // GET /api/admin/telemetry/export — pull the collected data down.
+  // GET /api/admin/telemetry/export pulls the collected data down.
   app.get('/api/admin/telemetry/export', (req, res) => {
     if (!config.adminToken) {
       return res.status(503).json({ error: 'Export not configured (ADMIN_TOKEN unset)' });
