@@ -315,6 +315,10 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
         this._submit();
       });
 
+      document.getElementById('onboarding-back')?.addEventListener('click', () => {
+        this._goToStep(1);
+      });
+
       emailInput?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -391,6 +395,10 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       document.querySelectorAll('#onboarding .step-dot').forEach(dot => {
         dot.classList.toggle('active', Number(dot.dataset.dot) === step);
       });
+
+      // Nothing to go back to from the first screen.
+      const back = document.getElementById('onboarding-back');
+      if (back) back.hidden = step === 1;
 
       if (step === 2) {
         document.getElementById('onboarding-email')?.focus();

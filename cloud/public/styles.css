@@ -7182,9 +7182,32 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
 
 .star-cta:active { transform: translateY(0); }
 
+/* Back and Continue share a row so neither reads as the primary action; the
+   star CTA above stays the loudest thing on the card. */
+.onboarding-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.onboarding-back {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  color: #5a6578;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.onboarding-back:hover { color: #d4dbe8; }
+.onboarding-back[hidden] { display: none; }
+
 .onboarding-continue {
   display: block;
-  margin: 14px auto 0;
   padding: 4px 8px;
   background: none;
   border: none;

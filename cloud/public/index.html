@@ -209,9 +209,6 @@
         <div class="onboarding-field">
           <label class="field-label" for="onboarding-email">Email <span>(optional)</span></label>
           <input type="email" id="onboarding-email" class="email-input" placeholder="you@49agents.com" autocomplete="email" />
-          <p class="field-hint">
-            So that we can talk to you, and ask for advice and direction.
-          </p>
         </div>
 
         <!-- Ticked state is decided in JS, not here: pre-ticked outside the
@@ -224,7 +221,8 @@
           <span>
             <span class="consent-label">Send me occasional updates 🥳🤗</span>
             <span class="consent-detail">
-              Project news and other marketing. Unsubscribe any time.
+              So we can ask your advice, and share project news. Unsubscribe
+              any time.
             </span>
           </span>
         </label>
@@ -235,7 +233,10 @@
       <a href="https://github.com/alpbahadur/49Agents" target="_blank" rel="noopener noreferrer"
          class="star-cta" id="onboarding-star">Leave us a star on GitHub</a>
 
-      <button type="button" id="onboarding-submit" class="onboarding-continue">Continue</button>
+      <div class="onboarding-nav">
+        <button type="button" id="onboarding-back" class="onboarding-back" hidden>Back</button>
+        <button type="button" id="onboarding-submit" class="onboarding-continue">Continue</button>
+      </div>
 
       <div class="step-dots" aria-hidden="true">
         <span class="step-dot active" data-dot="1"></span>

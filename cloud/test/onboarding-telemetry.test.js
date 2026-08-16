@@ -565,3 +565,30 @@ test('the markup does not pre-tick marketing on its own', () => {
   // would flash a ticked box at European users before the script corrects it.
   assert.ok(!/\bchecked\b/.test(tag), 'ships unchecked; JS decides');
 });
+
+test('the email is asked for once, in one place', () => {
+  const html = appHtml();
+  const modal = html.slice(html.indexOf('id="onboarding"'), html.indexOf('</div>\n\n  <script'));
+
+  // One input, on step 2 only.
+  assert.equal((modal.match(/type="email"/g) || []).length, 1, 'a single email input');
+  const step1 = modal.slice(modal.indexOf('data-step="1"'), modal.indexOf('data-step="2"'));
+  assert.ok(!/onboarding-email/.test(step1), 'step 1 does not ask for it');
+
+  // And one reason given for wanting it. The field hint used to explain the
+  // address, then the box below explained it again in different words.
+  const step2 = modal.slice(modal.indexOf('data-step="2"'));
+  assert.equal((step2.match(/field-hint/g) || []).length, 0, 'no duplicate rationale under the field');
+});
+
+test('step 2 can go back to step 1', () => {
+  const html = appHtml();
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  assert.ok(/id="onboarding-back"/.test(html), 'back control exists');
+  assert.ok(/id="onboarding-back"[^>]*hidden/.test(html), 'hidden until step 2');
+  assert.ok(/onboarding-back'\)\?\.addEventListener\('click', \(\) => \{\s*this\._goToStep\(1\)/.test(block),
+    'back returns to step 1');
+  assert.ok(/back\.hidden = step === 1/.test(block), 'nothing to go back to from step 1');
+});
