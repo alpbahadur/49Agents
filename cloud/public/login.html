@@ -168,12 +168,6 @@
       margin-top: 12px;
     }
 
-    .email-form {
-      display: none;
-      flex-direction: column;
-      gap: 12px;
-    }
-
     .email-input {
       width: 100%;
       padding: 14px 18px;
@@ -230,6 +224,206 @@
       color: #e06c75;
       text-align: left;
       display: none;
+    }
+
+    /* ---------------------------------------------------------------------
+       First-run onboarding (local mode only)
+       --------------------------------------------------------------------- */
+    .onboarding {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      overflow-y: auto;
+      background: #050d18;
+      padding: 40px 20px;
+    }
+
+    .onboarding.visible {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .onboarding-card {
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+    }
+
+    .portrait {
+      position: relative;
+      width: 148px;
+      height: 148px;
+      margin: 0 auto 28px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 1px solid rgba(218, 119, 86, 0.25);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .portrait img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Eyes are positioned as percentages of the portrait box so they stay
+       aligned with the face at any rendered size. */
+    .eye {
+      position: absolute;
+      width: 13%;
+      height: 13%;
+      border-radius: 50%;
+      background: #f6f6f2;
+      border: 1px solid rgba(0, 0, 0, 0.55);
+      transform: translate(-50%, -50%);
+    }
+
+    /* Tuned against the rendered portrait rather than the raw source: the face
+       sits slightly right of and below the centre of the circular crop, so these
+       do not match the source-pixel coordinates directly. */
+    .eye.left  { left: 42.0%; top: 51.5%; }
+    .eye.right { left: 53.5%; top: 51.2%; }
+
+    .pupil {
+      position: absolute;
+      width: 42%;
+      height: 42%;
+      border-radius: 50%;
+      background: #12161d;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      will-change: transform;
+    }
+
+    .onboarding h2 {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      font-size: 21px;
+      color: #e8ecf4;
+      margin-bottom: 14px;
+    }
+
+    .onboarding-intro {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 300;
+      font-size: 13px;
+      line-height: 1.75;
+      color: #8090a8;
+      margin-bottom: 26px;
+    }
+
+    .consent-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      text-align: left;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 10px;
+      margin-bottom: 18px;
+      cursor: pointer;
+      transition: border-color 0.2s ease;
+    }
+
+    .consent-row:hover {
+      border-color: rgba(218, 119, 86, 0.3);
+    }
+
+    .consent-checkbox {
+      appearance: none;
+      -webkit-appearance: none;
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      margin-top: 1px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .consent-checkbox:checked {
+      background: rgba(218, 119, 86, 0.85);
+      border-color: rgba(218, 119, 86, 0.9);
+    }
+
+    .consent-checkbox:checked::after {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 1px;
+      width: 5px;
+      height: 10px;
+      border: solid #0b1220;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    .consent-label {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 14px;
+      color: #d4dbe8;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .consent-detail {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 300;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #6b7a92;
+    }
+
+    .onboarding-field {
+      text-align: left;
+      margin-bottom: 22px;
+    }
+
+    .field-label {
+      display: block;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      color: #d4dbe8;
+      margin-bottom: 8px;
+    }
+
+    .field-label span {
+      color: #5a6578;
+      font-size: 12px;
+    }
+
+    .field-hint {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 300;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #6b7a92;
+      margin-top: 8px;
+    }
+
+    .onboarding-footer {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 300;
+      font-size: 11.5px;
+      color: #5a6578;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 480px) {
+      .portrait { width: 120px; height: 120px; }
+      .onboarding { padding: 28px 16px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pupil { transition: none !important; }
     }
 
     .divider {
@@ -349,13 +543,50 @@
       </button>
     </div>
 
-    <form id="email-form" class="email-form">
-      <input type="email" id="email-input" class="email-input" placeholder="your@email.com" autocomplete="email" required />
-      <p id="email-error" class="email-error"></p>
-      <button type="submit" id="email-submit" class="email-submit">Continue</button>
-    </form>
-
     <p class="footer-text" id="footer-text">Secure authentication via OAuth</p>
+  </div>
+
+  <!-- First-run onboarding, shown instead of the login card in local mode -->
+  <div class="onboarding" id="onboarding">
+    <div class="onboarding-card">
+      <div class="portrait">
+        <img src="img/latif.jpg" alt="Latif, founder of 49Agents" />
+        <div class="eye left"><div class="pupil" data-pupil></div></div>
+        <div class="eye right"><div class="pupil" data-pupil></div></div>
+      </div>
+
+      <h2>Hi, I'm Latif &mdash; I founded 49Agents</h2>
+
+      <p class="onboarding-intro">
+        This project is young and built in the open. Seeing how it actually gets
+        used is the clearest signal we have for what to fix next.
+      </p>
+
+      <label class="consent-row" for="onboarding-consent">
+        <input type="checkbox" id="onboarding-consent" class="consent-checkbox" checked />
+        <span>
+          <span class="consent-label">Share anonymous usage data</span>
+          <span class="consent-detail">
+            Which features get used, how long sessions run, how many panes you open.
+            Never terminal output, file contents, or commands.
+          </span>
+        </span>
+      </label>
+
+      <div class="onboarding-field">
+        <label class="field-label" for="onboarding-email">Email <span>(optional)</span></label>
+        <input type="email" id="onboarding-email" class="email-input" placeholder="you@example.com" autocomplete="email" />
+        <p class="field-hint">
+          Only so we can reach out about the project. No marketing, no list.
+        </p>
+      </div>
+
+      <p id="onboarding-error" class="email-error"></p>
+
+      <button type="button" id="onboarding-submit" class="email-submit">Continue</button>
+
+      <p class="onboarding-footer">You can change either of these anytime in Settings.</p>
+    </div>
   </div>
 
   <a href="/tutorial" class="tutorial-link">Take the Interactive Tour</a>
@@ -400,14 +631,14 @@
     (function() {
       fetch('/api/auth/mode').then(function(r) { return r.json(); }).then(function(data) {
         if (data.mode === 'local') {
-          // Local mode: hide OAuth, show email form
-          var oauthSection = document.getElementById('oauth-section');
-          var emailForm = document.getElementById('email-form');
-          var footerText = document.getElementById('footer-text');
-          if (oauthSection) oauthSection.style.display = 'none';
-          if (emailForm) emailForm.style.display = 'flex';
-          if (footerText) footerText.textContent = 'Your email is only used to identify your instance.';
-          document.getElementById('email-input')?.focus();
+          // Local mode: the first-run onboarding replaces the login card entirely
+          var loginCard = document.querySelector('.login-card');
+          var tutorialLink = document.querySelector('.tutorial-link');
+          var onboarding = document.getElementById('onboarding');
+          if (loginCard) loginCard.style.display = 'none';
+          if (tutorialLink) tutorialLink.style.display = 'none';
+          if (onboarding) onboarding.classList.add('visible');
+          startEyeTracking();
         } else {
           // Cloud mode: pass ?next= through OAuth links and show guest button
           var params = new URLSearchParams(location.search);
@@ -431,23 +662,75 @@
         if (guestBtn) guestBtn.style.display = 'inline-flex';
       });
 
-      // Email form handler
-      document.getElementById('email-form')?.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var email = document.getElementById('email-input').value.trim();
-        var submitBtn = document.getElementById('email-submit');
-        var errorEl = document.getElementById('email-error');
+      // Cartoon eyes that track the cursor. Each pupil moves within its own eye,
+      // capped at a fraction of the eye radius so it never escapes the white.
+      function startEyeTracking() {
+        var pupils = Array.prototype.slice.call(document.querySelectorAll('[data-pupil]'));
+        if (!pupils.length) return;
+
+        var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var pointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        var queued = false;
+
+        function render() {
+          queued = false;
+          pupils.forEach(function(pupil) {
+            var eye = pupil.parentElement;
+            var box = eye.getBoundingClientRect();
+            if (!box.width) return;
+
+            var cx = box.left + box.width / 2;
+            var cy = box.top + box.height / 2;
+            var dx = pointer.x - cx;
+            var dy = pointer.y - cy;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Maximum travel from centre, in px. Keeps the pupil inside the eye.
+            var limit = box.width * 0.22;
+            var scale = dist > limit ? limit / dist : 1;
+
+            pupil.style.transform =
+              'translate(calc(-50% + ' + (dx * scale).toFixed(2) + 'px), ' +
+              'calc(-50% + ' + (dy * scale).toFixed(2) + 'px))';
+          });
+        }
+
+        function onPointerMove(e) {
+          pointer.x = e.clientX;
+          pointer.y = e.clientY;
+          if (!queued) {
+            queued = true;
+            requestAnimationFrame(render);
+          }
+        }
+
+        if (!reduceMotion) {
+          window.addEventListener('pointermove', onPointerMove, { passive: true });
+        }
+        render();
+      }
+
+      // Onboarding submit — email optional, telemetry consent separate
+      document.getElementById('onboarding-submit')?.addEventListener('click', async function() {
+        var submitBtn = this;
+        var emailInput = document.getElementById('onboarding-email');
+        var consentInput = document.getElementById('onboarding-consent');
+        var errorEl = document.getElementById('onboarding-error');
+        var email = emailInput.value.trim();
 
         errorEl.style.display = 'none';
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Validating...';
+        submitBtn.textContent = email ? 'Validating...' : 'Setting up...';
 
         try {
           var res = await fetch('/auth/email-signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ email: email }),
+            body: JSON.stringify({
+              email: email || null,
+              telemetryConsent: consentInput.checked,
+            }),
           });
           var data = await res.json().catch(function() { return {}; });
           if (res.ok) {
@@ -464,6 +747,14 @@
           errorEl.style.display = 'block';
           submitBtn.disabled = false;
           submitBtn.textContent = 'Continue';
+        }
+      });
+
+      // Enter in the email field submits
+      document.getElementById('onboarding-email')?.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          document.getElementById('onboarding-submit').click();
         }
       });
 

@@ -46,6 +46,8 @@ export const config = {
     webhookUrl: process.env.DISCORD_WEBHOOK_URL || '',
   },
   adminUserId: process.env.ADMIN_USER_ID || '',
+  adminToken: process.env.ADMIN_TOKEN || '',
   cloudAuthUrl: process.env.CLOUD_AUTH_URL || 'https://app.49agents.com',
+  version: process.env.APP_VERSION || '',
   nodeEnv,
 };

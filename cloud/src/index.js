@@ -22,6 +22,7 @@ import { ensureAgentTarball } from './utils/agentTarball.js';
 import { setupCloudCallbackRoutes } from './auth/cloudCallback.js';
 import { ensureLocalAuthTable, isLocalMode } from './auth/localAuth.js';
 import { ensureEmailAuthTable, setupEmailAuthRoutes, getEmailAuth, issueEmailInstanceToken } from './auth/emailAuth.js';
+import { ensureTelemetryTables, setupTelemetryIngestRoutes } from './telemetry/ingest.js';
 import { initLocalTelemetryCollector } from './telemetry/localCollector.js';
 import { config } from './config.js';
 
@@ -134,6 +135,11 @@ setupCloudCallbackRoutes(app);
 if (isLocalMode()) {
   setupEmailAuthRoutes(app);
 }
+
+// Telemetry ingest + admin export. Registered in every mode: on Railway these
+// receive from local instances, and a local instance pointed at itself (for
+// development) needs the same routes present.
+setupTelemetryIngestRoutes(app);
 
 // Auth mode endpoint (public — tells the login page if we're local or cloud)
 app.get('/api/auth/mode', (req, res) => {
@@ -265,6 +271,7 @@ async function start() {
   initDatabase();
   ensureLocalAuthTable();
   ensureEmailAuthTable();
+  ensureTelemetryTables();
   initLocalTelemetryCollector();
 
   // Build the downloadable agent tarball if it is missing or out of date, and

@@ -12,6 +12,7 @@ import { nanoid } from 'nanoid';
 import { config } from '../config.js';
 import { upsertUser } from '../db/users.js';
 import { saveLocalAuth, clearLocalAuth, getLocalAuth, setTelemetryConsent } from './localAuth.js';
+import { getEmailAuth, setEmailTelemetryConsent, setCloudInstanceId } from './emailAuth.js';
 import { issueAccessToken, issueRefreshToken, setAuthCookies } from './github.js';
 import { recordEvent } from '../db/events.js';
 import { refreshTelemetryState } from '../telemetry/localCollector.js';
@@ -131,15 +132,19 @@ export function setupCloudCallbackRoutes(app) {
     res.redirect('/login');
   });
 
-  // GET /api/auth/telemetry-consent — get current telemetry preference
+  // GET /api/auth/telemetry-consent — get current telemetry preference.
+  // Reads from whichever identity path is in use (OAuth cloud auth or onboarding email).
   app.get('/api/auth/telemetry-consent', (req, res) => {
     const localAuth = getLocalAuth();
-    if (!localAuth) {
+    const raw = localAuth ? localAuth.telemetryConsent : (getEmailAuth() || {}).telemetryConsent;
+
+    if (raw === undefined || raw === null) {
       return res.json({ consent: false, status: 'not_authenticated' });
     }
+
     res.json({
-      consent: localAuth.telemetryConsent === 1,
-      status: localAuth.telemetryConsent === -1 ? 'pending' : (localAuth.telemetryConsent === 1 ? 'accepted' : 'declined'),
+      consent: raw === 1,
+      status: raw === -1 ? 'pending' : (raw === 1 ? 'accepted' : 'declined'),
     });
   });
 
@@ -148,11 +153,54 @@ export function setupCloudCallbackRoutes(app) {
     try {
       const { consent } = req.body;
       const localAuth = getLocalAuth();
-      if (!localAuth) {
+      const emailAuth = localAuth ? null : getEmailAuth();
+
+      if (!localAuth && !emailAuth) {
         return res.status(400).json({ error: 'Not authenticated' });
       }
-      setTelemetryConsent(!!consent);
+
+      if (localAuth) {
+        setTelemetryConsent(!!consent);
+      } else {
+        setEmailTelemetryConsent(!!consent);
+      }
+
       refreshTelemetryState();
+
+      // Push the new preference to the cloud so it is enforced server-side too.
+      //
+      // Both directions matter. Turning consent ON may be this instance's first
+      // ever contact (someone who declined during onboarding), so it needs an id
+      // before the collector has anywhere to send. Turning it OFF must mark the
+      // cloud record as revoked — otherwise stopping the local collector is the
+      // only thing protecting the user, and anything still holding the instance
+      // id could keep writing events against it.
+      if (emailAuth) {
+        fetch(`${config.cloudAuthUrl}/api/local-email-signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instanceId: emailAuth.cloudInstanceId || emailAuth.instanceId,
+            email: emailAuth.email,
+            consent: !!consent,
+            hostname: req.hostname,
+            os: process.platform,
+            version: config.version || null,
+          }),
+          signal: AbortSignal.timeout(8000),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data && data.instanceId) {
+              setCloudInstanceId(data.instanceId);
+              refreshTelemetryState();
+            }
+          })
+          .catch((err) => {
+            console.warn('[cloud-callback] Consent sync failed (non-fatal):', err.message);
+          });
+      }
+
       res.json({ ok: true });
     } catch (err) {
       console.error('[cloud-callback] Consent error:', err);
