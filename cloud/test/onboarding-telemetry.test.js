@@ -484,3 +484,32 @@ test('an answered consent question is never asked again', () => {
     'an answered question is no longer applicable'
   );
 });
+
+// ---------------------------------------------------------------------------
+// Local mode has no sign-in
+// ---------------------------------------------------------------------------
+
+test('OAuth routes are registered only when not in local mode', () => {
+  const src = readFileSync(join(here, '..', 'src', 'index.js'), 'utf-8');
+
+  // The hosted instance still needs GitHub and Google. Local clones must not
+  // register them at all, rather than shipping dead buttons.
+  assert.ok(
+    /if \(!isLocalMode\(\)\) \{\s*setupGitHubAuth\(app\);\s*setupGoogleAuth\(app\);/.test(src),
+    'OAuth setup is gated on cloud mode'
+  );
+
+  // Logout ships with the GitHub routes, so local mode has to provide its own.
+  assert.ok(/app\.post\('\/auth\/logout', localLogout\)/.test(src), 'local mode keeps logout');
+});
+
+test('local mode never sends anyone to a login page', () => {
+  const src = readFileSync(join(here, '..', 'src', 'index.js'), 'utf-8');
+  const mw = readFileSync(join(here, '..', 'src', 'auth', 'middleware.js'), 'utf-8');
+
+  // Every path that would have shown a login screen has to fall through to the
+  // app, where a session is created on arrival.
+  assert.ok(/isLocalMode\(\)\) return res\.redirect\('\/'\)/.test(src), '/login redirects to the app');
+  assert.ok(/res\.redirect\(isLocalMode\(\) \? '\/' : '\/login'\)/.test(src), 'catch-all redirects to the app');
+  assert.ok(/res\.redirect\(isLocalMode\(\) \? '\/' : '\/login'\)/.test(mw), 'auth failures redirect to the app');
+});

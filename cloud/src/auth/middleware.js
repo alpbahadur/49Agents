@@ -2,7 +2,7 @@ import { jwtVerify } from 'jose';
 import { issueAccessToken, getSecretKey } from './github.js';
 import { getUserById } from '../db/users.js';
 import { upsertUser } from '../db/users.js';
-import { getLocalAuth } from './localAuth.js';
+import { getLocalAuth, isLocalMode } from './localAuth.js';
 import { config } from '../config.js';
 
 const hasOAuth = !!(config.github.clientId || config.google.clientId);
@@ -226,6 +226,7 @@ function sendUnauthorized(req, res) {
     return res.status(401).json({ error: 'Unauthorized', message: 'Please log in.' });
   }
 
-  // For browser/HTML requests, redirect to login
-  return res.redirect('/login');
+  // For browser/HTML requests, redirect to login. Local mode has no login page,
+  // so send them to the app, where a session is created on arrival.
+  return res.redirect(isLocalMode() ? '/' : '/login');
 }

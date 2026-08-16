@@ -129,8 +129,23 @@ setupDownloadRoutes(app);
 // ---------------------------------------------------------------------------
 // Auth routes (public -- no requireAuth)
 // ---------------------------------------------------------------------------
-setupGitHubAuth(app);
-setupGoogleAuth(app);
+// OAuth exists only for the hosted instance. Local clones have no sign-in of
+// any kind, so the routes are not registered at all rather than being present
+// but unreachable.
+if (!isLocalMode()) {
+  setupGitHubAuth(app);
+  setupGoogleAuth(app);
+} else {
+  // Logout normally comes with the GitHub routes. Local mode still needs it to
+  // reset a session, and lands back in the app rather than a login page.
+  const localLogout = (req, res) => {
+    res.clearCookie('tc_access', { path: '/' });
+    res.clearCookie('tc_refresh', { path: '/' });
+    res.redirect('/');
+  };
+  app.post('/auth/logout', localLogout);
+  app.get('/auth/logout', localLogout);
+}
 setupCloudCallbackRoutes(app);
 if (isLocalMode()) {
   setupEmailAuthRoutes(app);
@@ -150,14 +165,21 @@ app.get('/api/auth/mode', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Login page (public)
+// Login page (public).
+//
+// Local mode has no sign-in at all: the server issues an anonymous session on
+// first request and asks for consent inside the app later. Anyone arriving here
+// directly, or via a stale bookmark, goes straight through.
 // ---------------------------------------------------------------------------
 app.get('/login', (req, res) => {
+  if (isLocalMode()) return res.redirect('/');
   res.sendFile('login.html', { root: publicDir });
 });
 
-// Telemetry consent page (local mode only, shown after first cloud auth)
+// Telemetry consent page. Only reachable through the cloud-auth flow; local
+// mode asks inside the app instead.
 app.get('/consent', (req, res) => {
+  if (isLocalMode()) return res.redirect('/');
   res.sendFile('consent.html', { root: publicDir });
 });
 
@@ -329,10 +351,11 @@ async function start() {
     }
   }
 
-  // Catch-all: redirect unmatched routes to /login
+  // Catch-all for unmatched routes. Local mode has no login page to fall back
+  // on, so it lands in the app instead.
   // Must be registered AFTER extensions so their routes take priority
   app.get('*', (req, res) => {
-    res.redirect('/login');
+    res.redirect(isLocalMode() ? '/' : '/login');
   });
 
   server.listen(config.port, config.host, () => {
