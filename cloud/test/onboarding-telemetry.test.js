@@ -322,6 +322,38 @@ test('onboarding modal states what is and is not collected', () => {
   }
 });
 
+test('onboarding is split into two steps', () => {
+  const html = appHtml();
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  // Telemetry and email are separate asks, so they get separate screens.
+  assert.ok(/data-step="1"/.test(html), 'step 1 present');
+  assert.ok(/data-step="2"/.test(html), 'step 2 present');
+  assert.ok(/data-step="2"[^>]*hidden/.test(html), 'step 2 starts hidden');
+
+  // The telemetry control lives on step 1 and the email on step 2.
+  const step1 = html.slice(html.indexOf('data-step="1"'), html.indexOf('data-step="2"'));
+  assert.ok(/onboarding-consent/.test(step1), 'telemetry is on step 1');
+  assert.ok(!/onboarding-email/.test(step1), 'email is not on step 1');
+
+  // Continue advances before it submits.
+  assert.ok(/this\._step === 1/.test(block), 'Continue advances on step 1');
+  assert.ok(/_goToStep\(2\)/.test(block), 'moves to step 2');
+});
+
+test('a telemetry choice made on step 1 survives moving to step 2', () => {
+  const html = appHtml();
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  // Steps are hidden rather than replaced, so the checkbox keeps its state.
+  // Rebuilding the markup per step would silently reset the user's answer.
+  assert.ok(/el\.hidden = Number\(el\.dataset\.step\) !== step/.test(block), 'steps toggle hidden');
+  assert.ok(!/innerHTML\s*=/.test(block), 'markup is never rebuilt between steps');
+  assert.ok(/id="onboarding-consent"/.test(html), 'the checkbox is a persistent node');
+});
+
 test('marketing consent is its own unticked opt-in', () => {
   const html = appHtml();
   const tag = html.match(/<input[^>]*id="onboarding-marketing"[^>]*>/)[0];

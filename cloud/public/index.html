@@ -178,42 +178,56 @@
         We are not VC funded, and we are hoping to raise money to support the
         project more actively.
         <br />
-        Showing people use it is what makes that possible.
+        Showing traction would allow us to do that.
       </p>
 
-      <label class="consent-row" for="onboarding-consent">
-        <input type="checkbox" id="onboarding-consent" class="consent-checkbox" checked />
-        <span>
-          <span class="consent-label">Share anonymous usage data 🙏🥰</span>
-          <span class="consent-detail"
-                title="Never collected: terminal input or output, file contents, commands, prompts, file paths, project or repository names.">
-            Session length, how often you return, panes used.
-            <br />
-            <strong>We do NOT collect</strong> anything you write or see.
+      <!-- Step 1: telemetry. Split from the email step because asking for both
+           at once made the modal a wall of text. -->
+      <div class="onboarding-step" data-step="1">
+        <label class="consent-row" for="onboarding-consent">
+          <input type="checkbox" id="onboarding-consent" class="consent-checkbox" checked />
+          <span>
+            <span class="consent-label">Share anonymous usage data 🙏🥰</span>
+            <span class="consent-detail"
+                  title="Never collected: terminal input or output, file contents, commands, prompts, file paths, project or repository names.">
+              Session length, activity, panes used.
+              <br />
+              <strong>We do NOT collect</strong> anything you write or see.
+            </span>
           </span>
-        </span>
-      </label>
+        </label>
 
-      <div class="onboarding-field">
-        <label class="field-label" for="onboarding-email">Email <span>(optional)</span></label>
-        <input type="email" id="onboarding-email" class="email-input" placeholder="you@49agents.com" autocomplete="email" />
-        <p class="field-hint">
-          So that we can talk to you, and ask for advice and direction.
+        <p class="onboarding-footer">
+          You can disable telemetry at any time in Settings, and feel free to
+          take our code and run Fable on it asking if there are any privacy
+          concerns.
         </p>
       </div>
 
-      <!-- Marketing consent is deliberately its own unticked box. Under GDPR it
-           has to be specific, unbundled and affirmative, so it cannot ride along
-           with the telemetry toggle or be implied by typing an address. -->
-      <label class="consent-row marketing-row" for="onboarding-marketing">
-        <input type="checkbox" id="onboarding-marketing" class="consent-checkbox" disabled />
-        <span>
-          <span class="consent-label">Send me occasional updates</span>
-          <span class="consent-detail">
-            Project news and other marketing. Unsubscribe any time.
+      <!-- Step 2: email and marketing. -->
+      <div class="onboarding-step" data-step="2" hidden>
+        <div class="onboarding-field">
+          <label class="field-label" for="onboarding-email">Email <span>(optional)</span></label>
+          <input type="email" id="onboarding-email" class="email-input" placeholder="you@49agents.com" autocomplete="email" />
+          <p class="field-hint">
+            So that we can talk to you, and ask for advice and direction.
+          </p>
+        </div>
+
+        <!-- Deliberately unticked. Under GDPR marketing consent has to be
+             specific, unbundled and affirmative, and a pre-ticked box is not
+             consent at all (Planet49, C-673/17). Prominence is the lawful way
+             to raise opt-in rates, so this is styled to stand out instead. -->
+        <label class="consent-row marketing-row" for="onboarding-marketing">
+          <input type="checkbox" id="onboarding-marketing" class="consent-checkbox" disabled />
+          <span>
+            <span class="consent-label">Send me occasional updates 🥳🤗</span>
+            <span class="consent-detail">
+              Project news and other marketing. Unsubscribe any time.
+            </span>
           </span>
-        </span>
-      </label>
+        </label>
+      </div>
 
       <p id="onboarding-error" class="onboarding-err"></p>
 
@@ -222,11 +236,10 @@
 
       <button type="button" id="onboarding-submit" class="onboarding-continue">Continue</button>
 
-      <p class="onboarding-footer">
-        You can disable telemetry at any time in Settings, and feel free to take
-        our code and run Fable on it asking if there are any privacy concerns.
-        You can unsubscribe from our updates at any time.
-      </p>
+      <div class="step-dots" aria-hidden="true">
+        <span class="step-dot active" data-dot="1"></span>
+        <span class="step-dot" data-dot="2"></span>
+      </div>
     </div>
   </div>
 

@@ -7052,9 +7052,21 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
 }
 
 /* Marketing opt-in sits under the email field and only becomes usable once an
-   address is entered, since there is nothing to consent to before that. */
+   address is entered, since there is nothing to consent to before that.
+   It stays unticked, so it earns attention through styling rather than a
+   default, which would not be valid consent. */
 .marketing-row {
   margin-top: -6px;
+  background: rgba(218, 119, 86, 0.07);
+  border-color: rgba(218, 119, 86, 0.28);
+}
+
+.marketing-row:hover {
+  border-color: rgba(218, 119, 86, 0.5);
+}
+
+.marketing-row .consent-label {
+  color: #e8ecf4;
 }
 
 .marketing-row.inactive {
@@ -7063,11 +7075,35 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
 }
 
 .marketing-row.inactive:hover {
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: rgba(218, 119, 86, 0.28);
 }
 
 .onboarding .consent-checkbox:disabled {
   cursor: default;
+}
+
+/* Step indicator */
+.step-dots {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 18px;
+}
+
+.step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 0.2s ease;
+}
+
+.step-dot.active {
+  background: rgba(218, 119, 86, 0.8);
+}
+
+.onboarding-step[hidden] {
+  display: none;
 }
 
 .onboarding .consent-detail br {
@@ -7174,8 +7210,9 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   font-family: 'JetBrains Mono', monospace;
   font-weight: 300;
   font-size: 11.5px;
+  line-height: 1.6;
   color: #5a6578;
-  margin-top: 18px;
+  margin: 14px 0 22px;
 }
 
 @media (max-width: 480px) {

@@ -288,13 +288,39 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       syncMarketing();
       emailInput?.addEventListener('input', syncMarketing);
 
-      submit?.addEventListener('click', () => this._submit());
+      // Continue walks the two steps before it submits: telemetry first, then
+      // email. Asking for both on one screen made the modal a wall of text.
+      submit?.addEventListener('click', () => {
+        if (this._step === 1) {
+          this._goToStep(2);
+          return;
+        }
+        this._submit();
+      });
+
       emailInput?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
           this._submit();
         }
       });
+    },
+
+    _step: 1,
+
+    _goToStep(step) {
+      this._step = step;
+
+      document.querySelectorAll('#onboarding .onboarding-step').forEach(el => {
+        el.hidden = Number(el.dataset.step) !== step;
+      });
+      document.querySelectorAll('#onboarding .step-dot').forEach(dot => {
+        dot.classList.toggle('active', Number(dot.dataset.dot) === step);
+      });
+
+      if (step === 2) {
+        document.getElementById('onboarding-email')?.focus();
+      }
     },
 
     // Continue is the only way out, so put the modal back if anything else
