@@ -207,6 +207,11 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     _guard: null,
 
     init() {
+      // Nothing is asked until the tutorial is behind them. A first-time user is
+      // about to be redirected to /tutorial, and the ten minutes should measure
+      // real use of the app rather than time spent being shown around it.
+      if (!this._tutorialDone()) return;
+
       // One request, so the modal can be up on the first paint rather than
       // flashing in a couple of seconds later.
       fetch('/api/auth/onboarding', { credentials: 'include' })
@@ -332,6 +337,22 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     },
 
     _step: 1,
+
+    /**
+     * Whether the getting-started tutorial is behind them.
+     *
+     * Mirrors the check init() uses to decide on redirecting to /tutorial:
+     * either source counts, since a returning user on a new device has the
+     * server preference but no local flag yet.
+     */
+    _tutorialDone() {
+      try {
+        if (localStorage.getItem('tc_tutorial')) return true;
+      } catch {
+        // Storage unavailable; fall through to the server preference.
+      }
+      return !!(tutorialsCompleted && tutorialsCompleted['getting-started']);
+    },
 
     // EU/UK members plus EEA, which GDPR also covers. Kept as an explicit list
     // because Europe/* alone would sweep in non-EEA countries.
@@ -1354,7 +1375,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     showPromoToasts();
     connectWebSocket();
     _telemetry.init();
-    _onboarding.init();
+    // _onboarding.init() runs after the tutorial check below, so a first-time
+    // user about to be redirected never starts the clock.
     // loadTerminalsFromServer is called after agents:list arrives via WS
 
     const hudContainer = createHudContainer();
@@ -1385,6 +1407,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       try { localStorage.setItem('tc_tutorial', 'completed'); } catch (e) {}
     }
 
+    // Only now that the tutorial is known to be behind them.
+    _onboarding.init();
   }
 
   // CLAUDE_LOGO_SVG — imported from modules/constants.js

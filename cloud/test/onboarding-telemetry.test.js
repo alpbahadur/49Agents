@@ -440,8 +440,13 @@ test('the onboarding clock lives on the server, not in the browser', () => {
   const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
 
   // Storing elapsed time client-side meant clearing site data or opening a
-  // private window silently restarted the ten minutes.
-  assert.ok(!/localStorage/.test(block), 'no browser storage drives the trigger');
+  // private window silently restarted the ten minutes. The only permitted
+  // browser read is the tutorial flag, which is not the clock.
+  const storageReads = block.match(/localStorage\.\w+\('([^']+)'/g) || [];
+  assert.ok(
+    storageReads.every(r => r.includes('tc_tutorial')),
+    `only the tutorial flag may come from browser storage, saw: ${storageReads.join(', ')}`
+  );
   assert.ok(/api\/auth\/onboarding\/tick/.test(block), 'elapsed time is reported to the server');
   assert.ok(/api\/auth\/onboarding/.test(block), 'due state is read from the server');
 });
@@ -591,4 +596,28 @@ test('step 2 can go back to step 1', () => {
   assert.ok(/onboarding-back'\)\?\.addEventListener\('click', \(\) => \{\s*this\._goToStep\(1\)/.test(block),
     'back returns to step 1');
   assert.ok(/back\.hidden = step === 1/.test(block), 'nothing to go back to from step 1');
+});
+
+test('onboarding waits until the tutorial is finished', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  // A first-time user is redirected to /tutorial, and the ten minutes should
+  // measure real use rather than time spent being shown around.
+  assert.ok(/if \(!this\._tutorialDone\(\)\) return;/.test(block), 'init bails before the tutorial is done');
+
+  // Either source counts: a returning user on a new device has the server
+  // preference but no local flag yet.
+  const fn = block.slice(block.indexOf('_tutorialDone()'), block.indexOf('EU_TIMEZONE_COUNTRIES'));
+  assert.ok(/localStorage\.getItem\('tc_tutorial'\)/.test(fn), 'checks the local flag');
+  assert.ok(/tutorialsCompleted\['getting-started'\]/.test(fn), 'checks the server preference');
+
+  // And the call site runs after the redirect check, so someone about to be
+  // sent to the tutorial never starts the clock.
+  const initStart = js.indexOf('  async function init() {');
+  const initFn = js.slice(initStart);
+  const redirect = initFn.indexOf("window.location.href = '/tutorial'");
+  const call = initFn.indexOf('_onboarding.init();');
+  assert.ok(redirect !== -1 && call !== -1, 'both present in init');
+  assert.ok(call > redirect, 'onboarding starts only after the tutorial redirect check');
 });
