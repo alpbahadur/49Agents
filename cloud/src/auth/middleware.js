@@ -30,6 +30,77 @@ export function requireAuth(req, res, next) {
   });
 }
 
+/**
+ * Local-mode entry: authenticate normally, but mint an anonymous identity
+ * instead of bouncing to /login when there isn't one yet.
+ *
+ * A fresh clone should open into the working app. The consent modal appears
+ * inside the app after ten minutes of use, so there is nothing to ask at the
+ * door. Telemetry stays off until that modal is answered.
+ */
+export function autoLocalSession(req, res, next) {
+  resolveOrCreateLocalSession(req, res, next).catch((err) => {
+    console.error('[auth] Local session error:', err);
+    return sendUnauthorized(req, res);
+  });
+}
+
+async function resolveOrCreateLocalSession(req, res, next) {
+  // Reuse an existing identity when there is one. handleAuth() responds to the
+  // request itself when auth fails, so it cannot be used here: we need to know
+  // the outcome and then fall through, not send a 401.
+  const localAuth = getLocalAuth();
+  if (localAuth) {
+    const user = getUserById(localAuth.cloudUserId) || upsertUser({
+      githubLogin: localAuth.githubLogin,
+      email: localAuth.email,
+      displayName: localAuth.displayName || 'Local User',
+      avatarUrl: localAuth.avatarUrl,
+    });
+    req.user = user;
+    return next();
+  }
+
+  const accessToken = req.cookies?.tc_access;
+  if (accessToken) {
+    try {
+      const { payload } = await jwtVerify(accessToken, getSecretKey());
+      const user = getUserById(payload.sub);
+      if (user) {
+        req.user = user;
+        return next();
+      }
+    } catch {
+      // Expired or malformed. Fall through and mint a fresh session below.
+    }
+  }
+
+  const { ensureLocalSession, getEmailAuth } = await import('./emailAuth.js');
+  const { instanceId, created } = ensureLocalSession();
+  const emailAuth = getEmailAuth();
+
+  const user = upsertUser({
+    githubId: null,
+    githubLogin: null,
+    googleId: null,
+    email: emailAuth?.email || null,
+    displayName: emailAuth?.email ? emailAuth.email.split('@')[0] : 'Local User',
+    avatarUrl: null,
+  });
+
+  const { issueRefreshToken, setAuthCookies } = await import('./github.js');
+  const access = await issueAccessToken(user);
+  const refresh = await issueRefreshToken(user);
+  setAuthCookies(res, access, refresh);
+
+  if (created) {
+    console.log(`[auth] Local session created automatically (instance: ${instanceId})`);
+  }
+
+  req.user = user;
+  return next();
+}
+
 async function handleAuth(req, res, next) {
   // Dev/local mode: no OAuth configured AND not production
   if (devModeEnabled) {

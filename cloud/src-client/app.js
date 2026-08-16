@@ -187,6 +187,179 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     },
   };
 
+  // ---------------------------------------------------------------------------
+  // Consent onboarding (local mode only)
+  //
+  // Appears after ten minutes of *active* use, not ten minutes of wall clock.
+  // Someone who opens the app and walks away has not formed an opinion worth
+  // asking for, so the timer pauses whenever the tab is hidden and the elapsed
+  // total carries across sessions in localStorage.
+  // ---------------------------------------------------------------------------
+  const _onboarding = {
+    REQUIRED_MS: 10 * 60 * 1000,
+    STORAGE_KEY: '_49a_active_ms',
+    _timer: null,
+    _lastTick: null,
+    _shown: false,
+
+    init() {
+      fetch('/api/auth/mode')
+        .then(r => r.json())
+        .then(m => {
+          if (m.mode !== 'local') return null;
+          return fetch('/api/auth/telemetry-consent', { credentials: 'include' }).then(r => r.json());
+        })
+        .then(d => {
+          // 'pending' means they have never answered. Any other status, including
+          // a decline, means the question is settled and must not be asked again.
+          if (!d || d.status !== 'pending') return;
+          this._startTracking();
+        })
+        .catch(() => {});
+    },
+
+    _elapsed() {
+      const stored = parseInt(localStorage.getItem(this.STORAGE_KEY) || '0', 10);
+      return Number.isFinite(stored) ? stored : 0;
+    },
+
+    _startTracking() {
+      if (this._elapsed() >= this.REQUIRED_MS) {
+        this.show();
+        return;
+      }
+
+      this._lastTick = Date.now();
+      this._timer = setInterval(() => this._tick(), 5000);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          this._tick();
+          this._lastTick = null;
+        } else {
+          this._lastTick = Date.now();
+        }
+      });
+    },
+
+    _tick() {
+      if (this._shown) return;
+      if (document.visibilityState !== 'visible' || this._lastTick === null) return;
+
+      const now = Date.now();
+      const total = this._elapsed() + (now - this._lastTick);
+      this._lastTick = now;
+      localStorage.setItem(this.STORAGE_KEY, String(total));
+
+      if (total >= this.REQUIRED_MS) this.show();
+    },
+
+    show() {
+      if (this._shown) return;
+      const el = document.getElementById('onboarding');
+      if (!el) return;
+
+      this._shown = true;
+      if (this._timer) {
+        clearInterval(this._timer);
+        this._timer = null;
+      }
+
+      el.classList.add('visible');
+      this._startEyeTracking();
+
+      const submit = document.getElementById('onboarding-submit');
+      const emailInput = document.getElementById('onboarding-email');
+
+      submit?.addEventListener('click', () => this._submit());
+      emailInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this._submit();
+        }
+      });
+    },
+
+    async _submit() {
+      const submit = document.getElementById('onboarding-submit');
+      const emailInput = document.getElementById('onboarding-email');
+      const consentInput = document.getElementById('onboarding-consent');
+      const errorEl = document.getElementById('onboarding-error');
+      const email = emailInput.value.trim();
+
+      errorEl.style.display = 'none';
+      submit.disabled = true;
+      submit.textContent = email ? 'Checking...' : 'Saving...';
+
+      try {
+        const res = await fetch('/auth/email-signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: email || null,
+            telemetryConsent: consentInput.checked,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          document.getElementById('onboarding').classList.remove('visible');
+          localStorage.removeItem(this.STORAGE_KEY);
+          // Consent may have just been granted, so start the client tracker
+          // rather than waiting for the next page load.
+          if (consentInput.checked && !_telemetry._active) _telemetry.init();
+        } else {
+          errorEl.textContent = data.error || 'Something went wrong. Try again.';
+          errorEl.style.display = 'block';
+          submit.disabled = false;
+          submit.textContent = 'Continue';
+        }
+      } catch {
+        errorEl.textContent = 'Network error. Try again.';
+        errorEl.style.display = 'block';
+        submit.disabled = false;
+        submit.textContent = 'Continue';
+      }
+    },
+
+    _startEyeTracking() {
+      const pupils = Array.from(document.querySelectorAll('#onboarding [data-pupil]'));
+      if (!pupils.length) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const pointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      let queued = false;
+
+      const render = () => {
+        queued = false;
+        pupils.forEach(pupil => {
+          const box = pupil.parentElement.getBoundingClientRect();
+          if (!box.width) return;
+          const dx = pointer.x - (box.left + box.width / 2);
+          const dy = pointer.y - (box.top + box.height / 2);
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          // Cap travel so the pupil never escapes the white of the eye.
+          const limit = box.width * 0.22;
+          const scale = dist > limit ? limit / dist : 1;
+          pupil.style.transform =
+            `translate(calc(-50% + ${(dx * scale).toFixed(2)}px), calc(-50% + ${(dy * scale).toFixed(2)}px))`;
+        });
+      };
+
+      window.addEventListener('pointermove', (e) => {
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+        if (!queued) {
+          queued = true;
+          requestAnimationFrame(render);
+        }
+      }, { passive: true });
+
+      render();
+    },
+  };
+
   // Expanded pane state
   let expandedPaneId = null;
 
@@ -1025,6 +1198,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     showPromoToasts();
     connectWebSocket();
     _telemetry.init();
+    _onboarding.init();
     // loadTerminalsFromServer is called after agents:list arrives via WS
 
     const hudContainer = createHudContainer();

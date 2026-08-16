@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { initDatabase } from './db/index.js';
 import { setupGitHubAuth } from './auth/github.js';
 import { setupGoogleAuth } from './auth/google.js';
-import { requireAuth } from './auth/middleware.js';
+import { requireAuth, autoLocalSession } from './auth/middleware.js';
 import { setupApiRoutes } from './routes/api.js';
 import { setupLayoutRoutes } from './routes/layouts.js';
 import { setupDownloadRoutes } from './routes/download.js';
@@ -238,6 +238,11 @@ const hasOAuth = config.github.clientId || config.google.clientId;
 const devModeEnabled = !hasOAuth && config.nodeEnv !== 'production';
 if (devModeEnabled && process.env.SKIP_CLOUD_AUTH) {
   app.get('/', (req, res) => res.sendFile('index.html', { root: publicDir }));
+} else if (isLocalMode()) {
+  // Local mode opens straight into the app. A fresh clone gets an anonymous
+  // identity on first request and meets the consent modal ten minutes later,
+  // rather than being stopped at a login screen before it has done anything.
+  app.get('/', autoLocalSession, (req, res) => res.sendFile('index.html', { root: publicDir }));
 } else {
   app.get('/', requireAuth, (req, res) => res.sendFile('index.html', { root: publicDir }));
 }

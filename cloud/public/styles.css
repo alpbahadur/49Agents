@@ -6826,3 +6826,276 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   }
 }
 
+
+/* ---------------------------------------------------------------------------
+   Consent onboarding modal (local mode, after ten minutes of use)
+
+   There is deliberately no close affordance: no X, no Esc, no backdrop click.
+   Continue is the only way out, and it is always a valid answer because the
+   consent toggle carries a default and the email field is optional.
+   --------------------------------------------------------------------------- */
+.onboarding {
+  display: none;
+  position: fixed;
+  inset: 0;
+  /* Above every in-app control. The zoom buttons and HUD sit at 10001-10002
+     and would otherwise float over the modal's own fields. */
+  z-index: 100000;
+  overflow-y: auto;
+  background: rgba(5, 13, 24, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 40px 20px;
+}
+
+.onboarding.visible {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onboarding-card {
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.portrait-wrap {
+  position: relative;
+  width: 148px;
+  margin: 0 auto 28px;
+}
+
+.portrait {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(218, 119, 86, 0.25);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Tuned against the rendered portrait rather than source pixels, since the
+   face sits off-centre in the circular crop. */
+.onboarding .eye {
+  position: absolute;
+  width: 9.1%;
+  height: 9.1%;
+  border-radius: 50%;
+  background: #f6f6f2;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+}
+
+.onboarding .eye.left  { left: 40.5%; top: 47.3%; }
+.onboarding .eye.right { left: 53.5%; top: 47.0%; }
+
+.onboarding .pupil {
+  position: absolute;
+  width: 42%;
+  height: 42%;
+  border-radius: 50%;
+  background: #12161d;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+
+.heart {
+  position: absolute;
+  font-size: 22px;
+  line-height: 1;
+  pointer-events: none;
+  animation: heart-float 3s ease-in-out infinite;
+}
+
+.heart-1 { top: -6px;  left: -14px; animation-delay: 0s; }
+.heart-2 { top: 34px;  right: -22px; animation-delay: 0.9s; }
+.heart-3 { bottom: 4px; left: -20px; animation-delay: 1.8s; }
+
+@keyframes heart-float {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
+  50%      { transform: translateY(-8px) scale(1.12); opacity: 1; }
+}
+
+.onboarding h2 {
+  font-weight: 400;
+  font-size: 21px;
+  color: #e8ecf4;
+  margin: 0 0 14px;
+}
+
+.onboarding-intro {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #8090a8;
+  margin: 0 0 26px;
+}
+
+.onboarding .consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  margin-bottom: 18px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.onboarding .consent-row:hover {
+  border-color: rgba(218, 119, 86, 0.3);
+}
+
+.onboarding .consent-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.onboarding .consent-checkbox:checked {
+  background: rgba(218, 119, 86, 0.85);
+  border-color: rgba(218, 119, 86, 0.9);
+}
+
+.onboarding .consent-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid #0b1220;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.onboarding .consent-label {
+  font-size: 14px;
+  color: #d4dbe8;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.onboarding .consent-detail {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #6b7a92;
+}
+
+.onboarding-field {
+  text-align: left;
+  margin-bottom: 22px;
+}
+
+.onboarding .field-label {
+  display: block;
+  font-size: 13px;
+  color: #d4dbe8;
+  margin-bottom: 8px;
+}
+
+.onboarding .field-label span {
+  color: #5a6578;
+  font-size: 12px;
+}
+
+.onboarding .email-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #e8ecf4;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.onboarding .email-input::placeholder { color: #3a4455; }
+.onboarding .email-input:focus { border-color: rgba(218, 119, 86, 0.5); }
+
+.onboarding .field-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #6b7a92;
+  margin: 8px 0 0;
+}
+
+.onboarding .email-submit {
+  width: 100%;
+  padding: 14px 24px;
+  background: rgba(218, 119, 86, 0.15);
+  border: 1px solid rgba(218, 119, 86, 0.35);
+  border-radius: 10px;
+  color: #e8ecf4;
+  font-size: 15px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.onboarding .email-submit:hover:not(:disabled) {
+  background: rgba(218, 119, 86, 0.25);
+  border-color: rgba(218, 119, 86, 0.6);
+  transform: translateY(-1px);
+}
+
+.onboarding .email-submit:active { transform: translateY(0); }
+.onboarding .email-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.onboarding-err {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #e06c75;
+  text-align: left;
+  display: none;
+  margin: 0 0 12px;
+}
+
+.onboarding-footer {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 11.5px;
+  color: #5a6578;
+  margin-top: 18px;
+}
+
+@media (max-width: 480px) {
+  .onboarding { padding: 28px 16px; }
+  .portrait-wrap, .portrait { width: 120px; }
+  .portrait { height: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart { animation: none; }
+}

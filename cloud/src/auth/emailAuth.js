@@ -120,6 +120,25 @@ export function setEmailTelemetryConsent(consent) {
   db.prepare('UPDATE local_email_auth SET telemetry_consent = ? WHERE id = 1').run(consent ? 1 : 0);
 }
 
+/**
+ * Ensure a local identity exists so a fresh clone opens straight into the app.
+ *
+ * Onboarding used to gate the login page. It now appears inside the app after
+ * ten minutes of use, which means the user is already working before they are
+ * ever asked anything. Consent starts unset (-1) and telemetry stays off until
+ * they answer, so nothing is collected in the meantime.
+ *
+ * @returns {{ instanceId: string, created: boolean }}
+ */
+export function ensureLocalSession() {
+  const existing = getEmailAuth();
+  if (existing) return { instanceId: existing.instanceId, created: false };
+
+  const instanceId = `lei_${nanoid(16)}`;
+  saveEmailAuth({ instanceId, email: null, telemetryConsent: -1 });
+  return { instanceId, created: true };
+}
+
 export async function issueEmailInstanceToken(instanceId, email) {
   const secretKey = getSecretKey();
   return new SignJWT({ sub: instanceId, type: 'local_email_instance', email })

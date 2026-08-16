@@ -270,36 +270,72 @@ test('anonymous instances enroll without an email', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Onboarding page wiring
+// Onboarding modal wiring
+//
+// The modal lives in the app itself, not on the login page: it appears after
+// ten minutes of use, by which point the user is already working.
 // ---------------------------------------------------------------------------
 
-test('onboarding page sends email and consent as separate fields', () => {
-  const html = readFileSync(join(here, '..', 'public', 'login.html'), 'utf-8');
+function appHtml() {
+  return readFileSync(join(here, '..', 'public', 'index.html'), 'utf-8');
+}
+
+test('onboarding modal sends email and consent as separate fields', () => {
+  const html = appHtml();
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
 
   assert.ok(html.includes('id="onboarding-consent"'), 'consent checkbox present');
   assert.ok(html.includes('id="onboarding-email"'), 'email field present');
-  assert.ok(html.includes('telemetryConsent: consentInput.checked'), 'consent posted from the checkbox');
-  assert.ok(html.includes('email: email || null'), 'blank email posts as null rather than an empty string');
+  assert.ok(js.includes('telemetryConsent: consentInput.checked'), 'consent posted from the checkbox');
+  assert.ok(js.includes('email: email || null'), 'blank email posts as null rather than an empty string');
 
   // The email input must not be required. That would reinstate the old gate.
   const emailTag = html.match(/<input[^>]*id="onboarding-email"[^>]*>/);
   assert.ok(emailTag, 'email input found');
   assert.ok(!/\brequired\b/.test(emailTag[0]), 'email field is optional');
 
-  // Consent defaults to on, which is what the copy on the page promises.
+  // Consent defaults to on, which is what the copy in the modal promises.
   const consentTag = html.match(/<input[^>]*id="onboarding-consent"[^>]*>/);
   assert.ok(/\bchecked\b/.test(consentTag[0]), 'consent defaults to checked');
 });
 
-test('onboarding page still points at the photo it ships with', () => {
-  const html = readFileSync(join(here, '..', 'public', 'login.html'), 'utf-8');
-  assert.ok(html.includes('img/alp.jpg'), 'portrait source matches the committed file');
+test('onboarding modal still points at the photo it ships with', () => {
+  assert.ok(appHtml().includes('img/alp.jpg'), 'portrait source matches the committed file');
 });
 
-test('onboarding page states what is and is not collected', () => {
-  const html = readFileSync(join(here, '..', 'public', 'login.html'), 'utf-8');
+test('onboarding modal states what is and is not collected', () => {
   assert.ok(
-    /Never your terminal output, your files, or the commands you run/.test(html),
-    'page discloses the collection boundary'
+    /Never what's in your terminal, your files, or the commands you type/.test(appHtml()),
+    'modal discloses the collection boundary'
   );
+});
+
+test('onboarding modal has no way out except answering', () => {
+  const html = appHtml();
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+
+  // Continue is always a valid answer (consent has a default, email is
+  // optional), so there is deliberately no close control to bail out with.
+  assert.ok(!/onboarding-close|onboarding-dismiss|onboarding-later/.test(html), 'no close control');
+  assert.ok(!/Escape/.test(js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'))),
+    'Esc does not dismiss the modal');
+});
+
+test('onboarding waits for real usage, not wall-clock time', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  assert.ok(/REQUIRED_MS: 10 \* 60 \* 1000/.test(block), 'threshold is ten minutes');
+  // Time must only accrue while the tab is visible, otherwise someone who walks
+  // away meets the modal on a screen they abandoned.
+  assert.ok(/visibilityState !== 'visible'/.test(block), 'hidden tabs do not accrue time');
+  assert.ok(/localStorage/.test(block), 'elapsed time survives across sessions');
+});
+
+test('an answered consent question is never asked again', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  // Only 'pending' reopens the modal. A decline is an answer and must stick.
+  assert.ok(/status !== 'pending'/.test(block), 'only an unanswered question shows the modal');
 });
