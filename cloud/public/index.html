@@ -162,22 +162,22 @@
   <div class="onboarding" id="onboarding">
     <div class="onboarding-card">
       <div class="portrait-wrap">
-        <span class="heart heart-1">🥰</span>
-        <span class="heart heart-2">🥰</span>
-        <span class="heart heart-3">🥰</span>
+        <span class="heart heart-1" aria-hidden="true"></span>
+        <span class="heart heart-2" aria-hidden="true"></span>
+        <span class="heart heart-3" aria-hidden="true"></span>
         <div class="portrait">
-          <img src="img/alp.jpg" alt="Alp, who builds 49Agents" />
+          <img src="img/alp.jpg" alt="Alp, founder of 49Agents IDE" />
           <div class="eye left"><div class="pupil" data-pupil></div></div>
           <div class="eye right"><div class="pupil" data-pupil></div></div>
         </div>
       </div>
 
-      <h2>Hi, I'm Alp. I built 49Agents.</h2>
+      <h2>I am Alp, Founder of 49Agents IDE</h2>
 
       <p class="onboarding-intro">
-        I pay for 49Agents myself, and we want to raise money soon. To do that
-        we have to show people are using it. GitHub stars help. So does usage
-        data, and talking to you.
+        I pay for 49Agents IDE myself, and we want to raise money soon. To do
+        that we have to show people are using it. GitHub stars help. So does
+        usage data, and talking to you.
       </p>
 
       <label class="consent-row" for="onboarding-consent">
@@ -185,9 +185,12 @@
         <span>
           <span class="consent-label">Share anonymous usage data 🙏🥰</span>
           <span class="consent-detail">
-            Which features you use, how long you stay, how many panes you open.
-            Never what's in your terminal, your files, or the commands you type.
-            We can't see those.
+            <strong>We collect:</strong> how long your sessions last, how often
+            you come back, and which panes you use.
+            <br />
+            <strong>We do not collect:</strong> anything you write or see. No
+            terminal input or output, no file contents, no commands, no prompts,
+            no file paths, no project or repository names.
           </span>
         </span>
       </label>
@@ -196,14 +199,18 @@
         <label class="field-label" for="onboarding-email">Email <span>(optional)</span></label>
         <input type="email" id="onboarding-email" class="email-input" placeholder="you@example.com" autocomplete="email" />
         <p class="field-hint">
-          Leave it empty if you want. If you add it, it's so we can ask you
-          what's broken. No newsletter.
+          Leave it empty if you want. If you add it, we only use it to ask you
+          about bugs and how you use the IDE. No marketing, and you can ask us
+          to delete it any time by replying to us.
         </p>
       </div>
 
       <p id="onboarding-error" class="onboarding-err"></p>
 
-      <button type="button" id="onboarding-submit" class="email-submit">Continue</button>
+      <a href="https://github.com/alpbahadur/49Agents" target="_blank" rel="noopener noreferrer"
+         class="star-cta" id="onboarding-star">Leave us a star on GitHub</a>
+
+      <button type="button" id="onboarding-submit" class="onboarding-continue">Continue</button>
 
       <p class="onboarding-footer">Both of these live in Settings if you change your mind.</p>
     </div>

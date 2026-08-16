@@ -304,10 +304,51 @@ test('onboarding modal still points at the photo it ships with', () => {
 });
 
 test('onboarding modal states what is and is not collected', () => {
-  assert.ok(
-    /Never what's in your terminal, your files, or the commands you type/.test(appHtml()),
-    'modal discloses the collection boundary'
-  );
+  const html = appHtml();
+
+  // Both halves have to be explicit. Saying only what is collected leaves the
+  // reader to guess at the boundary.
+  assert.ok(/We collect:/.test(html), 'states what is collected');
+  assert.ok(/We do not collect:/.test(html), 'states what is not collected');
+
+  for (const item of ['sessions last', 'how often you\ncome back', 'panes you use']) {
+    assert.ok(new RegExp(item.replace(/\s+/g, '\\s+')).test(html), `collected: ${item}`);
+  }
+
+  for (const item of ['terminal', 'file contents', 'commands', 'prompts', 'file paths', 'repository names']) {
+    assert.ok(new RegExp(item.replace(/\s+/g, '\\s+')).test(html), `excluded: ${item}`);
+  }
+});
+
+test('email copy promises no marketing and a way out', () => {
+  const html = appHtml();
+
+  // The email is collected for product feedback only. Anything promotional
+  // would need its own opt-in under GDPR, which this page deliberately avoids
+  // by not asking for that permission at all.
+  assert.ok(/No marketing/.test(html), 'rules out marketing use');
+  assert.ok(/delete it any\s+time/.test(html), 'offers deletion');
+  assert.ok(!/newsletter sign|subscribe|mailing list/i.test(html), 'does not imply a list');
+});
+
+test('the star CTA points at the real repository and opens safely', () => {
+  const html = appHtml();
+  const tag = html.match(/<a[^>]*id="onboarding-star"[^>]*>/s) || html.match(/<a[^>]*class="star-cta"[^>]*>/s);
+  assert.ok(tag, 'star link present');
+
+  assert.ok(/github\.com\/alpbahadur\/49Agents/.test(tag[0]), 'points at the repo');
+  assert.ok(/target="_blank"/.test(tag[0]), 'opens in a new tab so the modal survives');
+  // Without noopener the opened page can reach back through window.opener.
+  assert.ok(/rel="[^"]*noopener/.test(tag[0]), 'sets noopener');
+});
+
+test('Continue remains the only thing that answers the question', () => {
+  const html = appHtml();
+
+  // The star link is the loud action, but it must not double as a way out:
+  // leaving via the star should still leave the consent question unanswered.
+  assert.ok(/id="onboarding-submit"/.test(html), 'Continue still present');
+  assert.ok(/class="onboarding-continue"/.test(html), 'Continue is the quiet text link');
 });
 
 test('onboarding modal has no way out except answering', () => {

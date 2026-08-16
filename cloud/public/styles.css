@@ -6911,17 +6911,42 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   will-change: transform;
 }
 
+/* Plain red hearts, drawn in CSS rather than an emoji so they render the same
+   everywhere and carry no face. */
 .heart {
   position: absolute;
-  font-size: 22px;
-  line-height: 1;
+  width: 14px;
+  height: 14px;
   pointer-events: none;
   animation: heart-float 3s ease-in-out infinite;
 }
 
-.heart-1 { top: -6px;  left: -14px; animation-delay: 0s; }
-.heart-2 { top: 34px;  right: -22px; animation-delay: 0.9s; }
-.heart-3 { bottom: 4px; left: -20px; animation-delay: 1.8s; }
+.heart::before,
+.heart::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 11px;
+  background: #e0245e;
+  border-radius: 7px 7px 0 0;
+  top: 0;
+}
+
+.heart::before {
+  left: 7px;
+  transform: rotate(-45deg);
+  transform-origin: 0 100%;
+}
+
+.heart::after {
+  left: 0;
+  transform: rotate(45deg);
+  transform-origin: 100% 100%;
+}
+
+.heart-1 { top: -2px;  left: -12px; animation-delay: 0s; }
+.heart-2 { top: 38px;  right: -18px; animation-delay: 0.9s; }
+.heart-3 { bottom: 8px; left: -16px; animation-delay: 1.8s; }
 
 @keyframes heart-float {
   0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
@@ -7007,6 +7032,18 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   font-size: 11.5px;
   line-height: 1.6;
   color: #6b7a92;
+  display: block;
+}
+
+.onboarding .consent-detail strong {
+  color: #9aa8bd;
+  font-weight: 400;
+}
+
+.onboarding .consent-detail br {
+  content: '';
+  display: block;
+  margin-top: 6px;
 }
 
 .onboarding-field {
@@ -7051,7 +7088,10 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   margin: 8px 0 0;
 }
 
-.onboarding .email-submit {
+/* The star link is the primary action; Continue sits under it as a quieter
+   text link, so the ask reads before the way out. */
+.star-cta {
+  display: block;
   width: 100%;
   padding: 14px 24px;
   background: rgba(218, 119, 86, 0.15);
@@ -7060,18 +7100,36 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   color: #e8ecf4;
   font-size: 15px;
   font-weight: 400;
+  text-align: center;
+  text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.onboarding .email-submit:hover:not(:disabled) {
+.star-cta:hover {
   background: rgba(218, 119, 86, 0.25);
   border-color: rgba(218, 119, 86, 0.6);
   transform: translateY(-1px);
 }
 
-.onboarding .email-submit:active { transform: translateY(0); }
-.onboarding .email-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.star-cta:active { transform: translateY(0); }
+
+.onboarding-continue {
+  display: block;
+  margin: 14px auto 0;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  color: #8090a8;
+  font-family: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.onboarding-continue:hover:not(:disabled) { color: #e8ecf4; }
+.onboarding-continue:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .onboarding-err {
   font-family: 'JetBrains Mono', monospace;
