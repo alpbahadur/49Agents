@@ -274,6 +274,19 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
       const submit = document.getElementById('onboarding-submit');
       const emailInput = document.getElementById('onboarding-email');
+      const marketing = document.getElementById('onboarding-marketing');
+      const marketingRow = marketing?.closest('.consent-row');
+
+      // Marketing consent needs an address to attach to, so the box stays inert
+      // until one is typed, and un-ticks itself if the field is cleared again.
+      const syncMarketing = () => {
+        const hasEmail = emailInput.value.trim().length > 0;
+        marketing.disabled = !hasEmail;
+        marketingRow?.classList.toggle('inactive', !hasEmail);
+        if (!hasEmail) marketing.checked = false;
+      };
+      syncMarketing();
+      emailInput?.addEventListener('input', syncMarketing);
 
       submit?.addEventListener('click', () => this._submit());
       emailInput?.addEventListener('keydown', (e) => {
@@ -312,6 +325,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       const submit = document.getElementById('onboarding-submit');
       const emailInput = document.getElementById('onboarding-email');
       const consentInput = document.getElementById('onboarding-consent');
+      const marketingInput = document.getElementById('onboarding-marketing');
       const errorEl = document.getElementById('onboarding-error');
       const email = emailInput.value.trim();
 
@@ -327,6 +341,9 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
           body: JSON.stringify({
             email: email || null,
             telemetryConsent: consentInput.checked,
+            // Only meaningful with an address, and the box cannot be ticked
+            // without one.
+            marketingConsent: !!(email && marketingInput?.checked),
           }),
         });
         const data = await res.json().catch(() => ({}));

@@ -43,6 +43,7 @@ export function ensureEmailAuthTable() {
       instance_id       TEXT NOT NULL,
       email             TEXT,
       telemetry_consent INTEGER NOT NULL DEFAULT -1,
+      marketing_consent INTEGER NOT NULL DEFAULT 0,
       cloud_instance_id TEXT,
       active_ms         INTEGER NOT NULL DEFAULT 0,
       created_at        TEXT NOT NULL DEFAULT (datetime('now'))
@@ -85,6 +86,14 @@ export function ensureEmailAuthTable() {
   } catch {
     // Column already exists, ignore
   }
+
+  // Marketing consent is tracked separately from telemetry consent. GDPR treats
+  // them as different purposes, so one can never be inferred from the other.
+  try {
+    db.prepare('ALTER TABLE local_email_auth ADD COLUMN marketing_consent INTEGER NOT NULL DEFAULT 0').run();
+  } catch {
+    // Column already exists, ignore
+  }
 }
 
 export function getEmailAuth() {
@@ -95,20 +104,22 @@ export function getEmailAuth() {
     instanceId: row.instance_id,
     email: row.email,
     telemetryConsent: row.telemetry_consent,
+    marketingConsent: row.marketing_consent === 1,
     cloudInstanceId: row.cloud_instance_id,
   };
 }
 
-function saveEmailAuth({ instanceId, email, telemetryConsent }) {
+function saveEmailAuth({ instanceId, email, telemetryConsent, marketingConsent = 0 }) {
   const db = getDb();
   db.prepare(`
-    INSERT INTO local_email_auth (id, instance_id, email, telemetry_consent)
-    VALUES (1, ?, ?, ?)
+    INSERT INTO local_email_auth (id, instance_id, email, telemetry_consent, marketing_consent)
+    VALUES (1, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       instance_id = excluded.instance_id,
       email = excluded.email,
-      telemetry_consent = excluded.telemetry_consent
-  `).run(instanceId, email, telemetryConsent);
+      telemetry_consent = excluded.telemetry_consent,
+      marketing_consent = excluded.marketing_consent
+  `).run(instanceId, email, telemetryConsent, marketingConsent);
 }
 
 /**
@@ -186,7 +197,7 @@ export function setupEmailAuthRoutes(app) {
   // POST /auth/email-signup
   app.post('/auth/email-signup', async (req, res) => {
     try {
-      const { email, telemetryConsent } = req.body;
+      const { email, telemetryConsent, marketingConsent } = req.body;
 
       // Email is optional: onboarding lets people continue without sharing it.
       // Telemetry consent is a separate decision, defaulting to off when absent.
@@ -223,7 +234,16 @@ export function setupEmailAuthRoutes(app) {
         avatarUrl: null,
       });
 
-      saveEmailAuth({ instanceId, email: trimmed, telemetryConsent: consent ? 1 : 0 });
+      // Marketing consent requires an address to send to. Without one there is
+      // nothing to consent to, so it cannot be set.
+      const marketing = trimmed && marketingConsent ? 1 : 0;
+
+      saveEmailAuth({
+        instanceId,
+        email: trimmed,
+        telemetryConsent: consent ? 1 : 0,
+        marketingConsent: marketing,
+      });
 
       // Issue local JWT cookies reusing the existing cookie mechanism
       const { issueAccessToken, issueRefreshToken, setAuthCookies } = await import('./github.js');
@@ -248,6 +268,7 @@ export function setupEmailAuthRoutes(app) {
             instanceId,
             email: trimmed,
             consent: true,
+            marketingConsent: marketing === 1,
             hostname: req.hostname,
             os: process.platform,
             version: config.version || null,

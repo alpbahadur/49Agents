@@ -6944,9 +6944,20 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   transform-origin: 100% 100%;
 }
 
-.heart-1 { top: -2px;  left: -12px; animation-delay: 0s; }
-.heart-2 { top: 38px;  right: -18px; animation-delay: 0.9s; }
-.heart-3 { bottom: 8px; left: -16px; animation-delay: 1.8s; }
+/* Varied sizes so they read as a scatter rather than a repeated icon. Size is
+   set on the box rather than with a transform, which the float animation owns. */
+.heart-1 { top: -4px;  left: -14px;  width: 18px; height: 18px; animation-delay: 0s; }
+.heart-2 { top: 40px;  right: -16px; width: 10px; height: 10px; animation-delay: 0.9s; }
+.heart-3 { bottom: 8px; left: -16px; width: 14px; height: 14px; animation-delay: 1.8s; }
+
+.heart-1::before, .heart-1::after { width: 9px; height: 14px; border-radius: 9px 9px 0 0; }
+.heart-1::before { left: 9px; }
+
+.heart-2::before, .heart-2::after { width: 5px; height: 8px; border-radius: 5px 5px 0 0; }
+.heart-2::before { left: 5px; }
+
+.heart-3::before, .heart-3::after { width: 7px; height: 11px; border-radius: 7px 7px 0 0; }
+.heart-3::before { left: 7px; }
 
 @keyframes heart-float {
   0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
@@ -7038,6 +7049,25 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
 .onboarding .consent-detail strong {
   color: #9aa8bd;
   font-weight: 400;
+}
+
+/* Marketing opt-in sits under the email field and only becomes usable once an
+   address is entered, since there is nothing to consent to before that. */
+.marketing-row {
+  margin-top: -6px;
+}
+
+.marketing-row.inactive {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.marketing-row.inactive:hover {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.onboarding .consent-checkbox:disabled {
+  cursor: default;
 }
 
 .onboarding .consent-detail br {

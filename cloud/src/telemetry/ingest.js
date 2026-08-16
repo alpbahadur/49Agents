@@ -29,14 +29,15 @@ export function ensureTelemetryTables() {
   const db = getDb();
   db.exec(`
     CREATE TABLE IF NOT EXISTS telemetry_instances (
-      instance_id  TEXT PRIMARY KEY,
-      email        TEXT,
-      consent      INTEGER NOT NULL DEFAULT 0,
-      hostname     TEXT,
-      os           TEXT,
-      version      TEXT,
-      first_seen   TEXT NOT NULL DEFAULT (datetime('now')),
-      last_seen    TEXT NOT NULL DEFAULT (datetime('now'))
+      instance_id       TEXT PRIMARY KEY,
+      email             TEXT,
+      consent           INTEGER NOT NULL DEFAULT 0,
+      marketing_consent INTEGER NOT NULL DEFAULT 0,
+      hostname          TEXT,
+      os                TEXT,
+      version           TEXT,
+      first_seen        TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen         TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS telemetry_events (
@@ -53,6 +54,14 @@ export function ensureTelemetryTables() {
     CREATE INDEX IF NOT EXISTS idx_telemetry_events_received ON telemetry_events(received_at);
     CREATE INDEX IF NOT EXISTS idx_telemetry_instances_email ON telemetry_instances(email);
   `);
+
+  // Marketing consent arrived after the first deploys, so existing rows need it.
+  // It defaults to 0: nobody is opted in retroactively.
+  try {
+    db.prepare('ALTER TABLE telemetry_instances ADD COLUMN marketing_consent INTEGER NOT NULL DEFAULT 0').run();
+  } catch {
+    // Column already exists, ignore
+  }
 }
 
 /**
@@ -62,7 +71,7 @@ export function ensureTelemetryTables() {
  * machine and gives the same email continues the same telemetry identity rather than
  * fragmenting into a new one.
  */
-function enrollInstance({ instanceId, email, consent, hostname, os, version }) {
+function enrollInstance({ instanceId, email, consent, marketingConsent, hostname, os, version }) {
   const db = getDb();
 
   // Reuse the caller's id if we already know it.
@@ -73,12 +82,13 @@ function enrollInstance({ instanceId, email, consent, hostname, os, version }) {
         UPDATE telemetry_instances
         SET email = COALESCE(?, email),
             consent = ?,
+            marketing_consent = ?,
             hostname = COALESCE(?, hostname),
             os = COALESCE(?, os),
             version = COALESCE(?, version),
             last_seen = datetime('now')
         WHERE instance_id = ?
-      `).run(email, consent ? 1 : 0, hostname, os, version, instanceId);
+      `).run(email, consent ? 1 : 0, marketingConsent ? 1 : 0, hostname, os, version, instanceId);
       return instanceId;
     }
   }
@@ -92,21 +102,22 @@ function enrollInstance({ instanceId, email, consent, hostname, os, version }) {
       db.prepare(`
         UPDATE telemetry_instances
         SET consent = ?,
+            marketing_consent = ?,
             hostname = COALESCE(?, hostname),
             os = COALESCE(?, os),
             version = COALESCE(?, version),
             last_seen = datetime('now')
         WHERE instance_id = ?
-      `).run(consent ? 1 : 0, hostname, os, version, byEmail.instance_id);
+      `).run(consent ? 1 : 0, marketingConsent ? 1 : 0, hostname, os, version, byEmail.instance_id);
       return byEmail.instance_id;
     }
   }
 
   const newId = `lei_${nanoid(16)}`;
   db.prepare(`
-    INSERT INTO telemetry_instances (instance_id, email, consent, hostname, os, version)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(newId, email || null, consent ? 1 : 0, hostname || null, os || null, version || null);
+    INSERT INTO telemetry_instances (instance_id, email, consent, marketing_consent, hostname, os, version)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(newId, email || null, consent ? 1 : 0, marketingConsent ? 1 : 0, hostname || null, os || null, version || null);
   return newId;
 }
 
@@ -128,6 +139,8 @@ export function setupTelemetryIngestRoutes(app) {
         instanceId: typeof instanceId === 'string' ? instanceId : null,
         email: normalizeEmail(email),
         consent: !!consent,
+        // Only meaningful with an address to send to.
+        marketingConsent: !!(normalizeEmail(email) && req.body.marketingConsent),
         hostname: typeof hostname === 'string' ? hostname.slice(0, 255) : null,
         os: typeof os === 'string' ? os.slice(0, 64) : null,
         version: typeof version === 'string' ? version.slice(0, 64) : null,

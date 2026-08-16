@@ -175,8 +175,10 @@
       <h2>I am Alp, Founder of 49Agents IDE</h2>
 
       <p class="onboarding-intro">
-        I pay for this myself, and we're raising soon. Showing people use it is
-        what makes that possible.
+        We are not VC funded, and we are hoping to raise money to support the
+        project more actively.
+        <br />
+        Showing people use it is what makes that possible.
       </p>
 
       <label class="consent-row" for="onboarding-consent">
@@ -185,20 +187,33 @@
           <span class="consent-label">Share anonymous usage data 🙏🥰</span>
           <span class="consent-detail"
                 title="Never collected: terminal input or output, file contents, commands, prompts, file paths, project or repository names.">
-            <strong>Yes:</strong> session length, how often you return, panes used.
+            Session length, how often you return, panes used.
             <br />
-            <strong>Never:</strong> anything you write or see.
+            <strong>We do NOT collect</strong> anything you write or see.
           </span>
         </span>
       </label>
 
       <div class="onboarding-field">
         <label class="field-label" for="onboarding-email">Email <span>(optional)</span></label>
-        <input type="email" id="onboarding-email" class="email-input" placeholder="you@example.com" autocomplete="email" />
+        <input type="email" id="onboarding-email" class="email-input" placeholder="you@49agents.com" autocomplete="email" />
         <p class="field-hint">
-          Only to ask about bugs. No marketing, delete any time.
+          So that we can talk to you, and ask for advice and direction.
         </p>
       </div>
+
+      <!-- Marketing consent is deliberately its own unticked box. Under GDPR it
+           has to be specific, unbundled and affirmative, so it cannot ride along
+           with the telemetry toggle or be implied by typing an address. -->
+      <label class="consent-row marketing-row" for="onboarding-marketing">
+        <input type="checkbox" id="onboarding-marketing" class="consent-checkbox" disabled />
+        <span>
+          <span class="consent-label">Send me occasional updates</span>
+          <span class="consent-detail">
+            Project news and other marketing. Unsubscribe any time.
+          </span>
+        </span>
+      </label>
 
       <p id="onboarding-error" class="onboarding-err"></p>
 
@@ -207,7 +222,11 @@
 
       <button type="button" id="onboarding-submit" class="onboarding-continue">Continue</button>
 
-      <p class="onboarding-footer">Change either in Settings later.</p>
+      <p class="onboarding-footer">
+        You can disable telemetry at any time in Settings, and feel free to take
+        our code and run Fable on it asking if there are any privacy concerns.
+        You can unsubscribe from our updates at any time.
+      </p>
     </div>
   </div>
 

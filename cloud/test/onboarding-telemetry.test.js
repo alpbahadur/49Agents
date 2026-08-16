@@ -322,16 +322,34 @@ test('onboarding modal states what is and is not collected', () => {
   }
 });
 
-test('email copy promises no marketing and a way out', () => {
+test('marketing consent is its own unticked opt-in', () => {
   const html = appHtml();
-  const hint = html.match(/<p class="field-hint">[\s\S]*?<\/p>/)[0];
+  const tag = html.match(/<input[^>]*id="onboarding-marketing"[^>]*>/)[0];
 
-  // The email is collected for product feedback only. Anything promotional
-  // would need its own opt-in under GDPR, which this page deliberately avoids
-  // by not asking for that permission at all.
-  assert.ok(/no marketing/i.test(hint), 'rules out marketing use');
-  assert.ok(/delete/i.test(hint), 'offers deletion');
-  assert.ok(!/newsletter sign|subscribe|mailing list/i.test(html), 'does not imply a list');
+  // GDPR requires marketing consent to be specific, unbundled and affirmative.
+  // Pre-ticking it, or folding it into the telemetry toggle, invalidates it.
+  assert.ok(!/\bchecked\b/.test(tag), 'marketing is not pre-ticked');
+  assert.ok(/\bdisabled\b/.test(tag), 'inert until an address is entered');
+
+  const telemetry = html.match(/<input[^>]*id="onboarding-consent"[^>]*>/)[0];
+  assert.ok(telemetry !== tag, 'marketing is a separate control from telemetry');
+
+  // And the page has to say what they are agreeing to receive.
+  assert.ok(/marketing/i.test(html), 'names marketing plainly');
+  assert.ok(/unsubscribe/i.test(html), 'promises a way out');
+});
+
+test('marketing consent cannot be set without an email', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+  const server = readFileSync(join(here, '..', 'src', 'auth', 'emailAuth.js'), 'utf-8');
+
+  // Client un-ticks it when the field is cleared.
+  assert.ok(/if \(!hasEmail\) marketing\.checked = false/.test(block), 'client clears it with the email');
+  assert.ok(/marketingConsent: !!\(email && marketingInput/.test(block), 'client will not claim it without one');
+
+  // And the server refuses it regardless of what the client sends.
+  assert.ok(/const marketing = trimmed && marketingConsent \? 1 : 0/.test(server), 'server requires an address');
 });
 
 test('the star CTA points at the real repository and opens safely', () => {
