@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <script>if (location.protocol === 'https:' && !location.hostname.includes('49agents')) location.replace('http:' + location.href.slice('https:'.length));</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>49Agents — Sign In</title>
+  <title>49Agents Sign In</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
@@ -168,70 +168,6 @@
       margin-top: 12px;
     }
 
-    .email-form {
-      display: none;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .email-input {
-      width: 100%;
-      padding: 14px 18px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      color: #e8ecf4;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s ease;
-    }
-
-    .email-input::placeholder {
-      color: #3a4455;
-    }
-
-    .email-input:focus {
-      border-color: rgba(218, 119, 86, 0.5);
-    }
-
-    .email-submit {
-      width: 100%;
-      padding: 14px 24px;
-      background: rgba(218, 119, 86, 0.15);
-      border: 1px solid rgba(218, 119, 86, 0.35);
-      border-radius: 10px;
-      color: #e8ecf4;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 15px;
-      font-weight: 400;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .email-submit:hover:not(:disabled) {
-      background: rgba(218, 119, 86, 0.25);
-      border-color: rgba(218, 119, 86, 0.6);
-      transform: translateY(-1px);
-    }
-
-    .email-submit:active {
-      transform: translateY(0);
-    }
-
-    .email-submit:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .email-error {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: #e06c75;
-      text-align: left;
-      display: none;
-    }
-
     .divider {
       display: flex;
       align-items: center;
@@ -349,13 +285,9 @@
       </button>
     </div>
 
-    <form id="email-form" class="email-form">
-      <input type="email" id="email-input" class="email-input" placeholder="your@email.com" autocomplete="email" required />
-      <p id="email-error" class="email-error"></p>
-      <button type="submit" id="email-submit" class="email-submit">Continue</button>
-    </form>
-
     <p class="footer-text" id="footer-text">Secure authentication via OAuth</p>
+  </div>
+
   </div>
 
   <a href="/tutorial" class="tutorial-link">Take the Interactive Tour</a>
@@ -400,14 +332,10 @@
     (function() {
       fetch('/api/auth/mode').then(function(r) { return r.json(); }).then(function(data) {
         if (data.mode === 'local') {
-          // Local mode: hide OAuth, show email form
-          var oauthSection = document.getElementById('oauth-section');
-          var emailForm = document.getElementById('email-form');
-          var footerText = document.getElementById('footer-text');
-          if (oauthSection) oauthSection.style.display = 'none';
-          if (emailForm) emailForm.style.display = 'flex';
-          if (footerText) footerText.textContent = 'Your email is only used to identify your instance.';
-          document.getElementById('email-input')?.focus();
+          // Local mode never stops at a login screen: the server issues an
+          // anonymous session on first request and the consent modal appears
+          // inside the app later. Anyone landing here directly goes straight in.
+          window.location.href = '/';
         } else {
           // Cloud mode: pass ?next= through OAuth links and show guest button
           var params = new URLSearchParams(location.search);
@@ -431,41 +359,6 @@
         if (guestBtn) guestBtn.style.display = 'inline-flex';
       });
 
-      // Email form handler
-      document.getElementById('email-form')?.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var email = document.getElementById('email-input').value.trim();
-        var submitBtn = document.getElementById('email-submit');
-        var errorEl = document.getElementById('email-error');
-
-        errorEl.style.display = 'none';
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Validating...';
-
-        try {
-          var res = await fetch('/auth/email-signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ email: email }),
-          });
-          var data = await res.json().catch(function() { return {}; });
-          if (res.ok) {
-            submitBtn.textContent = 'Welcome!';
-            window.location.href = '/';
-          } else {
-            errorEl.textContent = data.error || 'Something went wrong. Please try again.';
-            errorEl.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Continue';
-          }
-        } catch (e) {
-          errorEl.textContent = 'Network error. Please try again.';
-          errorEl.style.display = 'block';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Continue';
-        }
-      });
 
       // Guest button handler
       document.getElementById('guest-btn')?.addEventListener('click', async function() {

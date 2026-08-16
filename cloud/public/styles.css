@@ -6826,3 +6826,426 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   }
 }
 
+
+/* ---------------------------------------------------------------------------
+   Consent onboarding modal (local mode, after ten minutes of use)
+
+   There is deliberately no close affordance: no X, no Esc, no backdrop click.
+   Continue is the only way out, and it is always a valid answer because the
+   consent toggle carries a default and the email field is optional.
+   --------------------------------------------------------------------------- */
+.onboarding {
+  display: none;
+  position: fixed;
+  inset: 0;
+  /* Above every in-app control. The zoom buttons and HUD sit at 10001-10002
+     and would otherwise float over the modal's own fields. */
+  z-index: 100000;
+  overflow-y: auto;
+  background: rgba(5, 13, 24, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 40px 20px;
+}
+
+.onboarding.visible {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onboarding-card {
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.portrait-wrap {
+  position: relative;
+  width: 148px;
+  margin: 0 auto 28px;
+}
+
+.portrait {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(218, 119, 86, 0.25);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Tuned against the rendered portrait rather than source pixels, since the
+   face sits off-centre in the circular crop. */
+.onboarding .eye {
+  position: absolute;
+  width: 9.1%;
+  height: 9.1%;
+  border-radius: 50%;
+  background: #f6f6f2;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+}
+
+.onboarding .eye.left  { left: 40.5%; top: 47.3%; }
+.onboarding .eye.right { left: 53.5%; top: 47.0%; }
+
+.onboarding .pupil {
+  position: absolute;
+  width: 42%;
+  height: 42%;
+  border-radius: 50%;
+  background: #12161d;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+
+/* Plain red hearts, drawn in CSS rather than an emoji so they render the same
+   everywhere and carry no face. */
+.heart {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  animation: heart-float 3s ease-in-out infinite;
+}
+
+.heart::before,
+.heart::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 11px;
+  background: #e0245e;
+  border-radius: 7px 7px 0 0;
+  top: 0;
+}
+
+.heart::before {
+  left: 7px;
+  transform: rotate(-45deg);
+  transform-origin: 0 100%;
+}
+
+.heart::after {
+  left: 0;
+  transform: rotate(45deg);
+  transform-origin: 100% 100%;
+}
+
+/* Varied sizes so they read as a scatter rather than a repeated icon. Size is
+   set on the box rather than with a transform, which the float animation owns. */
+.heart-1 { top: -4px;  left: -14px;  width: 18px; height: 18px; animation-delay: 0s; }
+.heart-2 { top: 40px;  right: -16px; width: 10px; height: 10px; animation-delay: 0.9s; }
+.heart-3 { bottom: 8px; left: -16px; width: 14px; height: 14px; animation-delay: 1.8s; }
+
+.heart-1::before, .heart-1::after { width: 9px; height: 14px; border-radius: 9px 9px 0 0; }
+.heart-1::before { left: 9px; }
+
+.heart-2::before, .heart-2::after { width: 5px; height: 8px; border-radius: 5px 5px 0 0; }
+.heart-2::before { left: 5px; }
+
+.heart-3::before, .heart-3::after { width: 7px; height: 11px; border-radius: 7px 7px 0 0; }
+.heart-3::before { left: 7px; }
+
+@keyframes heart-float {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
+  50%      { transform: translateY(-8px) scale(1.12); opacity: 1; }
+}
+
+.onboarding h2 {
+  font-weight: 400;
+  font-size: 21px;
+  color: #e8ecf4;
+  margin: 0 0 14px;
+}
+
+.onboarding-intro {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #8090a8;
+  margin: 0 0 26px;
+}
+
+.onboarding .consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  margin-bottom: 18px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.onboarding .consent-row:hover {
+  border-color: rgba(218, 119, 86, 0.3);
+}
+
+.onboarding .consent-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.onboarding .consent-checkbox:checked {
+  background: rgba(218, 119, 86, 0.85);
+  border-color: rgba(218, 119, 86, 0.9);
+}
+
+.onboarding .consent-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid #0b1220;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.onboarding .consent-label {
+  font-size: 14px;
+  color: #d4dbe8;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.onboarding .consent-detail {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #6b7a92;
+  display: block;
+}
+
+.onboarding .consent-detail strong {
+  color: #9aa8bd;
+  font-weight: 400;
+}
+
+/* Marketing opt-in sits under the email field and only becomes usable once an
+   address is entered, since there is nothing to consent to before that.
+   It stays unticked, so it earns attention through styling rather than a
+   default, which would not be valid consent. */
+.marketing-row {
+  margin-top: -6px;
+  background: rgba(218, 119, 86, 0.07);
+  border-color: rgba(218, 119, 86, 0.28);
+}
+
+.marketing-row:hover {
+  border-color: rgba(218, 119, 86, 0.5);
+}
+
+.marketing-row .consent-label {
+  color: #e8ecf4;
+}
+
+/* Before an address is entered there is nothing to send to, so the row reads as
+   waiting rather than off. It ships ticked, so it must not look unavailable. */
+.marketing-row.inactive {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.marketing-row.inactive:hover {
+  border-color: rgba(218, 119, 86, 0.28);
+}
+
+.onboarding .consent-checkbox:disabled {
+  cursor: default;
+}
+
+/* Step indicator */
+.step-dots {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 18px;
+}
+
+.step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 0.2s ease;
+}
+
+.step-dot.active {
+  background: rgba(218, 119, 86, 0.8);
+}
+
+.onboarding-step[hidden] {
+  display: none;
+}
+
+.onboarding .consent-detail br {
+  content: '';
+  display: block;
+  margin-top: 6px;
+}
+
+.onboarding-field {
+  text-align: left;
+  margin-bottom: 22px;
+}
+
+.onboarding .field-label {
+  display: block;
+  font-size: 13px;
+  color: #d4dbe8;
+  margin-bottom: 8px;
+}
+
+.onboarding .field-label span {
+  color: #5a6578;
+  font-size: 12px;
+}
+
+.onboarding .email-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #e8ecf4;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.onboarding .email-input::placeholder { color: #3a4455; }
+.onboarding .email-input:focus { border-color: rgba(218, 119, 86, 0.5); }
+
+.onboarding .field-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #6b7a92;
+  margin: 8px 0 0;
+}
+
+/* The star link is the primary action; Continue sits under it as a quieter
+   text link, so the ask reads before the way out. */
+.star-cta {
+  display: block;
+  width: 100%;
+  padding: 14px 24px;
+  background: rgba(218, 119, 86, 0.15);
+  border: 1px solid rgba(218, 119, 86, 0.35);
+  border-radius: 10px;
+  color: #e8ecf4;
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.star-cta:hover {
+  background: rgba(218, 119, 86, 0.25);
+  border-color: rgba(218, 119, 86, 0.6);
+  transform: translateY(-1px);
+}
+
+.star-cta:active { transform: translateY(0); }
+
+/* Back and Continue share a row so neither reads as the primary action; the
+   star CTA above stays the loudest thing on the card. */
+.onboarding-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.onboarding-back {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  color: #5a6578;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.onboarding-back:hover { color: #d4dbe8; }
+.onboarding-back[hidden] { display: none; }
+
+.onboarding-continue {
+  display: block;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  color: #8090a8;
+  font-family: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.onboarding-continue:hover:not(:disabled) { color: #e8ecf4; }
+.onboarding-continue:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.onboarding-err {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #e06c75;
+  text-align: left;
+  display: none;
+  margin: 0 0 12px;
+}
+
+.onboarding-footer {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #5a6578;
+  margin: 14px 0 22px;
+}
+
+@media (max-width: 480px) {
+  .onboarding { padding: 28px 16px; }
+  .portrait-wrap, .portrait { width: 120px; }
+  .portrait { height: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart { animation: none; }
+}

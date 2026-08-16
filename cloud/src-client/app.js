@@ -187,6 +187,356 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     },
   };
 
+  // ---------------------------------------------------------------------------
+  // Consent onboarding (local mode only)
+  //
+  // Appears after ten minutes of *active* use, not ten minutes of wall clock.
+  // Someone who opens the app and walks away has not formed an opinion worth
+  // asking for, so time only accrues while the tab is visible.
+  //
+  // The clock and the answer both live on the server. Keeping them in the
+  // browser meant clearing site data or opening a private window silently
+  // restarted the ten minutes, and the modal could be dodged forever. Once it
+  // is up it stays up, across reloads, until Continue is pressed: the server
+  // keeps reporting the question as unanswered and every load re-opens it.
+  // ---------------------------------------------------------------------------
+  const _onboarding = {
+    _timer: null,
+    _lastTick: null,
+    _shown: false,
+    _guard: null,
+
+    init() {
+      // Nothing is asked until the tutorial is behind them. A first-time user is
+      // about to be redirected to /tutorial, and the ten minutes should measure
+      // real use of the app rather than time spent being shown around it.
+      if (!this._tutorialDone()) return;
+
+      // One request, so the modal can be up on the first paint rather than
+      // flashing in a couple of seconds later.
+      fetch('/api/auth/onboarding', { credentials: 'include' })
+        .then(r => r.json())
+        .then(state => {
+          if (!state || !state.applicable) return;
+          if (state.due) {
+            this.show(state.step || 1);
+          } else {
+            this._startTracking();
+          }
+        })
+        .catch(() => {});
+    },
+
+    _startTracking() {
+      this._lastTick = Date.now();
+      this._timer = setInterval(() => this._tick(), 15000);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          this._tick();
+          this._lastTick = null;
+        } else {
+          this._lastTick = Date.now();
+        }
+      });
+    },
+
+    _tick() {
+      if (this._shown) return;
+      if (document.visibilityState !== 'visible' || this._lastTick === null) return;
+
+      const now = Date.now();
+      const delta = now - this._lastTick;
+      this._lastTick = now;
+
+      fetch('/api/auth/onboarding/tick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ deltaMs: delta }),
+      })
+        .then(r => r.json())
+        .then(state => {
+          if (state && state.due) this.show();
+        })
+        .catch(() => {});
+    },
+
+    show(resumeStep = 1) {
+      if (this._shown) return;
+      const el = document.getElementById('onboarding');
+      if (!el) return;
+
+      this._shown = true;
+      if (this._timer) {
+        clearInterval(this._timer);
+        this._timer = null;
+      }
+
+      el.classList.add('visible');
+      this._startEyeTracking();
+      this._startGuard(el);
+
+      const submit = document.getElementById('onboarding-submit');
+      const emailInput = document.getElementById('onboarding-email');
+      const marketing = document.getElementById('onboarding-marketing');
+      const marketingRow = marketing?.closest('.consent-row');
+
+      // Marketing consent needs an address to attach to, so the box is inert
+      // until one is typed.
+      //
+      // It ships ticked outside the EU/UK, where CAN-SPAM allows opt-out
+      // marketing, and unticked inside it, where a pre-ticked box is not valid
+      // consent at all (Planet49, C-673/17). The check reads the browser's own
+      // timezone and locale: a VPN defeats it, but a good-faith geographic check
+      // is what the regulation asks for.
+      const defaultMarketingOn = !this._looksEuropean();
+      marketing.checked = defaultMarketingOn;
+
+      let userClearedMarketing = !defaultMarketingOn;
+      marketing?.addEventListener('change', () => {
+        userClearedMarketing = !marketing.checked;
+      });
+
+      // The tick stays visible even before an address is typed, so the default
+      // is something the user can see and undo rather than a surprise. Consent
+      // is still only recorded when an address is actually supplied.
+      const syncMarketing = () => {
+        const hasEmail = emailInput.value.trim().length > 0;
+        marketing.disabled = !hasEmail;
+        marketingRow?.classList.toggle('inactive', !hasEmail);
+        marketing.checked = !userClearedMarketing;
+      };
+      syncMarketing();
+      emailInput?.addEventListener('input', syncMarketing);
+
+      // Continue walks the two steps before it submits: telemetry first, then
+      // email. Asking for both on one screen made the modal a wall of text.
+      submit?.addEventListener('click', () => {
+        if (this._step === 1) {
+          this._goToStep(2);
+          return;
+        }
+        this._submit();
+      });
+
+      document.getElementById('onboarding-back')?.addEventListener('click', () => {
+        this._goToStep(1);
+      });
+
+      emailInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this._submit();
+        }
+      });
+
+      // Resume where they were. Done last so the listeners above are wired
+      // before the step is applied.
+      if (resumeStep === 2) this._goToStep(2);
+    },
+
+    _step: 1,
+
+    /**
+     * Whether the getting-started tutorial is behind them.
+     *
+     * Mirrors the check init() uses to decide on redirecting to /tutorial:
+     * either source counts, since a returning user on a new device has the
+     * server preference but no local flag yet.
+     */
+    _tutorialDone() {
+      try {
+        if (localStorage.getItem('tc_tutorial')) return true;
+      } catch {
+        // Storage unavailable; fall through to the server preference.
+      }
+      return !!(tutorialsCompleted && tutorialsCompleted['getting-started']);
+    },
+
+    // EU/UK members plus EEA, which GDPR also covers. Kept as an explicit list
+    // because Europe/* alone would sweep in non-EEA countries.
+    EU_TIMEZONE_COUNTRIES: [
+      'Vienna', 'Brussels', 'Sofia', 'Zagreb', 'Nicosia', 'Prague', 'Copenhagen',
+      'Tallinn', 'Helsinki', 'Paris', 'Berlin', 'Busingen', 'Athens', 'Budapest',
+      'Dublin', 'Rome', 'Riga', 'Vilnius', 'Luxembourg', 'Malta', 'Amsterdam',
+      'Warsaw', 'Lisbon', 'Madrid', 'Bucharest', 'Bratislava', 'Ljubljana',
+      'Stockholm', 'London', 'Belfast', 'Edinburgh', 'Guernsey', 'Isle_of_Man',
+      'Jersey', 'Gibraltar', 'Oslo', 'Reykjavik', 'Vaduz', 'Azores', 'Madeira',
+      'Canary', 'Ceuta',
+    ],
+
+    EU_LOCALES: [
+      'en-GB', 'en-IE', 'de', 'fr', 'it', 'es', 'nl', 'pt-PT', 'pl', 'sv', 'da',
+      'fi', 'el', 'cs', 'sk', 'hu', 'ro', 'bg', 'hr', 'sl', 'et', 'lv', 'lt',
+      'mt', 'ga', 'is', 'no', 'nb', 'nn',
+    ],
+
+    /**
+     * Best-effort check for an EU/UK/EEA visitor, used only to decide whether
+     * the marketing box may ship pre-ticked. Errs toward treating someone as
+     * European, since a wrongly-unticked box costs an opt-in while a wrongly
+     * pre-ticked one is an unlawful basis for every send that follows.
+     */
+    _looksEuropean() {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (tz.startsWith('Europe/')) {
+          const city = tz.split('/')[1];
+          // Europe/* covers non-EEA countries too (Moscow, Kyiv, Istanbul),
+          // so match the city rather than the region.
+          if (this.EU_TIMEZONE_COUNTRIES.includes(city)) return true;
+        }
+        if (this.EU_TIMEZONE_COUNTRIES.some(c => tz.endsWith('/' + c))) return true;
+
+        const langs = navigator.languages || [navigator.language || ''];
+        return langs.some(l => this.EU_LOCALES.some(
+          eu => l === eu || l.toLowerCase().startsWith(eu.toLowerCase() + '-')
+        ));
+      } catch {
+        // Anything unexpected: assume European and do not pre-tick.
+        return true;
+      }
+    },
+
+    _goToStep(step) {
+      this._step = step;
+
+      // Remember it, so a reload resumes here instead of restarting.
+      fetch('/api/auth/onboarding/step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ step }),
+      }).catch(() => {});
+
+      document.querySelectorAll('#onboarding .onboarding-step').forEach(el => {
+        el.hidden = Number(el.dataset.step) !== step;
+      });
+      document.querySelectorAll('#onboarding .step-dot').forEach(dot => {
+        dot.classList.toggle('active', Number(dot.dataset.dot) === step);
+      });
+
+      // Nothing to go back to from the first screen.
+      const back = document.getElementById('onboarding-back');
+      if (back) back.hidden = step === 1;
+
+      if (step === 2) {
+        document.getElementById('onboarding-email')?.focus();
+      }
+    },
+
+    // Continue is the only way out, so put the modal back if anything else
+    // removes or hides it.
+    _startGuard(el) {
+      const parent = el.parentNode;
+
+      this._guard = new MutationObserver(() => {
+        if (this._shown === false) return;
+
+        if (!el.isConnected) {
+          parent.appendChild(el);
+        }
+        if (!el.classList.contains('visible')) {
+          el.classList.add('visible');
+        }
+        const style = el.getAttribute('style');
+        if (style && /display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0/.test(style)) {
+          el.removeAttribute('style');
+        }
+      });
+
+      this._guard.observe(parent, { childList: true });
+      this._guard.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
+    },
+
+    async _submit() {
+      const submit = document.getElementById('onboarding-submit');
+      const emailInput = document.getElementById('onboarding-email');
+      const consentInput = document.getElementById('onboarding-consent');
+      const marketingInput = document.getElementById('onboarding-marketing');
+      const errorEl = document.getElementById('onboarding-error');
+      const email = emailInput.value.trim();
+
+      errorEl.style.display = 'none';
+      submit.disabled = true;
+      submit.textContent = email ? 'Checking...' : 'Saving...';
+
+      try {
+        const res = await fetch('/auth/email-signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: email || null,
+            telemetryConsent: consentInput.checked,
+            // Only meaningful with an address, and the box cannot be ticked
+            // without one.
+            marketingConsent: !!(email && marketingInput?.checked),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          // Answered, so the guard stands down and the modal closes for good.
+          this._shown = false;
+          this._guard?.disconnect();
+          this._guard = null;
+          document.getElementById('onboarding').classList.remove('visible');
+          // Consent may have just been granted, so start the client tracker
+          // rather than waiting for the next page load.
+          if (consentInput.checked && !_telemetry._active) _telemetry.init();
+        } else {
+          errorEl.textContent = data.error || 'Something went wrong. Try again.';
+          errorEl.style.display = 'block';
+          submit.disabled = false;
+          submit.textContent = 'Continue';
+        }
+      } catch {
+        errorEl.textContent = 'Network error. Try again.';
+        errorEl.style.display = 'block';
+        submit.disabled = false;
+        submit.textContent = 'Continue';
+      }
+    },
+
+    _startEyeTracking() {
+      const pupils = Array.from(document.querySelectorAll('#onboarding [data-pupil]'));
+      if (!pupils.length) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const pointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      let queued = false;
+
+      const render = () => {
+        queued = false;
+        pupils.forEach(pupil => {
+          const box = pupil.parentElement.getBoundingClientRect();
+          if (!box.width) return;
+          const dx = pointer.x - (box.left + box.width / 2);
+          const dy = pointer.y - (box.top + box.height / 2);
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          // Cap travel so the pupil never escapes the white of the eye.
+          const limit = box.width * 0.22;
+          const scale = dist > limit ? limit / dist : 1;
+          pupil.style.transform =
+            `translate(calc(-50% + ${(dx * scale).toFixed(2)}px), calc(-50% + ${(dy * scale).toFixed(2)}px))`;
+        });
+      };
+
+      window.addEventListener('pointermove', (e) => {
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+        if (!queued) {
+          queued = true;
+          requestAnimationFrame(render);
+        }
+      }, { passive: true });
+
+      render();
+    },
+  };
+
   // Expanded pane state
   let expandedPaneId = null;
 
@@ -1025,6 +1375,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     showPromoToasts();
     connectWebSocket();
     _telemetry.init();
+    // _onboarding.init() runs after the tutorial check below, so a first-time
+    // user about to be redirected never starts the clock.
     // loadTerminalsFromServer is called after agents:list arrives via WS
 
     const hudContainer = createHudContainer();
@@ -1055,6 +1407,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       try { localStorage.setItem('tc_tutorial', 'completed'); } catch (e) {}
     }
 
+    // Only now that the tutorial is known to be behind them.
+    _onboarding.init();
   }
 
   // CLAUDE_LOGO_SVG — imported from modules/constants.js

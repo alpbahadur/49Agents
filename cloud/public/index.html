@@ -158,6 +158,93 @@
   <!-- DOMPurify to sanitize rendered markdown and prevent XSS -->
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 
+  <!-- Consent onboarding, shown after ten minutes of use in local mode -->
+  <div class="onboarding" id="onboarding">
+    <div class="onboarding-card">
+      <div class="portrait-wrap">
+        <span class="heart heart-1" aria-hidden="true"></span>
+        <span class="heart heart-2" aria-hidden="true"></span>
+        <span class="heart heart-3" aria-hidden="true"></span>
+        <div class="portrait">
+          <img src="img/alp.jpg" alt="Alp, founder of 49Agents IDE" />
+          <div class="eye left"><div class="pupil" data-pupil></div></div>
+          <div class="eye right"><div class="pupil" data-pupil></div></div>
+        </div>
+      </div>
+
+      <h2>I am Alp, Founder of 49Agents IDE</h2>
+
+      <p class="onboarding-intro">
+        We are not VC funded, and we are hoping to raise money to support the
+        project more actively.
+        <br />
+        Showing traction would allow us to do that.
+      </p>
+
+      <!-- Step 1: telemetry. Split from the email step because asking for both
+           at once made the modal a wall of text. -->
+      <div class="onboarding-step" data-step="1">
+        <label class="consent-row" for="onboarding-consent">
+          <input type="checkbox" id="onboarding-consent" class="consent-checkbox" checked />
+          <span>
+            <span class="consent-label">Share anonymous usage data 🙏🥰</span>
+            <span class="consent-detail"
+                  title="Never collected: terminal input or output, file contents, commands, prompts, file paths, project or repository names.">
+              Session length, activity, panes used.
+              <br />
+              <strong>We do NOT collect</strong> anything you write or see.
+            </span>
+          </span>
+        </label>
+
+        <p class="onboarding-footer">
+          You can disable telemetry at any time in Settings, and feel free to
+          take our code and run Fable on it asking if there are any privacy
+          concerns.
+        </p>
+      </div>
+
+      <!-- Step 2: email and marketing. -->
+      <div class="onboarding-step" data-step="2" hidden>
+        <div class="onboarding-field">
+          <label class="field-label" for="onboarding-email">Email <span>(optional)</span></label>
+          <input type="email" id="onboarding-email" class="email-input" placeholder="you@49agents.com" autocomplete="email" />
+        </div>
+
+        <!-- Ticked state is decided in JS, not here: pre-ticked outside the
+             EU/UK where CAN-SPAM allows opt-out marketing, unticked inside it
+             where a pre-ticked box is not valid consent (Planet49, C-673/17).
+             Leaving it unchecked in the markup avoids a tick flashing for
+             European users before the script corrects it. -->
+        <label class="consent-row marketing-row" for="onboarding-marketing">
+          <input type="checkbox" id="onboarding-marketing" class="consent-checkbox" disabled />
+          <span>
+            <span class="consent-label">Send me occasional updates 🥳🤗</span>
+            <span class="consent-detail">
+              So we can ask your advice, and share project news. Unsubscribe
+              any time.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <p id="onboarding-error" class="onboarding-err"></p>
+
+      <a href="https://github.com/alpbahadur/49Agents" target="_blank" rel="noopener noreferrer"
+         class="star-cta" id="onboarding-star">Leave us a star on GitHub</a>
+
+      <div class="onboarding-nav">
+        <button type="button" id="onboarding-back" class="onboarding-back" hidden>Back</button>
+        <button type="button" id="onboarding-submit" class="onboarding-continue">Continue</button>
+      </div>
+
+      <div class="step-dots" aria-hidden="true">
+        <span class="step-dot active" data-dot="1"></span>
+        <span class="step-dot" data-dot="2"></span>
+      </div>
+    </div>
+  </div>
+
   <script src="themes.min.js"></script>
   <script src="tutorial.min.js"></script>
   <script type="module" src="app.min.js"></script>

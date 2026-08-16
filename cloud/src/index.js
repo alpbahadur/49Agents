@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { initDatabase } from './db/index.js';
 import { setupGitHubAuth } from './auth/github.js';
 import { setupGoogleAuth } from './auth/google.js';
-import { requireAuth } from './auth/middleware.js';
+import { requireAuth, autoLocalSession } from './auth/middleware.js';
 import { setupApiRoutes } from './routes/api.js';
 import { setupLayoutRoutes } from './routes/layouts.js';
 import { setupDownloadRoutes } from './routes/download.js';
@@ -22,6 +22,7 @@ import { ensureAgentTarball } from './utils/agentTarball.js';
 import { setupCloudCallbackRoutes } from './auth/cloudCallback.js';
 import { ensureLocalAuthTable, isLocalMode } from './auth/localAuth.js';
 import { ensureEmailAuthTable, setupEmailAuthRoutes, getEmailAuth, issueEmailInstanceToken } from './auth/emailAuth.js';
+import { ensureTelemetryTables, setupTelemetryIngestRoutes } from './telemetry/ingest.js';
 import { initLocalTelemetryCollector } from './telemetry/localCollector.js';
 import { config } from './config.js';
 
@@ -128,12 +129,32 @@ setupDownloadRoutes(app);
 // ---------------------------------------------------------------------------
 // Auth routes (public -- no requireAuth)
 // ---------------------------------------------------------------------------
-setupGitHubAuth(app);
-setupGoogleAuth(app);
+// OAuth exists only for the hosted instance. Local clones have no sign-in of
+// any kind, so the routes are not registered at all rather than being present
+// but unreachable.
+if (!isLocalMode()) {
+  setupGitHubAuth(app);
+  setupGoogleAuth(app);
+} else {
+  // Logout normally comes with the GitHub routes. Local mode still needs it to
+  // reset a session, and lands back in the app rather than a login page.
+  const localLogout = (req, res) => {
+    res.clearCookie('tc_access', { path: '/' });
+    res.clearCookie('tc_refresh', { path: '/' });
+    res.redirect('/');
+  };
+  app.post('/auth/logout', localLogout);
+  app.get('/auth/logout', localLogout);
+}
 setupCloudCallbackRoutes(app);
 if (isLocalMode()) {
   setupEmailAuthRoutes(app);
 }
+
+// Telemetry ingest + admin export. Registered in every mode: on Railway these
+// receive from local instances, and a local instance pointed at itself (for
+// development) needs the same routes present.
+setupTelemetryIngestRoutes(app);
 
 // Auth mode endpoint (public — tells the login page if we're local or cloud)
 app.get('/api/auth/mode', (req, res) => {
@@ -144,14 +165,21 @@ app.get('/api/auth/mode', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Login page (public)
+// Login page (public).
+//
+// Local mode has no sign-in at all: the server issues an anonymous session on
+// first request and asks for consent inside the app later. Anyone arriving here
+// directly, or via a stale bookmark, goes straight through.
 // ---------------------------------------------------------------------------
 app.get('/login', (req, res) => {
+  if (isLocalMode()) return res.redirect('/');
   res.sendFile('login.html', { root: publicDir });
 });
 
-// Telemetry consent page (local mode only, shown after first cloud auth)
+// Telemetry consent page. Only reachable through the cloud-auth flow; local
+// mode asks inside the app instead.
 app.get('/consent', (req, res) => {
+  if (isLocalMode()) return res.redirect('/');
   res.sendFile('consent.html', { root: publicDir });
 });
 
@@ -232,6 +260,11 @@ const hasOAuth = config.github.clientId || config.google.clientId;
 const devModeEnabled = !hasOAuth && config.nodeEnv !== 'production';
 if (devModeEnabled && process.env.SKIP_CLOUD_AUTH) {
   app.get('/', (req, res) => res.sendFile('index.html', { root: publicDir }));
+} else if (isLocalMode()) {
+  // Local mode opens straight into the app. A fresh clone gets an anonymous
+  // identity on first request and meets the consent modal ten minutes later,
+  // rather than being stopped at a login screen before it has done anything.
+  app.get('/', autoLocalSession, (req, res) => res.sendFile('index.html', { root: publicDir }));
 } else {
   app.get('/', requireAuth, (req, res) => res.sendFile('index.html', { root: publicDir }));
 }
@@ -265,6 +298,7 @@ async function start() {
   initDatabase();
   ensureLocalAuthTable();
   ensureEmailAuthTable();
+  ensureTelemetryTables();
   initLocalTelemetryCollector();
 
   // Build the downloadable agent tarball if it is missing or out of date, and
@@ -317,10 +351,11 @@ async function start() {
     }
   }
 
-  // Catch-all: redirect unmatched routes to /login
+  // Catch-all for unmatched routes. Local mode has no login page to fall back
+  // on, so it lands in the app instead.
   // Must be registered AFTER extensions so their routes take priority
   app.get('*', (req, res) => {
-    res.redirect('/login');
+    res.redirect(isLocalMode() ? '/' : '/login');
   });
 
   server.listen(config.port, config.host, () => {
