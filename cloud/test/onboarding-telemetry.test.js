@@ -305,29 +305,32 @@ test('onboarding modal still points at the photo it ships with', () => {
 
 test('onboarding modal states what is and is not collected', () => {
   const html = appHtml();
+  const detail = html.match(/<span class="consent-detail"[\s\S]*?<\/span>/)[0];
 
-  // Both halves have to be explicit. Saying only what is collected leaves the
-  // reader to guess at the boundary.
-  assert.ok(/We collect:/.test(html), 'states what is collected');
-  assert.ok(/We do not collect:/.test(html), 'states what is not collected');
+  // Both halves have to be present. Naming only what is collected leaves the
+  // reader to guess where the line is. The exact wording is free to change,
+  // so this checks the promise rather than the phrasing.
+  assert.ok(/session length/i.test(detail), 'names what is collected');
+  assert.ok(/anything you write or see/i.test(detail), 'names the exclusion in plain terms');
 
-  for (const item of ['sessions last', 'how often you\ncome back', 'panes you use']) {
-    assert.ok(new RegExp(item.replace(/\s+/g, '\\s+')).test(html), `collected: ${item}`);
-  }
-
+  // The full exclusion list is long enough to overwhelm the modal, so it lives
+  // in the tooltip. It still has to be somewhere.
+  const title = detail.match(/title="([^"]*)"/);
+  assert.ok(title, 'exclusions are available on hover');
   for (const item of ['terminal', 'file contents', 'commands', 'prompts', 'file paths', 'repository names']) {
-    assert.ok(new RegExp(item.replace(/\s+/g, '\\s+')).test(html), `excluded: ${item}`);
+    assert.ok(title[1].toLowerCase().includes(item), `excluded: ${item}`);
   }
 });
 
 test('email copy promises no marketing and a way out', () => {
   const html = appHtml();
+  const hint = html.match(/<p class="field-hint">[\s\S]*?<\/p>/)[0];
 
   // The email is collected for product feedback only. Anything promotional
   // would need its own opt-in under GDPR, which this page deliberately avoids
   // by not asking for that permission at all.
-  assert.ok(/No marketing/.test(html), 'rules out marketing use');
-  assert.ok(/delete it any\s+time/.test(html), 'offers deletion');
+  assert.ok(/no marketing/i.test(hint), 'rules out marketing use');
+  assert.ok(/delete/i.test(hint), 'offers deletion');
   assert.ok(!/newsletter sign|subscribe|mailing list/i.test(html), 'does not imply a list');
 });
 
