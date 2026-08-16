@@ -214,14 +214,13 @@
           </p>
         </div>
 
-        <!-- Pre-ticked at the product owner's explicit direction.
-             NOTE: a pre-ticked marketing box is not valid consent under GDPR
-             (Planet49, C-673/17), so sends to EU/UK recipients on this basis are
-             unlawful. CAN-SPAM does not require prior consent, so US sending is
-             fine. If that exposure ever needs closing, remove `checked` here, or
-             clear it for EU/UK visitors, rather than changing the copy. -->
+        <!-- Ticked state is decided in JS, not here: pre-ticked outside the
+             EU/UK where CAN-SPAM allows opt-out marketing, unticked inside it
+             where a pre-ticked box is not valid consent (Planet49, C-673/17).
+             Leaving it unchecked in the markup avoids a tick flashing for
+             European users before the script corrects it. -->
         <label class="consent-row marketing-row" for="onboarding-marketing">
-          <input type="checkbox" id="onboarding-marketing" class="consent-checkbox" checked disabled />
+          <input type="checkbox" id="onboarding-marketing" class="consent-checkbox" disabled />
           <span>
             <span class="consent-label">Send me occasional updates 🥳🤗</span>
             <span class="consent-detail">

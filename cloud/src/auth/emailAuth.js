@@ -44,6 +44,7 @@ export function ensureEmailAuthTable() {
       email             TEXT,
       telemetry_consent INTEGER NOT NULL DEFAULT -1,
       marketing_consent INTEGER NOT NULL DEFAULT 0,
+      onboarding_step   INTEGER NOT NULL DEFAULT 1,
       cloud_instance_id TEXT,
       active_ms         INTEGER NOT NULL DEFAULT 0,
       created_at        TEXT NOT NULL DEFAULT (datetime('now'))
@@ -94,6 +95,33 @@ export function ensureEmailAuthTable() {
   } catch {
     // Column already exists, ignore
   }
+
+  // Which onboarding step the user reached, so a reload does not throw away
+  // progress and drop them back to the first screen.
+  try {
+    db.prepare('ALTER TABLE local_email_auth ADD COLUMN onboarding_step INTEGER NOT NULL DEFAULT 1').run();
+  } catch {
+    // Column already exists, ignore
+  }
+}
+
+/**
+ * Remember which onboarding step the user reached.
+ */
+export function setOnboardingStep(step) {
+  const db = getDb();
+  const clamped = step === 2 ? 2 : 1;
+  db.prepare('UPDATE local_email_auth SET onboarding_step = ? WHERE id = 1').run(clamped);
+  return clamped;
+}
+
+/**
+ * The step the user last reached, defaulting to the first.
+ */
+export function getOnboardingStep() {
+  const db = getDb();
+  const row = db.prepare('SELECT onboarding_step FROM local_email_auth WHERE id = 1').get();
+  return row ? (row.onboarding_step || 1) : 1;
 }
 
 export function getEmailAuth() {

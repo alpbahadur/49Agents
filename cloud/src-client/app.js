@@ -214,7 +214,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
         .then(state => {
           if (!state || !state.applicable) return;
           if (state.due) {
-            this.show();
+            this.show(state.step || 1);
           } else {
             this._startTracking();
           }
@@ -257,7 +257,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
         .catch(() => {});
     },
 
-    show() {
+    show(resumeStep = 1) {
       if (this._shown) return;
       const el = document.getElementById('onboarding');
       if (!el) return;
@@ -278,11 +278,19 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       const marketingRow = marketing?.closest('.consent-row');
 
       // Marketing consent needs an address to attach to, so the box is inert
-      // until one is typed. It ships ticked, so re-tick on the way back in
-      // unless the user has already unticked it themselves.
-      let userClearedMarketing = false;
+      // until one is typed.
+      //
+      // It ships ticked outside the EU/UK, where CAN-SPAM allows opt-out
+      // marketing, and unticked inside it, where a pre-ticked box is not valid
+      // consent at all (Planet49, C-673/17). The check reads the browser's own
+      // timezone and locale: a VPN defeats it, but a good-faith geographic check
+      // is what the regulation asks for.
+      const defaultMarketingOn = !this._looksEuropean();
+      marketing.checked = defaultMarketingOn;
+
+      let userClearedMarketing = !defaultMarketingOn;
       marketing?.addEventListener('change', () => {
-        if (!marketing.checked) userClearedMarketing = true;
+        userClearedMarketing = !marketing.checked;
       });
 
       // The tick stays visible even before an address is typed, so the default
@@ -313,12 +321,69 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
           this._submit();
         }
       });
+
+      // Resume where they were. Done last so the listeners above are wired
+      // before the step is applied.
+      if (resumeStep === 2) this._goToStep(2);
     },
 
     _step: 1,
 
+    // EU/UK members plus EEA, which GDPR also covers. Kept as an explicit list
+    // because Europe/* alone would sweep in non-EEA countries.
+    EU_TIMEZONE_COUNTRIES: [
+      'Vienna', 'Brussels', 'Sofia', 'Zagreb', 'Nicosia', 'Prague', 'Copenhagen',
+      'Tallinn', 'Helsinki', 'Paris', 'Berlin', 'Busingen', 'Athens', 'Budapest',
+      'Dublin', 'Rome', 'Riga', 'Vilnius', 'Luxembourg', 'Malta', 'Amsterdam',
+      'Warsaw', 'Lisbon', 'Madrid', 'Bucharest', 'Bratislava', 'Ljubljana',
+      'Stockholm', 'London', 'Belfast', 'Edinburgh', 'Guernsey', 'Isle_of_Man',
+      'Jersey', 'Gibraltar', 'Oslo', 'Reykjavik', 'Vaduz', 'Azores', 'Madeira',
+      'Canary', 'Ceuta',
+    ],
+
+    EU_LOCALES: [
+      'en-GB', 'en-IE', 'de', 'fr', 'it', 'es', 'nl', 'pt-PT', 'pl', 'sv', 'da',
+      'fi', 'el', 'cs', 'sk', 'hu', 'ro', 'bg', 'hr', 'sl', 'et', 'lv', 'lt',
+      'mt', 'ga', 'is', 'no', 'nb', 'nn',
+    ],
+
+    /**
+     * Best-effort check for an EU/UK/EEA visitor, used only to decide whether
+     * the marketing box may ship pre-ticked. Errs toward treating someone as
+     * European, since a wrongly-unticked box costs an opt-in while a wrongly
+     * pre-ticked one is an unlawful basis for every send that follows.
+     */
+    _looksEuropean() {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (tz.startsWith('Europe/')) {
+          const city = tz.split('/')[1];
+          // Europe/* covers non-EEA countries too (Moscow, Kyiv, Istanbul),
+          // so match the city rather than the region.
+          if (this.EU_TIMEZONE_COUNTRIES.includes(city)) return true;
+        }
+        if (this.EU_TIMEZONE_COUNTRIES.some(c => tz.endsWith('/' + c))) return true;
+
+        const langs = navigator.languages || [navigator.language || ''];
+        return langs.some(l => this.EU_LOCALES.some(
+          eu => l === eu || l.toLowerCase().startsWith(eu.toLowerCase() + '-')
+        ));
+      } catch {
+        // Anything unexpected: assume European and do not pre-tick.
+        return true;
+      }
+    },
+
     _goToStep(step) {
       this._step = step;
+
+      // Remember it, so a reload resumes here instead of restarting.
+      fetch('/api/auth/onboarding/step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ step }),
+      }).catch(() => {});
 
       document.querySelectorAll('#onboarding .onboarding-step').forEach(el => {
         el.hidden = Number(el.dataset.step) !== step;

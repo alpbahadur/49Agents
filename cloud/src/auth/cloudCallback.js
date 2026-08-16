@@ -12,7 +12,10 @@ import { nanoid } from 'nanoid';
 import { config } from '../config.js';
 import { upsertUser } from '../db/users.js';
 import { saveLocalAuth, clearLocalAuth, getLocalAuth, setTelemetryConsent } from './localAuth.js';
-import { getEmailAuth, setEmailTelemetryConsent, setCloudInstanceId, getActiveMs, addActiveMs } from './emailAuth.js';
+import {
+  getEmailAuth, setEmailTelemetryConsent, setCloudInstanceId,
+  getActiveMs, addActiveMs, getOnboardingStep, setOnboardingStep,
+} from './emailAuth.js';
 import { isLocalMode } from './localAuth.js';
 import { issueAccessToken, issueRefreshToken, setAuthCookies } from './github.js';
 import { recordEvent } from '../db/events.js';
@@ -180,6 +183,9 @@ export function setupCloudCallbackRoutes(app) {
       due: activeMs >= ONBOARDING_REQUIRED_MS,
       activeMs,
       requiredMs: ONBOARDING_REQUIRED_MS,
+      // Resume where they left off. Reloading mid-onboarding should not throw
+      // away progress and send them back to the first screen.
+      step: getOnboardingStep(),
     };
   }
 
@@ -189,6 +195,18 @@ export function setupCloudCallbackRoutes(app) {
     } catch (err) {
       console.error('[cloud-callback] Onboarding state error:', err);
       res.status(500).json({ applicable: false, due: false });
+    }
+  });
+
+  // POST /api/auth/onboarding/step — remember which screen they reached.
+  app.post('/api/auth/onboarding/step', (req, res) => {
+    try {
+      if (!isLocalMode()) return res.json({ ok: false });
+      const step = setOnboardingStep(Number(req.body?.step));
+      res.json({ ok: true, step });
+    } catch (err) {
+      console.error('[cloud-callback] Onboarding step error:', err);
+      res.status(500).json({ ok: false });
     }
   });
 

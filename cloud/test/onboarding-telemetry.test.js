@@ -359,11 +359,10 @@ test('marketing consent is a separate control the user can see and undo', () => 
   const tag = html.match(/<input[^>]*id="onboarding-marketing"[^>]*>/)[0];
   const telemetry = html.match(/<input[^>]*id="onboarding-consent"[^>]*>/)[0];
 
-  // Pre-ticked at the product owner's direction. This is NOT valid consent
-  // under GDPR (Planet49, C-673/17), so EU/UK sends on this basis are unlawful;
-  // the pre-tick is a deliberate, documented business decision. If it is ever
-  // reversed, drop `checked` here rather than reworking the copy.
-  assert.ok(/\bchecked\b/.test(tag), 'ships pre-ticked (deliberate)');
+  // Pre-ticked outside the EU/UK at the product owner's direction, and left
+  // unticked inside it where a pre-ticked box is not valid consent. The tick is
+  // applied in JS after a location check, so the markup itself stays unchecked.
+  assert.ok(!/\bchecked\b/.test(tag), 'markup does not pre-tick; JS decides by region');
 
   // Whatever the default, it must remain a distinct control with its own label,
   // never folded into the telemetry toggle.
@@ -512,4 +511,57 @@ test('local mode never sends anyone to a login page', () => {
   assert.ok(/isLocalMode\(\)\) return res\.redirect\('\/'\)/.test(src), '/login redirects to the app');
   assert.ok(/res\.redirect\(isLocalMode\(\) \? '\/' : '\/login'\)/.test(src), 'catch-all redirects to the app');
   assert.ok(/res\.redirect\(isLocalMode\(\) \? '\/' : '\/login'\)/.test(mw), 'auth failures redirect to the app');
+});
+
+// ---------------------------------------------------------------------------
+// Resuming, and where the marketing default applies
+// ---------------------------------------------------------------------------
+
+test('onboarding resumes on the step the user reached', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+  const server = readFileSync(join(here, '..', 'src', 'auth', 'cloudCallback.js'), 'utf-8');
+
+  // Reloading halfway through used to restart at step 1, throwing away a
+  // telemetry choice the user had already made.
+  assert.ok(/onboarding\/step/.test(block), 'client records the step');
+  assert.ok(/show\(state\.step \|\| 1\)/.test(block), 'client resumes from the server value');
+  assert.ok(/if \(resumeStep === 2\) this\._goToStep\(2\)/.test(block), 'step 2 is restored');
+  assert.ok(/step: getOnboardingStep\(\)/.test(server), 'server reports the step');
+});
+
+test('the step survives in the database, not the browser', () => {
+  const src = readFileSync(join(here, '..', 'src', 'auth', 'emailAuth.js'), 'utf-8');
+
+  // Same reasoning as the active-time clock: browser storage can be cleared.
+  assert.ok(/onboarding_step\s+INTEGER NOT NULL DEFAULT 1/.test(src), 'column exists');
+  assert.ok(/ALTER TABLE local_email_auth ADD COLUMN onboarding_step/.test(src), 'older databases migrate');
+});
+
+test('the marketing default is off for EU/UK visitors', () => {
+  const js = readFileSync(join(here, '..', 'src-client', 'app.js'), 'utf-8');
+  const block = js.slice(js.indexOf('const _onboarding'), js.indexOf('// Expanded pane state'));
+
+  // Pre-ticking is lawful under CAN-SPAM but not under GDPR, so the default
+  // depends on where the visitor appears to be.
+  assert.ok(/_looksEuropean/.test(block), 'checks the visitor location');
+  assert.ok(/defaultMarketingOn = !this\._looksEuropean\(\)/.test(block), 'default follows the check');
+
+  // Europe/* includes non-EEA countries, so matching the region alone would
+  // wrongly untick for Moscow, Istanbul and Kyiv.
+  assert.ok(/EU_TIMEZONE_COUNTRIES/.test(block), 'matches specific countries, not the whole region');
+  assert.ok(/'Reykjavik'/.test(block) && /'Oslo'/.test(block), 'covers EEA as well as EU');
+
+  // An unknown or broken environment must fail toward not pre-ticking.
+  const fn = block.slice(block.indexOf('_looksEuropean()'), block.indexOf('_goToStep(step)'));
+  assert.ok(/catch \{[\s\S]*return true;/.test(fn), 'errs toward treating a visitor as European');
+});
+
+test('the markup does not pre-tick marketing on its own', () => {
+  const html = appHtml();
+  const tag = html.match(/<input[^>]*id="onboarding-marketing"[^>]*>/)[0];
+
+  // The tick is applied in JS after the location check. Hardcoding it here
+  // would flash a ticked box at European users before the script corrects it.
+  assert.ok(!/\bchecked\b/.test(tag), 'ships unchecked; JS decides');
 });
