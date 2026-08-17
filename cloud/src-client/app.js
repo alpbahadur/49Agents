@@ -987,6 +987,18 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // Guest mode nudges -> modules/guest.js
   async function init() {
 
+    // Resolve local vs cloud before anything reads it. The telemetry bootstrap
+    // also sets window.__tcAuthMode, but it runs behind the tutorial gate and
+    // may never fire, and updateAgentOverlay() needs the answer on first paint
+    // to decide whether "no agent yet" is worth nagging about.
+    try {
+      const modeRes = await fetch('/api/auth/mode');
+      if (modeRes.ok) window.__tcAuthMode = (await modeRes.json()).mode;
+    } catch (e) {
+      // Unreachable: leave it unset, which reads as cloud — the conservative
+      // default, since that is the mode where pairing is genuinely required.
+    }
+
     // Auth check
     try {
       const authRes = await fetch('/auth/me', { credentials: 'include' });
