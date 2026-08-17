@@ -2577,6 +2577,8 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       if (ci < 0) ci = 0;
       let si = 0;
       let replaying = false;
+      let dir = 1;          // travel direction, so skipped steps are stepped
+                            // over the way the user is actually moving
 
       while (ci < chapters.length) {
         const chapter = chapters[ci];
@@ -2607,7 +2609,24 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
         while (si < chapter.steps.length) {
           const step = chapter.steps[si];
 
-          if (step.skipIf && step.skipIf()) { si++; continue; }
+          // A skipped step must be stepped over in whichever direction we are
+          // travelling. Always skipping forward meant pressing Back onto one
+          // bounced straight off it and returned you to where you started —
+          // "Or jump straight there" could not be left, because the WASD step
+          // behind it is skipped whenever move mode was never entered.
+          if (step.skipIf && step.skipIf()) {
+            if (dir < 0) {
+              if (si === 0) {                       // nothing skippable behind it
+                if (ci > 0) { ci--; si = chapters[ci].steps.length - 1; replaying = true; break; }
+                si = 0; dir = 1; continue;          // at the very start: stay put
+              }
+              si--;
+            } else {
+              si++;
+            }
+            continue;
+          }
+          dir = 1;                                  // landed on a real step
           if (step.apply) step.apply();
 
           nav.stepIdx = si;
@@ -2631,8 +2650,13 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
           si++;
         }
 
+        // The skip loop can exit by jumping chapters itself; it sets
+        // `replaying` and leaves `outcome` alone.
+        if (outcome === 'next' && replaying) continue;
+
         if (outcome === 'back') {
-          if (si > 0) { si--; replaying = true; continue; }   // back one step
+          dir = -1;                                            // now travelling backwards
+          if (si > 0) { si--; replaying = true; continue; }    // back one step
           if (ci > 0) {                                        // back into previous chapter
             ci--;
             si = chapters[ci].steps.length - 1;
@@ -2640,6 +2664,7 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
             continue;
           }
           si = 0;                                              // already at the very start
+          dir = 1;
           replaying = true;
           continue;
         }

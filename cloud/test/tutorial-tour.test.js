@@ -285,6 +285,27 @@ test('the arrows move one step, not one chapter', () => {
   assert.match(runner, /si = chapters\[ci\]\.steps\.length - 1;/);
 });
 
+test('a skipped step is stepped over in the direction of travel', () => {
+  // skipIf() only ever advanced forward, so pressing Back onto a skipped step
+  // bounced off it and returned you to where you started. "Or jump straight
+  // there" was unleaveable, because the WASD step behind it is skipped
+  // whenever move mode was never entered.
+  const runner = tutorialHtml.slice(tutorialHtml.indexOf('async function runChapters'));
+  const skipBlock = runner.slice(runner.indexOf('if (step.skipIf && step.skipIf())'));
+
+  assert.match(skipBlock.slice(0, 500), /if \(dir < 0\)/, 'skipping must respect direction');
+  assert.match(skipBlock.slice(0, 500), /si--/, 'backwards travel skips backwards');
+
+  // Direction is tracked, reset on landing, and flipped when going back.
+  assert.match(runner, /let dir = 1;/);
+  assert.match(runner, /dir = 1;\s*\/\/ landed on a real step/);
+  assert.match(runner, /dir = -1;\s*\/\/ now travelling backwards/);
+
+  // A run of skipped steps at the very start of a chapter must fall through
+  // to the previous chapter rather than bounce.
+  assert.match(skipBlock.slice(0, 500), /if \(ci > 0\) \{ ci--; si = chapters\[ci\]\.steps\.length - 1;/);
+});
+
 test('chapters are declarative so any step can be replayed', () => {
   // An imperative await-chain cannot be rewound; that is why back-navigation
   // had to throw the user to a chapter boundary. Steps are data now, and
