@@ -171,15 +171,54 @@ export function updateAgentOverlay() {
   }
 
   if (!hasOnlineAgents) {
-    // Instead of auto-popup overlay, highlight the HUD add-machine button
     if (overlay) overlay.style.display = 'none';
-    pulseAddMachineButton(true);
+    // A self-hosted instance starts its own agent — ./49ctl start and the
+    // desktop app both launch one, and it authenticates without a token.
+    // Telling that user to "Add Machine" sends them to install software they
+    // are already running; the agent is simply still connecting. Pulsing the
+    // button is only useful where a machine genuinely has to be paired.
+    if (isLocalMode()) {
+      pulseAddMachineButton(false);
+      showLocalAgentStatus(true);
+    } else {
+      pulseAddMachineButton(true);
+    }
   } else {
     if (overlay) {
       overlay.style.display = 'none';
     }
     pulseAddMachineButton(false);
+    showLocalAgentStatus(false);
   }
+}
+
+/**
+ * Whether this instance is self-hosted.
+ *
+ * Populated by the early /api/auth/mode fetch in app.js. Undefined until that
+ * resolves, and the safe reading of "unknown" is cloud: a hosted user who
+ * briefly loses the pulse is worse off than a local user who briefly sees it.
+ */
+export function isLocalMode() {
+  return window.__tcAuthMode === 'local';
+}
+
+/**
+ * A quiet line in the machines panel while the local agent connects, in place
+ * of the add-machine nag. Says what is happening rather than asking for
+ * something the user has already done.
+ *
+ * A flag rather than a DOM edit: renderHud() replaces the panel's innerHTML on
+ * every poll, so anything appended from here is wiped within the second. Same
+ * reason __pulseAddMachine works the way it does.
+ */
+function showLocalAgentStatus(waiting) {
+  window.__localAgentStarting = waiting;
+  // renderHud() is not called from here: hud.js already imports this module,
+  // and the panel re-renders on its own poll, so the flag is picked up without
+  // adding a second edge to the cycle.
+  const el = document.querySelector('#hud-overlay .local-agent-status');
+  if (!waiting && el) el.remove();
 }
 
 // Inject pulse animation style once

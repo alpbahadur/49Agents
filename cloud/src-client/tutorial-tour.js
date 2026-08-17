@@ -374,8 +374,15 @@
         {
           apply() { ctx.spotlight('#hud-container'); },
           undo()  { ctx.clearSpotlight(); },
-          prompt: ['Set up', 'Connect your own machine',
-            'Everything so far was a simulation. To make it real, run the agent install on any machine you work on and it appears in this panel. Add as many as you like.'],
+          // A self-hosted instance already started an agent for this machine,
+          // so telling that user to go and install one sends them after
+          // software they are running right now. Only a hosted user has a
+          // machine left to connect.
+          prompt: ctx.isLocalMode()
+            ? ['Set up', 'Your machine is already connected',
+               'Everything so far was a simulation. The real thing is running behind it — <span class="hl">./49ctl start</span> launched an agent for this machine, and it appears in this panel on its own. To add a second machine, use <span class="hl">+ Add Machine</span> there.']
+            : ['Set up', 'Connect your own machine',
+               'Everything so far was a simulation. To make it real, run the agent install on any machine you work on and it appears in this panel. Add as many as you like.'],
           next: 'Finish',
           ensure() { ctx.clearSpotlight(); },
         },

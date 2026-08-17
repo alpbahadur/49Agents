@@ -362,6 +362,13 @@ async function start() {
     console.log(`[cloud] 49Agents Cloud Server`);
     console.log(`[cloud] Listening on http://${config.host}:${config.port}`);
     console.log(`[cloud] Environment: ${config.nodeEnv}`);
+    // Local mode now binds loopback by default, which stops a LAN neighbour
+    // registering as your agent. Anyone who *wants* to reach this box from
+    // another device needs to know how to get the old behaviour back.
+    if (isLocalMode() && config.host === '127.0.0.1') {
+      console.log(`[cloud] Local mode: reachable from this machine only.`);
+      console.log(`[cloud] To reach it from another device, set HOST=0.0.0.0 (only on a network you trust).`);
+    }
   });
 }
 

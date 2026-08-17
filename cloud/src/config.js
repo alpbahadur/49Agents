@@ -19,9 +19,22 @@ const port = parseInt(process.env.PORT || '1071');
 // existing installs are untouched; any other port gets its own database file.
 const defaultDbPath = port === 1071 ? './data/tc.db' : `./data/tc-${port}.db`;
 
+// A self-hosted instance accepts the literal agent token 'dev' without any
+// signature check (see auth/agentAuth.js), and /agent-ws performs no auth on
+// the upgrade itself. Binding 0.0.0.0 therefore hands a shell to anyone on the
+// same network: connect, send agent:auth with 'dev', and the relay treats you
+// as the user's agent. Loopback is the correct default for that mode.
+//
+// isLocalMode() lives in auth/localAuth.js and imports config, so the same
+// condition is recomputed here rather than creating a cycle. Setting HOST
+// explicitly still wins, for anyone deliberately serving a LAN or a tunnel.
+const hasOAuth = !!(process.env.GITHUB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID);
+const localMode = !hasOAuth && !isProduction && !process.env.SKIP_CLOUD_AUTH;
+const defaultHost = localMode ? '127.0.0.1' : '0.0.0.0';
+
 export const config = {
   port,
-  host: process.env.HOST || '0.0.0.0',
+  host: process.env.HOST || defaultHost,
   dbPath: process.env.DATABASE_PATH || defaultDbPath,
   github: {
     clientId: process.env.GITHUB_CLIENT_ID || '',

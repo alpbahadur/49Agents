@@ -3000,6 +3000,30 @@ body.minimap-hidden #controls {
   gap: 5px;
 }
 
+/* Shown on a self-hosted instance while its own agent is still connecting,
+   in place of the "Add Machine" pulse. Deliberately quiet: nothing is wrong
+   and nothing is being asked of the user. */
+.local-agent-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 2px 0;
+}
+.local-agent-status::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  animation: local-agent-blink 1.4s ease-in-out infinite;
+}
+@keyframes local-agent-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
 .hud-dot {
   width: 8px;
   height: 8px;

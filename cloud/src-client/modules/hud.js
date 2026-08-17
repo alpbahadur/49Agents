@@ -378,6 +378,13 @@ export function renderHud() {
     html += `<button class="add-machine-fleet-btn" style="width:100%;margin-top:8px;padding:6px;background:transparent;border:1px solid #4ec9b0;color:#4ec9b0;border-radius:4px;cursor:pointer;font-family:monospace;font-size:11px;transition:background 0.15s,color 0.15s;">+ Add Machine</button>`;
   }
 
+  // Self-hosted instances start their own agent, so an empty fleet there means
+  // "still connecting", not "go and install something". Rendered here rather
+  // than appended by the caller because this assignment wipes the panel.
+  if (window.__localAgentStarting) {
+    html += `<div class="local-agent-status">Starting local agent…</div>`;
+  }
+
   content.innerHTML = html;
 
   const addBtn = content.querySelector('.add-machine-fleet-btn');
