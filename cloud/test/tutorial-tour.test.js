@@ -189,6 +189,87 @@ test('the countdown ring is a real countdown', () => {
   assert.ok(tutorialHtml.includes('tut-holddot'));
 });
 
+test('the tour never animates box-shadow on a pane', () => {
+  // styles.css pulses the Claude backlights by animating box-shadow with
+  // 40-80px blur radii. Each frame is a full repaint of the pane and its glow
+  // footprint, and the tour shows three or four at once — which is where the
+  // stutter came from. Inside the tour the pulse is an opacity-only
+  // pseudo-element, so it composites instead of repainting.
+  assert.ok(tutorialHtml.includes('#canvas .pane[class*="claude-"] { animation: none !important; }'));
+  const kf = tutorialHtml.slice(tutorialHtml.indexOf('@keyframes tut-backlight'));
+  assert.ok(!/box-shadow/.test(kf.slice(0, 160)), 'the pulse must animate opacity, not box-shadow');
+  assert.match(kf, /opacity: 0[\s\S]*?opacity: 1/);
+});
+
+test('no full-screen backdrop-filter sits over animating content', () => {
+  // A blur that covers the viewport is re-rasterised every frame of whatever
+  // moves behind it. The prompt, chapter card, cheatsheet and toast are all
+  // opaque, so the blur bought nothing and cost a filter pass.
+  for (const id of ['#tut-prompt', '.tut-chapter-card', '#tut-cheatsheet', '.tut-toast']) {
+    const start = tutorialHtml.indexOf(id + ' {');
+    assert.ok(start > -1, `${id} rule not found`);
+    const rule = tutorialHtml.slice(start, tutorialHtml.indexOf('}', start));
+    assert.ok(!/backdrop-filter/.test(rule), `${id} still blurs its backdrop`);
+  }
+});
+
+test('an arrow press is never silently dropped', () => {
+  // Between beats — a chapter returning, the canvas resetting, a title card
+  // mounting — nothing is listening. Presses landing there used to vanish,
+  // which is what made the arrows feel unreliable.
+  assert.match(tutorialHtml, /if \(how === 'next' \|\| how === 'back'\) nav\.pending = how;/);
+  assert.ok(tutorialHtml.includes('pending: null'));
+
+  // Both waiters replay a buffered press instead of starting a fresh wait.
+  const beatFn = tutorialHtml.slice(tutorialHtml.indexOf('function beat(opts)'));
+  assert.match(beatFn.slice(0, 2600), /if \(nav\.pending\)/);
+  const pauseFn = tutorialHtml.slice(tutorialHtml.indexOf('function pause(ms)'));
+  assert.match(pauseFn.slice(0, 700), /if \(nav\.pending\)/);
+
+  // And a press that brought us into a chapter is not replayed into its card.
+  assert.ok(tourJs.includes('ctx.nav.pending = null'));
+});
+
+test('waiting between beats stays interruptible', () => {
+  // A plain sleep() swallows every key pressed during it. Mid-chapter pauses
+  // go through pause(), which resolves early on Next/Back.
+  assert.ok(tutorialHtml.includes('function pause(ms)'));
+  const chapterBody = tourJs.slice(tourJs.indexOf('async function chapter1'));
+  assert.ok(
+    (chapterBody.match(/await ctx\.pause\(/g) || []).length >= 8,
+    'mid-chapter waits should use pause(), not sleep()'
+  );
+  // The title card is skippable too, and reports how it ended.
+  assert.match(tutorialHtml, /const how = await pause\(1500\)/);
+  assert.ok(tourJs.includes('const cardHow = await ctx.chapterCard'));
+});
+
+test('held arrow keys cannot run away with the tour', () => {
+  // Key repeat fires ~30/s; without a throttle one long press tears through
+  // several chapters and the user has no idea where they landed.
+  assert.match(tutorialHtml, /if \(e\.repeat\) return;/);
+  assert.match(tutorialHtml, /now - lastNavKey < \d+/);
+  // A keyboard press has no pointer feedback of its own, so it is echoed.
+  assert.ok(tutorialHtml.includes('function flashNav'));
+  assert.ok(tutorialHtml.includes('@keyframes tut-press'));
+});
+
+test('the prompt card is not flush against the bottom edge', () => {
+  const rule = tutorialHtml.slice(
+    tutorialHtml.indexOf('#tut-prompt {'),
+    tutorialHtml.indexOf('}', tutorialHtml.indexOf('#tut-prompt {'))
+  );
+  const m = rule.match(/bottom:\s*calc\((\d+)px/);
+  assert.ok(m, 'bottom should be a calc() including the safe-area inset');
+  assert.ok(Number(m[1]) >= 40, `desktop gap too small: ${m[1]}px`);
+  assert.ok(rule.includes('env(safe-area-inset-bottom'), 'must clear the phone home indicator');
+
+  // The mobile override must not undo it.
+  const mob = tutorialHtml.slice(tutorialHtml.indexOf('@media (max-width: 640px)'));
+  const mm = mob.match(/#tut-prompt \{[\s\S]*?bottom:\s*calc\((\d+)px/);
+  assert.ok(mm && Number(mm[1]) >= 20, 'mobile prompt sits too close to the edge');
+});
+
 test('progress advances on every prompt', () => {
   // The old tour reused one stepIdx across consecutive prompts, so the bar
   // froze for several screens and "12 steps" never matched the 19 shown.

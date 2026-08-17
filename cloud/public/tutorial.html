@@ -70,16 +70,21 @@
     /* ─── Tutorial instruction prompt ─── */
     #tut-prompt {
       position: fixed;
-      bottom: 24px; left: 50%; transform: translateX(-50%);
+      /* Was 24px, which read as falling off the bottom of the screen. Sits
+         clear of the edge now, and respects the home indicator on phones. */
+      bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+      left: 50%; transform: translateX(-50%);
       width: min(520px, calc(100% - 48px));
-      background: rgba(10, 15, 25, 0.97);
+      /* Opaque, so there is nothing to see through: the blur was costing a
+         full-screen filter pass every frame for no visual gain, on top of
+         whatever animation was running behind it. */
+      background: rgb(11, 16, 26);
       border: 1px solid rgba(218, 119, 86, 0.3);
       border-radius: 14px;
       padding: 20px 24px;
       z-index: 100000;
-      backdrop-filter: blur(30px);
       box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
-      transition: opacity 0.3s ease, transform 0.3s ease;
+      transition: opacity 0.22s ease, transform 0.22s ease;
       display: none;
     }
     #tut-prompt.visible { display: block; }
@@ -200,6 +205,47 @@
       background: #1c1c22; color: #fff; font-size: 11px; text-align: center;
     }
 
+    /* ═══ Claude backlights, cheap version ═══
+       styles.css animates box-shadow with 40–80px blur radii on an infinite
+       loop. Every frame of that is a full repaint of the pane plus its glow
+       footprint, and the tour puts three or four of them on screen at once —
+       which is where the stutter came from.
+
+       Inside the tour the pulse is driven by a pseudo-element that only
+       animates opacity, so it composites on the GPU and never repaints. The
+       static shadow underneath still comes from styles.css, so the panes look
+       the same; only the pulsing is different. */
+    #canvas .pane[class*="claude-"] { animation: none !important; }
+
+    #canvas .pane.claude-working::after,
+    #canvas .pane.claude-permission::after,
+    #canvas .pane.claude-input-needed::after,
+    #canvas .pane.claude-question::after {
+      content: '';
+      position: absolute; inset: -1px;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0;
+      will-change: opacity;
+      animation: tut-backlight 2.4s ease-in-out infinite;
+    }
+    #canvas .pane.claude-working::after {
+      box-shadow: 0 0 22px rgba(60, 105, 185, 0.4), inset 0 0 20px rgba(60, 105, 185, 0.1);
+    }
+    #canvas .pane.claude-permission::after,
+    #canvas .pane.claude-input-needed::after {
+      box-shadow: 0 0 24px rgba(185, 28, 28, 0.45), inset 0 0 20px rgba(185, 28, 28, 0.1);
+      animation-duration: 1.3s;
+    }
+    #canvas .pane.claude-question::after {
+      box-shadow: 0 0 24px rgba(233, 170, 255, 0.45), inset 0 0 20px rgba(233, 170, 255, 0.1);
+      animation-duration: 1.3s;
+    }
+    @keyframes tut-backlight {
+      0%, 100% { opacity: 0; }
+      50%      { opacity: 1; }
+    }
+
     /* ═══ Teaching toast ═══
        The real notification toast collapses to a 42px pill and only expands on
        hover, which is too subtle to teach from. This is a spelled-out version
@@ -211,11 +257,10 @@
     }
     .tut-toast {
       width: 290px; padding: 13px 15px;
-      background: rgba(10, 15, 25, 0.97);
+      background: rgb(11, 16, 26);
       border: 1px solid rgba(185, 28, 28, 0.55);
       border-left-width: 3px;
       border-radius: 11px;
-      backdrop-filter: blur(24px);
       box-shadow: 0 10px 34px rgba(0,0,0,0.5);
       pointer-events: auto;
       opacity: 0; transform: translateX(24px);
@@ -285,6 +330,16 @@
       color: rgba(255,255,255,0.95);
     }
     .tut-nav-btn:disabled { opacity: 0.3; cursor: default; }
+    /* Visual echo of an arrow-key press, so the keyboard feels as responsive
+       as the mouse. Transform only — no layout, no repaint. */
+    .tut-nav-btn.tut-pressed {
+      animation: tut-press 0.22s ease;
+    }
+    @keyframes tut-press {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(0.93); filter: brightness(1.35); }
+      100% { transform: scale(1); }
+    }
     .tut-nav-btn.primary {
       background: linear-gradient(135deg, #da7756, #c4603e);
       border-color: transparent; color: #fff;
@@ -370,8 +425,7 @@
     /* ─── Cheatsheet ─── */
     #tut-cheatsheet {
       position: fixed; inset: 0; z-index: 100002;
-      background: rgba(6, 10, 18, 0.88);
-      backdrop-filter: blur(18px);
+      background: rgba(6, 10, 18, 0.95);
       display: none; align-items: center; justify-content: center;
       padding: 24px; overflow-y: auto;
     }
@@ -432,9 +486,11 @@
     .tut-chapter-card {
       position: fixed; inset: 0; z-index: 100001;
       display: none; align-items: center; justify-content: center;
-      background: rgba(6, 10, 18, 0.7);
-      backdrop-filter: blur(10px);
-      opacity: 0; transition: opacity 0.45s ease;
+      /* A full-screen blur, re-rasterised every frame of the fade while the
+         panes behind it are animating, was the most expensive thing in the
+         tour. A heavier flat scrim reads the same and costs nothing. */
+      background: rgba(6, 10, 18, 0.88);
+      opacity: 0; transition: opacity 0.3s ease;
     }
     .tut-chapter-card.visible { display: flex; opacity: 1; }
     .tut-chapter-card-inner { text-align: center; max-width: 460px; padding: 0 24px; }
@@ -451,7 +507,11 @@
     }
 
     @media (max-width: 640px) {
-      #tut-prompt { bottom: 12px; padding: 16px 18px; }
+      /* Still clear of the edge, and above the home indicator. */
+      #tut-prompt {
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+        padding: 16px 18px;
+      }
       .tut-sheet { padding: 22px 18px; }
       .tut-chapter-name { font-size: 24px; }
 
@@ -2268,8 +2328,11 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
     const navHint     = document.getElementById('tut-nav-hint');
     const dotsEl      = document.getElementById('tut-dots');
 
+    let lastNavKey = 0;   // throttles arrow-key repeat
+
     const nav = {
       resolve: null,      // resolves the beat currently awaiting input
+      pending: null,      // a press that landed between beats, replayed into the next one
       autoTimer: null,
       backTo: null,       // set by the guide when a chapter boundary is crossed
       chapters: [],
@@ -2277,11 +2340,18 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
     };
 
     // Resolve whatever beat is in flight. `how` tells the guide why it ended.
+    //
+    // Between two beats there are short windows — a chapter returning, the
+    // canvas resetting, the next title card mounting — where nothing is
+    // listening. A press landing in one of those used to be dropped entirely,
+    // which is what made the arrows feel unreliable. Buffer it instead and
+    // let the next beat consume it the moment it starts.
     function settleBeat(how) {
       if (nav.autoTimer) { clearTimeout(nav.autoTimer); nav.autoTimer = null; }
       const r = nav.resolve;
       nav.resolve = null;
-      if (r) r(how);
+      if (r) { r(how); return; }
+      if (how === 'next' || how === 'back') nav.pending = how;
     }
 
     navBtnNext.addEventListener('click', () => settleBeat('next'));
@@ -2298,12 +2368,37 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
         if (e.key === 'Escape') { e.preventDefault(); closeCheatsheet(); }
         return;
       }
-      if (!tutPrompt.classList.contains('visible')) return;
-      if (e.key === 'ArrowRight') { e.preventDefault(); settleBeat('next'); }
-      else if (e.key === 'ArrowLeft' && nav.chapterIdx > 0) {
-        e.preventDefault(); nav.backTo = nav.chapterIdx - 1; settleBeat('back');
+      // Deliberately not gated on the prompt being visible — chapter title
+      // cards are pausable too, and a key pressed over one used to vanish.
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+
+      // Holding an arrow fires key repeat at ~30/s. Without this the tour
+      // tears through several chapters from one long press and the user has
+      // no idea where they ended up.
+      if (e.repeat) return;
+      const now = performance.now();
+      if (now - lastNavKey < 260) return;
+      lastNavKey = now;
+
+      if (e.key === 'ArrowRight') { flashNav(navBtnNext); settleBeat('next'); }
+      else if (nav.chapterIdx > 0) {
+        flashNav(navBtnBack);
+        nav.backTo = nav.chapterIdx - 1;
+        settleBeat('back');
       }
     });
+
+    // An arrow press has no pointer feedback of its own, so echo it on the
+    // button it corresponds to. Without this, keyboard navigation felt like
+    // nothing was responding even when it was.
+    function flashNav(btn) {
+      if (!btn || btn.disabled) return;
+      btn.classList.remove('tut-pressed');
+      void btn.offsetWidth;              // restart the animation
+      btn.classList.add('tut-pressed');
+      setTimeout(() => btn.classList.remove('tut-pressed'), 220);
+    }
 
     function renderDots() {
       dotsEl.innerHTML = '';
@@ -2416,6 +2511,17 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       if (typeof opts.wait === 'function') waiter = captureWaits(opts.wait);
       else if (opts.wait && typeof opts.wait.then === 'function') waiter = { promise: opts.wait, cancel: opts.cancel || (() => {}) };
 
+      // Consume a press buffered between beats, so it is honoured rather than
+      // silently dropped. Listeners are torn down first — the gesture this
+      // beat was going to wait for never gets a chance to fire.
+      if (nav.pending) {
+        const how = nav.pending;
+        nav.pending = null;
+        if (waiter) { try { waiter.cancel(); } catch (e) {} }
+        navHint.innerHTML = '';
+        return Promise.resolve(how);
+      }
+
       return new Promise(resolve => {
         let done = false;
         const finish = (how) => {
@@ -2464,15 +2570,38 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
     sheetEl.addEventListener('click', (e) => { if (e.target === sheetEl) closeCheatsheet(); });
 
     // ─── Chapter title card ───
+    // Interruptible pause. A plain sleep() swallows every key pressed during
+    // it, which is what made rapid arrow presses feel like they did nothing:
+    // the tour was busy waiting and the input went nowhere. This resolves
+    // early on Next/Back and reports which, so callers can bail out.
+    function pause(ms) {
+      // A press that arrived while nothing was listening lands here.
+      if (nav.pending) { const how = nav.pending; nav.pending = null; return Promise.resolve(how); }
+      return new Promise(resolve => {
+        let done = false;
+        const finish = (how) => {
+          if (done) return;
+          done = true;
+          clearTimeout(t);
+          if (nav.resolve === finish) nav.resolve = null;
+          resolve(how);
+        };
+        const t = setTimeout(() => finish('auto'), ms);
+        nav.resolve = finish;
+      });
+    }
+
     async function chapterCard(num, name, desc) {
       const card = document.getElementById('tut-chapter-card');
       document.getElementById('tut-chapter-num').textContent = num;
       document.getElementById('tut-chapter-name').textContent = name;
       document.getElementById('tut-chapter-desc').textContent = desc;
       card.classList.add('visible');
-      await sleep(1600);
+      // Skippable: hammering → should not stall on a title card.
+      const how = await pause(1500);
       card.classList.remove('visible');
-      await sleep(450);
+      await pause(how === 'auto' ? 380 : 160);
+      return how;
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -3498,7 +3627,7 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       waitForTabA, waitForTabH,
       // Navigation: every beat routes through beat()/say() so Next, Back and
       // Skip stay live no matter what the step is waiting for.
-      beat, say, nav, chapterCard, renderDots, ARROW_KEYS,
+      beat, say, pause, nav, chapterCard, renderDots, ARROW_KEYS,
       spotlight, clearSpotlight,
       markTutorial, saveResume, loadResume, clearResume,
       openCheatsheet, closeCheatsheet,

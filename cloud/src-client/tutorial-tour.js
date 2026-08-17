@@ -55,10 +55,16 @@
       ctx.saveResume(idx);
       ctx.renderDots();
 
-      const c = CHAPTERS[idx];
-      await ctx.chapterCard(c.num, c.name, c.desc);
+      // A press buffered while the previous chapter was tearing down has
+      // already done its job by bringing us here; replaying it into the title
+      // card would skip the chapter the user just asked for.
+      ctx.nav.pending = null;
 
-      const outcome = await chapters[idx](ctx);
+      const c = CHAPTERS[idx];
+      // Pressing back over a title card should go back, not be swallowed.
+      const cardHow = await ctx.chapterCard(c.num, c.name, c.desc);
+
+      const outcome = cardHow === 'back' ? 'back' : await chapters[idx](ctx);
 
       if (outcome === 'back' && idx > 0) {
         ctx.resetCanvas();
@@ -131,14 +137,14 @@
 
     // Pull back so the whole workspace is visible at once. This is the shot.
     ctx.setZoom(0.55, window.innerWidth / 2, window.innerHeight / 2);
-    await ctx.sleep(700);
+    if (await ctx.pause(700) === 'back') return 'back';
 
     r = await ctx.say(C, 'Three machines could be in this shot',
       'Panes carry a label showing which machine they live on. No SSH, no jumping between windows — everything is here.', 4200);
     if (r === 'back') return 'back';
 
     ctx.setZoom(1, window.innerWidth / 2, window.innerHeight / 2);
-    await ctx.sleep(500);
+    await ctx.pause(500);
     return 'next';
   }
 
@@ -184,7 +190,7 @@
 
     // ── The rest of the catalogue, demonstrated ──
     ctx.showPrompt(C, 'The other nine', 'Watch — each of these is one menu pick away.', 3, 4);
-    await ctx.sleep(700);
+    if (await ctx.pause(700) === 'back') return 'back';
 
     const tour = [
       [() => ctx.createFakeBeadsPane(860, 110),         'Issues',         'Your beads tracker as a live table. Tag a terminal with an issue and its status shows in the header.'],
@@ -204,12 +210,12 @@
     }
 
     ctx.setZoom(0.5, window.innerWidth / 2, window.innerHeight / 2);
-    await ctx.sleep(600);
+    if (await ctx.pause(600) === 'back') return 'back';
     r = await ctx.say(C, 'Two more, not panes at all',
       'A <span class="hl">Project Area</span> is a labelled rectangle you draw around related panes. A <span class="hl">Checkpoint</span> pins a spot you can jump back to. Both keep a big canvas navigable.', 4600);
     if (r === 'back') return 'back';
     ctx.setZoom(1, window.innerWidth / 2, window.innerHeight / 2);
-    await ctx.sleep(400);
+    await ctx.pause(400);
 
     return 'next';
   }
@@ -248,9 +254,9 @@
     if (r === 'back') return 'back';
 
     ctx.setZoom(0.45, window.innerWidth / 2, window.innerHeight / 2);
-    await ctx.sleep(800);
+    if (await ctx.pause(800) === 'back') return 'back';
     ctx.setZoom(1, window.innerWidth / 2, window.innerHeight / 2);
-    await ctx.sleep(400);
+    if (await ctx.pause(400) === 'back') return 'back';
 
     // Move mode — the one gesture genuinely worth practising.
     ctx.showPrompt(C, 'Move mode',
@@ -314,7 +320,7 @@
     if (r === 'back') { ctx.clearTutToasts(); return 'back'; }
     toast.dismiss();
     ctx.setClaudeState(p2, 'working');
-    await ctx.sleep(400);
+    if (await ctx.pause(400) === 'back') return 'back';
 
     ctx.setClaudeState(p4, 'question');
     const q = ctx.showTutToast('question', 'Claude asked a question', 'my-server · "Which database should I use?"');
