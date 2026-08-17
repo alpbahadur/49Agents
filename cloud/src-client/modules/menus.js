@@ -136,8 +136,11 @@ export function setupTutorialMenu() {
       const key = item.dataset.tutorial;
       if (key === 'getting-started') {
         window.location.href = '/tutorial';
-      } else if (key === 'panes') {
-        window.location.href = '/tutorial?guide=panes';
+      } else if (key === 'cheatsheet') {
+        window.location.href = '/tutorial?sheet=1';
+      } else if (key === 'chapter') {
+        // Replay one chapter rather than the whole tour.
+        window.location.href = `/tutorial?chapter=${encodeURIComponent(item.dataset.chapter || '0')}`;
       }
     });
   });
