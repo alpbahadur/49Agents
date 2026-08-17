@@ -176,7 +176,7 @@
 
     ctx.showPrompt(C, 'Drop it anywhere',
       'Click to place. Hold <kbd>Shift</kbd> while clicking and you stay in placement mode, dropping one pane after another.', 2, 4);
-    r = await ctx.beat({ wait: () => ctx.enterPlacementMode('terminal'), hint: 'Click the canvas to place it' });
+    r = await ctx.beat({ wait: () => ctx.enterPlacementMode('terminal'), hint: '<span class="tut-waiting">Click the canvas to place it</span>' + ctx.ARROW_KEYS });
     if (r === 'back') return 'back';
     // If they pressed Next instead of placing, put one down so the canvas is
     // never emptier than the narration claims.
@@ -199,7 +199,7 @@
     for (const [make, title, body] of tour) {
       make();
       ctx.showPrompt(C, title, body, 3, 4);
-      const rr = await ctx.beat({ auto: 2600, hint: '' });
+      const rr = await ctx.beat({ auto: 2600 });
       if (rr === 'back') return 'back';
     }
 
@@ -257,7 +257,7 @@
       'Tap <kbd>Tab</kbd> twice, quickly. The canvas dims and you steer between panes with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, then <kbd>Enter</kbd> to land on one.', 3, 5);
     r = await ctx.beat({
       wait: () => ctx.waitForMoveMode(),
-      hint: '<span class="tut-waiting">Double-tap Tab — or press Next to skip</span>',
+      hint: '<span class="tut-waiting">Double-tap Tab — or press Next to skip</span>' + ctx.ARROW_KEYS,
     });
     if (r === 'back') return 'back';
 
@@ -376,14 +376,14 @@
     // The cheatsheet, offered rather than recited.
     ctx.showPrompt(C, 'That is the whole app',
       'There is a shortcut cheatsheet on the <span class="hl">Shortcuts</span> button below — it stays available from the <kbd>?</kbd> menu once you are back in the app.', 3, 4);
-    r = await ctx.beat({ next: 'Last thing', hint: '' });
+    r = await ctx.beat({ next: 'Last thing' });
     if (r === 'back') return 'back';
 
     // Now — and only now — the setup chore.
     ctx.spotlight('#hud-container');
     ctx.showPrompt('Set up', 'Connect your own machine',
       'Everything so far was a simulation. To make it real, run the agent install on any machine you work on and it appears in this panel. You can add as many as you like.', 3, 4);
-    r = await ctx.beat({ next: 'Finish', hint: '' });
+    r = await ctx.beat({ next: 'Finish' });
     ctx.clearSpotlight();
     if (r === 'back') return 'back';
 

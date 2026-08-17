@@ -33,7 +33,15 @@
 
     .tut-sub {
       font-size: 16px; color: rgba(255,255,255,0.5);
-      margin-bottom: 32px; line-height: 1.5; font-weight: 400;
+      margin-bottom: 32px; line-height: 1.6; font-weight: 400;
+    }
+    .tut-sub kbd {
+      display: inline-block; padding: 1px 6px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; color: rgba(255,255,255,0.75);
     }
 
     .tut-start-btn {
@@ -288,16 +296,37 @@
     }
     .tut-nav-btn.ghost:hover { color: rgba(255,255,255,0.7); }
 
-    /* Auto-advance timer ring on the Next button */
+    /* Auto-advance countdown on the Next button.
+       A spinner only says "something is happening"; this drains, so the ring
+       itself tells you how long is left before the tour moves on. */
     .tut-autoring {
-      display: inline-block; vertical-align: -2px;
-      width: 12px; height: 12px; margin-right: 6px;
-      border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: #fff;
-      animation: tut-spin 0.9s linear infinite;
+      display: inline-block; vertical-align: -3px;
+      width: 14px; height: 14px; margin-right: 7px;
+      transform: rotate(-90deg);
     }
-    @keyframes tut-spin { to { transform: rotate(360deg); } }
+    /* Geometry lives on the SVG attributes, not here — cx/cy/r as CSS
+       properties are not supported widely enough to rely on. */
+    .tut-autoring circle { fill: none; stroke-width: 2.5; }
+    .tut-autoring .ring-track { stroke: rgba(255,255,255,0.25); }
+    .tut-autoring .ring-fill {
+      stroke: #fff; stroke-linecap: round;
+      stroke-dasharray: 36.13;               /* 2πr, r = 5.75 */
+      animation-name: tut-drain;
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;         /* duration set inline per beat */
+    }
+    @keyframes tut-drain {
+      from { stroke-dashoffset: 0; }
+      to   { stroke-dashoffset: 36.13; }
+    }
+
+    /* Steady dot for a beat that waits on the user — the visual opposite of
+       the draining ring. Nothing is counting down. */
+    .tut-holddot {
+      display: inline-block; vertical-align: 1px;
+      width: 6px; height: 6px; margin-right: 7px;
+      border-radius: 50%; background: rgba(255,255,255,0.75);
+    }
 
     /* Waiting-for-user affordance */
     .tut-waiting {
@@ -309,6 +338,34 @@
       background: #4ec9b0; animation: tut-blink 1.2s ease-in-out infinite;
     }
     @keyframes tut-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    /* The self-advancing counterpart, deliberately quieter than .tut-waiting:
+       a beat that needs nothing from you should not compete for attention. */
+    .tut-auto {
+      display: inline-flex; align-items: center;
+      font-size: 11px; color: rgba(255,255,255,0.4);
+    }
+
+    /* Arrow-key reminder, appended to every hint. Separated by a hairline so
+       it reads as standing advice rather than part of this step's message. */
+    .tut-keys {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-left: 10px; padding-left: 10px;
+      border-left: 1px solid rgba(255,255,255,0.12);
+      font-size: 10.5px; color: rgba(255,255,255,0.35);
+    }
+    .tut-keys kbd {
+      display: inline-block; padding: 0 4px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; line-height: 15px; color: rgba(255,255,255,0.6);
+    }
+    @media (max-width: 640px) {
+      /* No arrow keys to press on a phone. */
+      .tut-keys { display: none; }
+    }
 
     /* ─── Cheatsheet ─── */
     #tut-cheatsheet {
@@ -2305,12 +2362,52 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       };
     }
 
+    // Arrow keys drive the whole tour, but nothing on screen said so. Mention
+    // them once per beat, next to whatever that beat is actually doing.
+    const ARROW_KEYS = '<span class="tut-keys"><kbd>←</kbd><kbd>→</kbd> to step through</span>';
+
+    function defaultHint(opts) {
+      // A beat with both wants the gesture but will not block forever, so say
+      // both things rather than picking one and lying about the other.
+      if (opts.wait && opts.auto) {
+        return '<span class="tut-waiting">Try it — moves on shortly either way</span>' + ARROW_KEYS;
+      }
+      if (opts.wait) {
+        return '<span class="tut-waiting">Waiting for you — try it, or skip ahead</span>' + ARROW_KEYS;
+      }
+      if (opts.auto) {
+        return '<span class="tut-auto">Moves on by itself</span>' + ARROW_KEYS;
+      }
+      return '<span class="tut-auto">Press Next when you are ready</span>' + ARROW_KEYS;
+    }
+
     function beat(opts) {
       opts = opts || {};
       renderDots();
-      navBtnNext.innerHTML = (opts.auto ? '<span class="tut-autoring"></span>' : '') + (opts.next || 'Next');
-      navHint.innerHTML = opts.hint !== undefined ? opts.hint
-        : (opts.wait ? '<span class="tut-waiting">Try it — or press Next to move on</span>' : '');
+
+      // Three states, and the user should never have to guess which one they
+      // are in. Previously the only cue was a spinner on the Next button, and
+      // a narration beat was distinguished from a waiting beat by its hint
+      // being *empty* — an absence is not a signal.
+      //
+      //   auto            → draining ring, "moves on by itself"
+      //   wait            → steady dot,    "waiting for you"
+      //   wait + auto     → draining ring, but the gesture is what it wants
+      //   neither         → plain button,  "press Next"
+      const label = opts.next || 'Next';
+      if (opts.auto) {
+        navBtnNext.innerHTML =
+          `<svg class="tut-autoring" viewBox="0 0 14 14" aria-hidden="true">` +
+          `<circle class="ring-track" cx="7" cy="7" r="5.75"></circle>` +
+          `<circle class="ring-fill" cx="7" cy="7" r="5.75" style="animation-duration:${opts.auto}ms"></circle>` +
+          `</svg>${label}`;
+      } else if (opts.wait) {
+        navBtnNext.innerHTML = `<span class="tut-holddot" aria-hidden="true"></span>${label}`;
+      } else {
+        navBtnNext.innerHTML = label;
+      }
+
+      navHint.innerHTML = opts.hint !== undefined ? opts.hint : defaultHint(opts);
 
       // opts.wait may be a promise or a thunk returning one. A thunk is
       // preferable: it lets us capture and later revoke the listeners the
@@ -2355,7 +2452,7 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
     function say(chapter, title, body, ms) {
       nav.stepIdx = (nav.stepIdx || 0) + 1;
       showPrompt(chapter, title, body, nav.stepIdx - 1, Math.max(nav.stepTotal || 1, nav.stepIdx));
-      return beat({ auto: ms || 4200, hint: '' });
+      return beat({ auto: ms || 4200 });
     }
 
     // ─── Cheatsheet ───
@@ -3357,7 +3454,9 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
 
     document.querySelector('.tut-logo').textContent = '49Agents';
     document.querySelector('.tut-sub').innerHTML =
-      'All your agents, terminals and projects on one canvas.<br>Five short chapters — skip or jump out whenever you like.';
+      'All your agents, terminals and projects on one canvas.<br>' +
+      'Five short chapters. Some steps play by themselves, some wait for you — ' +
+      '<kbd>←</kbd> <kbd>→</kbd> or the buttons move you through either way.';
 
     document.querySelector('.tut-complete-title').textContent = "You're all set";
     document.querySelector('.tut-complete-sub').textContent =
@@ -3399,7 +3498,7 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       waitForTabA, waitForTabH,
       // Navigation: every beat routes through beat()/say() so Next, Back and
       // Skip stay live no matter what the step is waiting for.
-      beat, say, nav, chapterCard, renderDots,
+      beat, say, nav, chapterCard, renderDots, ARROW_KEYS,
       spotlight, clearSpotlight,
       markTutorial, saveResume, loadResume, clearResume,
       openCheatsheet, closeCheatsheet,

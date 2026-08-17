@@ -133,6 +133,62 @@ test('old tutorial links still resolve', () => {
   assert.ok(tutorialHtml.includes("LEGACY_CHAPTER = { 'panes':"));
 });
 
+test('every beat states whether it advances on its own or waits', () => {
+  // The only cue used to be a spinner on Next, and a narration beat was told
+  // apart from a waiting beat by its hint being empty — an absence is not a
+  // signal. Each of the three states now names itself.
+  const hint = tutorialHtml.slice(
+    tutorialHtml.indexOf('function defaultHint(opts)'),
+    tutorialHtml.indexOf('function beat(opts)')
+  );
+  assert.match(hint, /opts\.wait && opts\.auto/);   // wants the gesture, but not forever
+  assert.match(hint, /Waiting for you/);
+  assert.match(hint, /Moves on by itself/);
+  assert.match(hint, /Press Next when you are ready/);
+
+  // No beat may blank the hint and fall back to being unlabelled.
+  const code = tourJs.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!/hint:\s*''/.test(code), 'a blank hint leaves the beat unlabelled');
+  assert.ok(!/hint:\s*''/.test(tutorialHtml.slice(tutorialHtml.indexOf('function say(chapter'))));
+});
+
+test('the arrow keys that drive the tour are advertised', () => {
+  // They were wired up from the start but nothing on screen mentioned them.
+  assert.ok(tutorialHtml.includes('to step through'));
+  assert.match(tutorialHtml, /const ARROW_KEYS/);
+
+  // Every default hint carries the reminder...
+  const hint = tutorialHtml.slice(
+    tutorialHtml.indexOf('function defaultHint(opts)'),
+    tutorialHtml.indexOf('function beat(opts)')
+  );
+  assert.equal((hint.match(/ARROW_KEYS/g) || []).length, 4, 'each hint branch appends it');
+
+  // ...and so does every hand-written one, via ctx.ARROW_KEYS.
+  const custom = [...tourJs.matchAll(/hint:\s*'<span[^\n]*/g)].map(m => m[0]);
+  for (const h of custom) {
+    assert.ok(h.includes('ARROW_KEYS'), `custom hint omits the arrow reminder: ${h}`);
+  }
+
+  // And the splash sets the expectation before the tour even starts.
+  assert.match(tutorialHtml, /Some steps play by themselves, some wait for you/);
+});
+
+test('the countdown ring is a real countdown', () => {
+  // A spinner says "something is happening"; this has to say "how long left".
+  assert.ok(tutorialHtml.includes('animation-name: tut-drain'));
+  assert.match(tutorialHtml, /@keyframes tut-drain[\s\S]*?stroke-dashoffset: 0[\s\S]*?stroke-dashoffset: 36\.13/);
+  assert.ok(tutorialHtml.includes('animation-duration:${opts.auto}ms'), 'duration must track the beat');
+
+  // Geometry belongs on the SVG attributes: cx/cy/r as CSS properties are not
+  // supported widely enough, and the ring silently failed to render with them.
+  assert.ok(tutorialHtml.includes('cx="7" cy="7" r="5.75"'));
+  assert.ok(!/\.tut-autoring circle \{[^}]*\br:\s/.test(tutorialHtml));
+
+  // The waiting state gets a steady dot — the visual opposite of a countdown.
+  assert.ok(tutorialHtml.includes('tut-holddot'));
+});
+
 test('progress advances on every prompt', () => {
   // The old tour reused one stepIdx across consecutive prompts, so the bar
   // froze for several screens and "12 steps" never matched the 19 shown.
