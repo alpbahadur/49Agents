@@ -231,6 +231,7 @@ export function renderNotePane(paneData) {
       </div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);
@@ -428,6 +429,7 @@ export function renderIframePane(paneData) {
       <div class="iframe-overlay"></div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);
@@ -654,6 +656,7 @@ export function renderBeadsPane(paneData) {
       </div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);
@@ -730,6 +733,7 @@ export function renderFolderPane(paneData) {
       </div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   _ctx.getCanvas().appendChild(pane);

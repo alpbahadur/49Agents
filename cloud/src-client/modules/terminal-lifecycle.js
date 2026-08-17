@@ -99,6 +99,7 @@ export function renderPane(paneData) {
       <div class="terminal-loading-overlay">Restoring history…</div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   // Fallback: remove loading overlay after 5s if terminal:attached never arrives
@@ -174,6 +175,7 @@ export function renderFilePane(paneData) {
       </div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);

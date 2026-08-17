@@ -930,6 +930,30 @@ body.minimap-hidden #controls {
   animation: resizePulse 0.3s ease-in-out infinite alternate;
 }
 
+/* Resize handle - bottom left (mirrored) */
+.pane-resize-handle-left {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nesw-resize;
+  background: linear-gradient(225deg, transparent 50%, rgba(255, 255, 255, 0.15) 50%);
+  border-radius: 0 0 0 12px;
+  transition: background 0.15s ease;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.pane-resize-handle-left:hover {
+  background: linear-gradient(225deg, transparent 50%, rgba(218, 119, 86, 0.4) 50%);
+}
+
+.pane-resize-handle-left.hold-active {
+  background: linear-gradient(225deg, transparent 50%, rgba(139, 92, 246, 0.6) 50%);
+  animation: resizePulse 0.3s ease-in-out infinite alternate;
+}
+
 @keyframes resizePulse {
   0% { opacity: 0.7; }
   100% { opacity: 1; }
@@ -1081,7 +1105,8 @@ body.minimap-hidden #controls {
     min-height: 10px;
   }
 
-  .pane-resize-handle {
+  .pane-resize-handle,
+  .pane-resize-handle-left {
     width: 32px;
     height: 32px;
   }
@@ -1621,7 +1646,8 @@ body.minimap-hidden #controls {
 .pane.note-pane.text-only .pane-header,
 .pane.note-pane.text-only .note-toolbar,
 .pane.note-pane.text-only .note-images,
-.pane.note-pane.text-only .pane-resize-handle {
+.pane.note-pane.text-only .pane-resize-handle,
+.pane.note-pane.text-only .pane-resize-handle-left {
   display: none !important;
 }
 
@@ -6723,7 +6749,8 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
 
 .checkpoint-pane .pane-header,
 .checkpoint-pane .pane-content,
-.checkpoint-pane .pane-resize-handle {
+.checkpoint-pane .pane-resize-handle,
+.checkpoint-pane .pane-resize-handle-left {
   display: none !important;
 }
 

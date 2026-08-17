@@ -152,6 +152,7 @@ export function renderOfflinePlaceholder(paneData) {
     </div>
     <div class="pane-content"></div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);

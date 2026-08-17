@@ -75,6 +75,7 @@ export function renderGitGraphPane(paneData) {
       </div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   _ctx.setupPaneListeners(pane, paneData);

@@ -567,12 +567,25 @@ export function setupPaneListeners(paneEl, paneData) {
   // Resize handle - short hold then drag
   resizeHandle.addEventListener('mousedown', (e) => {
     e.stopPropagation();
-    startResizeHold(e, paneEl, paneData);
+    startResizeHold(e, paneEl, paneData, 'right');
   });
   resizeHandle.addEventListener('touchstart', (e) => {
     e.stopPropagation();
-    startResizeHold(e, paneEl, paneData);
+    startResizeHold(e, paneEl, paneData, 'right');
   }, { passive: false });
+
+  // Mirrored bottom-left handle — same gesture, drags the left edge instead
+  const resizeHandleLeft = paneEl.querySelector('.pane-resize-handle-left');
+  if (resizeHandleLeft) {
+    resizeHandleLeft.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      startResizeHold(e, paneEl, paneData, 'left');
+    });
+    resizeHandleLeft.addEventListener('touchstart', (e) => {
+      e.stopPropagation();
+      startResizeHold(e, paneEl, paneData, 'left');
+    }, { passive: false });
+  }
 }
 
 // Find closest snap targets for a pane being dragged (independent X and Y)
@@ -682,9 +695,17 @@ export function findSnapTargets(draggedPane, draggedX, draggedY, excludeIds) {
   return (snapX || snapY) ? { x: snapX, y: snapY } : null;
 }
 
-// Find resize snap targets (right and bottom edges of resizing pane)
-export function findResizeSnapTargets(paneData, newWidth, newHeight) {
-  const rightEdge = paneData.x + newWidth;
+// Find resize snap targets for the resizing pane.
+// horizontalEdge picks which side the resize handle moves: 'right' (default,
+// pane.x stays put) or 'left' (the pane's right edge stays put and x moves).
+// The bottom edge is the one that moves vertically in both cases.
+export function findResizeSnapTargets(paneData, newWidth, newHeight, horizontalEdge = 'right', anchoredRight = null) {
+  const movingLeft = horizontalEdge === 'left';
+  // The edge that stays anchored while the opposite one is dragged. Callers
+  // resizing leftward pass it in, since paneData.x/width mutate mid-drag.
+  const fixedRight = anchoredRight != null ? anchoredRight : paneData.x + paneData.width;
+  const leftEdge = movingLeft ? fixedRight - newWidth : paneData.x;
+  const rightEdge = movingLeft ? fixedRight : paneData.x + newWidth;
   const bottomEdge = paneData.y + newHeight;
 
   let bestW = null, bestDistW = SNAP_THRESHOLD + 1;
@@ -703,9 +724,24 @@ export function findResizeSnapTargets(paneData, newWidth, newHeight) {
     // Overlap checks with tolerance for adjacent/nearby panes
     const margin = SNAP_GAP + SNAP_THRESHOLD;
     const vOverlap = paneData.y < oBottom + margin && bottomEdge > oTop - margin;
-    const hOverlap = paneData.x < oRight + margin && rightEdge > oLeft - margin;
+    const hOverlap = leftEdge < oRight + margin && rightEdge > oLeft - margin;
 
-    if (vOverlap) {
+    if (vOverlap && movingLeft) {
+      // Left edge -> other's right edge (with gap)
+      const distR = Math.abs(leftEdge - SNAP_GAP - oRight);
+      if (distR < bestDistW) {
+        bestDistW = distR;
+        bestW = { snapWidth: fixedRight - oRight - SNAP_GAP, edge: oRight + SNAP_GAP / 2, orientation: 'vertical',
+          top: Math.min(paneData.y, oTop), bottom: Math.max(bottomEdge, oBottom) };
+      }
+      // Left edge -> other's left edge (align)
+      const distL = Math.abs(leftEdge - oLeft);
+      if (distL < bestDistW) {
+        bestDistW = distL;
+        bestW = { snapWidth: fixedRight - oLeft, edge: oLeft, orientation: 'vertical',
+          top: Math.min(paneData.y, oTop), bottom: Math.max(bottomEdge, oBottom) };
+      }
+    } else if (vOverlap) {
       // Right edge -> other's left edge (with gap)
       const distL = Math.abs(rightEdge + SNAP_GAP - oLeft);
       if (distL < bestDistW) {
@@ -728,14 +764,14 @@ export function findResizeSnapTargets(paneData, newWidth, newHeight) {
       if (distT < bestDistH) {
         bestDistH = distT;
         bestH = { snapHeight: oTop - paneData.y - SNAP_GAP, edge: oTop - SNAP_GAP / 2, orientation: 'horizontal',
-          left: Math.min(paneData.x, oLeft), right: Math.max(rightEdge, oRight) };
+          left: Math.min(leftEdge, oLeft), right: Math.max(rightEdge, oRight) };
       }
       // Bottom edge -> other's bottom edge (align)
       const distB = Math.abs(bottomEdge - oBottom);
       if (distB < bestDistH) {
         bestDistH = distB;
         bestH = { snapHeight: oBottom - paneData.y, edge: oBottom, orientation: 'horizontal',
-          left: Math.min(paneData.x, oLeft), right: Math.max(rightEdge, oRight) };
+          left: Math.min(leftEdge, oLeft), right: Math.max(rightEdge, oRight) };
       }
     }
   }
@@ -890,16 +926,18 @@ export function startDrag(e, paneEl, paneData) {
   document.addEventListener('touchend', endHandler);
 }
 
-// Start resize with short hold
-export function startResizeHold(e, paneEl, paneData) {
+// Start resize with short hold. horizontalEdge is 'right' (bottom-right handle)
+// or 'left' (bottom-left handle, which moves pane.x as it resizes).
+export function startResizeHold(e, paneEl, paneData, horizontalEdge = 'right') {
   e.preventDefault();
   const point = e.touches ? e.touches[0] : e;
-  const resizeHandle = paneEl.querySelector('.pane-resize-handle');
+  const handleSelector = horizontalEdge === 'left' ? '.pane-resize-handle-left' : '.pane-resize-handle';
+  const resizeHandle = paneEl.querySelector(handleSelector);
 
   resizeHandle.classList.add('hold-active');
 
   _ctx.dragState.holdTimer = setTimeout(() => {
-    activateResize(paneEl, paneData, point);
+    activateResize(paneEl, paneData, point, horizontalEdge);
   }, RESIZE_HOLD_DURATION);
 
   const endHandler = () => {
@@ -915,15 +953,18 @@ export function startResizeHold(e, paneEl, paneData) {
   document.addEventListener('touchend', endHandler);
 }
 
-// Activate resize mode
-export function activateResize(paneEl, paneData, startPoint) {
+// Activate resize mode. horizontalEdge is 'right' (bottom-right handle, x stays
+// fixed) or 'left' (bottom-left handle, the right edge stays fixed and x moves).
+export function activateResize(paneEl, paneData, startPoint, horizontalEdge = 'right') {
   _ctx.dragState.isResizing = true;
   paneEl.classList.add('resizing');
   document.body.classList.add('no-select');
   _ctx.showIframeOverlays();
 
+  const movingLeft = horizontalEdge === 'left';
   const startWidth = paneData.width;
   const startHeight = paneData.height;
+  const fixedRight = paneData.x + startWidth;
   const startX = startPoint.clientX;
   const startY = startPoint.clientY;
 
@@ -947,14 +988,16 @@ export function activateResize(paneEl, paneData, startPoint) {
     const deltaX = (movePoint.clientX - startX) / _ctx.state.zoom;
     const deltaY = (movePoint.clientY - startY) / _ctx.state.zoom;
 
-    let newWidth = Math.max(10, startWidth + deltaX);
+    // Dragging the bottom-left handle grows the pane leftward, so the
+    // horizontal delta is inverted and the right edge stays anchored.
+    let newWidth = Math.max(10, startWidth + (movingLeft ? -deltaX : deltaX));
     let newHeight = Math.max(10, startHeight + deltaY);
 
     // Snap resize edges (unless Shift held)
     if (!moveE.shiftKey) {
-      const snaps = findResizeSnapTargets(paneData, newWidth, newHeight);
+      const snaps = findResizeSnapTargets(paneData, newWidth, newHeight, horizontalEdge, fixedRight);
       if (snaps) {
-        if (snaps.w) newWidth = snaps.w.snapWidth;
+        if (snaps.w) newWidth = Math.max(10, snaps.w.snapWidth);
         if (snaps.h) newHeight = snaps.h.snapHeight;
         showSnapGuides({ x: snaps.w, y: snaps.h });
       } else {
@@ -968,6 +1011,10 @@ export function activateResize(paneEl, paneData, startPoint) {
     paneEl.style.height = `${newHeight}px`;
     paneData.width = newWidth;
     paneData.height = newHeight;
+    if (movingLeft) {
+      paneData.x = fixedRight - newWidth;
+      paneEl.style.left = `${paneData.x}px`;
+    }
     _ctx.syncTabGroupGeometry(paneData);
 
     // Debounced refit terminal
@@ -978,7 +1025,8 @@ export function activateResize(paneEl, paneData, startPoint) {
     removeSnapGuides();
     _ctx.dragState.isResizing = false;
     paneEl.classList.remove('resizing');
-    paneEl.querySelector('.pane-resize-handle').classList.remove('hold-active');
+    paneEl.querySelectorAll('.pane-resize-handle, .pane-resize-handle-left')
+      .forEach(h => h.classList.remove('hold-active'));
     document.body.classList.remove('no-select');
     _ctx.hideIframeOverlays();
 
