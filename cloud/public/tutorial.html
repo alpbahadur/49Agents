@@ -33,7 +33,15 @@
 
     .tut-sub {
       font-size: 16px; color: rgba(255,255,255,0.5);
-      margin-bottom: 32px; line-height: 1.5; font-weight: 400;
+      margin-bottom: 32px; line-height: 1.6; font-weight: 400;
+    }
+    .tut-sub kbd {
+      display: inline-block; padding: 1px 6px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; color: rgba(255,255,255,0.75);
     }
 
     .tut-start-btn {
@@ -62,16 +70,21 @@
     /* ─── Tutorial instruction prompt ─── */
     #tut-prompt {
       position: fixed;
-      bottom: 24px; left: 50%; transform: translateX(-50%);
+      /* Was 24px, which read as falling off the bottom of the screen. Sits
+         clear of the edge now, and respects the home indicator on phones. */
+      bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+      left: 50%; transform: translateX(-50%);
       width: min(520px, calc(100% - 48px));
-      background: rgba(10, 15, 25, 0.97);
+      /* Opaque, so there is nothing to see through: the blur was costing a
+         full-screen filter pass every frame for no visual gain, on top of
+         whatever animation was running behind it. */
+      background: rgb(11, 16, 26);
       border: 1px solid rgba(218, 119, 86, 0.3);
       border-radius: 14px;
       padding: 20px 24px;
       z-index: 100000;
-      backdrop-filter: blur(30px);
       box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
-      transition: opacity 0.3s ease, transform 0.3s ease;
+      transition: opacity 0.22s ease, transform 0.22s ease;
       display: none;
     }
     #tut-prompt.visible { display: block; }
@@ -125,6 +138,401 @@
       font-size: 11px; color: rgba(255,255,255,0.9);
     }
 
+    /* ═══ Fake pane bodies (note / conversations / folder / web) ═══ */
+    .tut-note-body {
+      padding: 14px 16px; height: 100%; overflow: hidden;
+      font-size: 12.5px; line-height: 1.65; color: rgba(255,255,255,0.78);
+    }
+    .tut-note-h {
+      font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.95);
+      margin-bottom: 8px;
+    }
+    .tut-note-p { margin-bottom: 10px; color: rgba(255,255,255,0.6); }
+    .tut-note-li { padding: 2px 0; }
+    .tut-note-todo { color: rgba(255,255,255,0.45); }
+    .tut-note-code {
+      margin-top: 12px; padding: 7px 10px;
+      background: rgba(255,255,255,0.05);
+      border-left: 2px solid rgba(218,119,86,0.6);
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+      color: rgba(218,119,86,0.95);
+    }
+
+    .tut-conv-list { padding: 6px; height: 100%; overflow: hidden; }
+    .tut-conv-row {
+      padding: 9px 11px; border-radius: 7px;
+      border: 1px solid rgba(255,255,255,0.06);
+      margin-bottom: 6px; background: rgba(255,255,255,0.02);
+    }
+    .tut-conv-title {
+      font-size: 12.5px; color: rgba(255,255,255,0.9); margin-bottom: 5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tut-conv-meta {
+      display: flex; gap: 10px; font-size: 10.5px;
+      color: rgba(255,255,255,0.4);
+    }
+    .tut-conv-branch { color: rgba(78,201,176,0.85); }
+
+    .tut-tree {
+      padding: 10px 12px; height: 100%; overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px; line-height: 1.95; color: rgba(255,255,255,0.72);
+    }
+    .tut-tree-dir { color: rgba(255,255,255,0.92); }
+
+    .tut-web { height: 100%; display: flex; flex-direction: column; background: #fff; }
+    .tut-web-bar {
+      padding: 6px 10px; background: #ececf1; border-bottom: 1px solid #d7d7de;
+    }
+    .tut-web-url {
+      display: inline-block; padding: 3px 10px; border-radius: 10px;
+      background: #fff; border: 1px solid #d7d7de;
+      font-size: 10.5px; color: #55555f;
+    }
+    .tut-web-body { flex: 1; padding: 16px; }
+    .tut-web-hero {
+      height: 54px; border-radius: 8px; margin-bottom: 12px;
+      background: linear-gradient(120deg, #da7756, #7c5cff);
+    }
+    .tut-web-line {
+      height: 8px; border-radius: 4px; background: #e3e3ea; margin-bottom: 8px;
+    }
+    .tut-web-line.short { width: 62%; }
+    .tut-web-btn {
+      margin-top: 14px; padding: 8px 12px; border-radius: 6px;
+      background: #1c1c22; color: #fff; font-size: 11px; text-align: center;
+    }
+
+    /* ═══ Claude backlights, cheap version ═══
+       styles.css animates box-shadow with 40–80px blur radii on an infinite
+       loop. Every frame of that is a full repaint of the pane plus its glow
+       footprint, and the tour puts three or four of them on screen at once —
+       which is where the stutter came from.
+
+       Inside the tour the pulse is driven by a pseudo-element that only
+       animates opacity, so it composites on the GPU and never repaints. The
+       static shadow underneath still comes from styles.css, so the panes look
+       the same; only the pulsing is different. */
+    #canvas .pane[class*="claude-"] { animation: none !important; }
+
+    #canvas .pane.claude-working::after,
+    #canvas .pane.claude-permission::after,
+    #canvas .pane.claude-input-needed::after,
+    #canvas .pane.claude-question::after {
+      content: '';
+      position: absolute; inset: -1px;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0;
+      will-change: opacity;
+      animation: tut-backlight 2.4s ease-in-out infinite;
+    }
+    #canvas .pane.claude-working::after {
+      box-shadow: 0 0 22px rgba(60, 105, 185, 0.4), inset 0 0 20px rgba(60, 105, 185, 0.1);
+    }
+    #canvas .pane.claude-permission::after,
+    #canvas .pane.claude-input-needed::after {
+      box-shadow: 0 0 24px rgba(185, 28, 28, 0.45), inset 0 0 20px rgba(185, 28, 28, 0.1);
+      animation-duration: 1.3s;
+    }
+    #canvas .pane.claude-question::after {
+      box-shadow: 0 0 24px rgba(233, 170, 255, 0.45), inset 0 0 20px rgba(233, 170, 255, 0.1);
+      animation-duration: 1.3s;
+    }
+    @keyframes tut-backlight {
+      0%, 100% { opacity: 0; }
+      50%      { opacity: 1; }
+    }
+
+    /* ═══ Teaching toast ═══
+       The real notification toast collapses to a 42px pill and only expands on
+       hover, which is too subtle to teach from. This is a spelled-out version
+       used only inside the tour. */
+    #tut-toast-stack {
+      position: fixed; top: 76px; right: 20px;
+      z-index: 99999; display: flex; flex-direction: column; gap: 10px;
+      pointer-events: none;
+    }
+    .tut-toast {
+      width: 290px; padding: 13px 15px;
+      background: rgb(11, 16, 26);
+      border: 1px solid rgba(185, 28, 28, 0.55);
+      border-left-width: 3px;
+      border-radius: 11px;
+      box-shadow: 0 10px 34px rgba(0,0,0,0.5);
+      pointer-events: auto;
+      opacity: 0; transform: translateX(24px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    .tut-toast.visible { opacity: 1; transform: translateX(0); }
+    .tut-toast.leaving { opacity: 0; transform: translateX(24px); }
+    .tut-toast-head {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.09em;
+      color: rgba(255, 120, 120, 0.95); font-weight: 600; margin-bottom: 6px;
+    }
+    .tut-toast-head::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: #ef4444; animation: tut-blink 1.1s ease-in-out infinite;
+    }
+    .tut-toast-title {
+      font-size: 12.5px; color: rgba(255,255,255,0.93); margin-bottom: 3px;
+    }
+    .tut-toast-sub {
+      font-size: 11px; color: rgba(255,255,255,0.5);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tut-toast.state-question {
+      border-color: rgba(233, 170, 255, 0.6);
+    }
+    .tut-toast.state-question .tut-toast-head { color: rgba(233, 170, 255, 0.95); }
+    .tut-toast.state-question .tut-toast-head::before { background: #e9aaff; }
+
+    /* ─── Chapter dots ─── */
+    .tut-dots { display: flex; align-items: center; gap: 6px; }
+    .tut-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      transition: background 0.3s ease, transform 0.3s ease;
+    }
+    .tut-dot.done { background: rgba(218, 119, 86, 0.55); }
+    .tut-dot.active { background: #da7756; transform: scale(1.6); }
+
+    /* ─── Prompt footer: Back / Next / Skip ─── */
+    .tut-nav {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      flex-wrap: wrap;
+    }
+    /* The hint sits on its own row so a longer message is never clipped down
+       to "press Next to mo". Buttons keep the right-hand end of the row. */
+    .tut-nav-hint {
+      flex: 1 0 100%; font-size: 11px; color: rgba(255,255,255,0.35);
+      order: -1; margin-bottom: 10px; line-height: 1.4;
+    }
+    .tut-nav-hint:empty { display: none; margin: 0; }
+    .tut-nav > .tut-nav-btn:nth-of-type(1) { margin-left: auto; }
+    .tut-nav-btn {
+      appearance: none; cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 500;
+      padding: 7px 14px; border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.75);
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+    .tut-nav-btn:hover:not(:disabled) {
+      background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.95);
+    }
+    .tut-nav-btn:disabled { opacity: 0.3; cursor: default; }
+    /* Visual echo of an arrow-key press, so the keyboard feels as responsive
+       as the mouse. Transform only — no layout, no repaint. */
+    .tut-nav-btn.tut-pressed {
+      animation: tut-press 0.22s ease;
+    }
+    @keyframes tut-press {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(0.93); filter: brightness(1.35); }
+      100% { transform: scale(1); }
+    }
+    .tut-nav-btn.primary {
+      background: linear-gradient(135deg, #da7756, #c4603e);
+      border-color: transparent; color: #fff;
+    }
+    .tut-nav-btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+    .tut-nav-btn.ghost {
+      background: transparent; border-color: transparent;
+      color: rgba(255,255,255,0.35);
+    }
+    .tut-nav-btn.ghost:hover { color: rgba(255,255,255,0.7); }
+
+    /* Auto-advance countdown on the Next button.
+       A spinner only says "something is happening"; this drains, so the ring
+       itself tells you how long is left before the tour moves on. */
+    .tut-autoring {
+      display: inline-block; vertical-align: -3px;
+      width: 14px; height: 14px; margin-right: 7px;
+      transform: rotate(-90deg);
+    }
+    /* Geometry lives on the SVG attributes, not here — cx/cy/r as CSS
+       properties are not supported widely enough to rely on. */
+    .tut-autoring circle { fill: none; stroke-width: 2.5; }
+    .tut-autoring .ring-track { stroke: rgba(255,255,255,0.25); }
+    .tut-autoring .ring-fill {
+      stroke: #fff; stroke-linecap: round;
+      stroke-dasharray: 36.13;               /* 2πr, r = 5.75 */
+      animation-name: tut-drain;
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;         /* duration set inline per beat */
+    }
+    @keyframes tut-drain {
+      from { stroke-dashoffset: 0; }
+      to   { stroke-dashoffset: 36.13; }
+    }
+
+    /* Steady dot for a beat that waits on the user — the visual opposite of
+       the draining ring. Nothing is counting down. */
+    .tut-holddot {
+      display: inline-block; vertical-align: 1px;
+      width: 6px; height: 6px; margin-right: 7px;
+      border-radius: 50%; background: rgba(255,255,255,0.75);
+    }
+
+    /* Waiting-for-user affordance */
+    .tut-waiting {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; color: rgba(78, 201, 176, 0.9);
+    }
+    .tut-waiting::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: #4ec9b0; animation: tut-blink 1.2s ease-in-out infinite;
+    }
+    @keyframes tut-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    /* The self-advancing counterpart, deliberately quieter than .tut-waiting:
+       a beat that needs nothing from you should not compete for attention. */
+    .tut-auto {
+      display: inline-flex; align-items: center;
+      font-size: 11px; color: rgba(255,255,255,0.4);
+    }
+
+    /* Arrow-key reminder, appended to every hint. Separated by a hairline so
+       it reads as standing advice rather than part of this step's message. */
+    .tut-keys {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-left: 10px; padding-left: 10px;
+      border-left: 1px solid rgba(255,255,255,0.12);
+      font-size: 10.5px; color: rgba(255,255,255,0.35);
+    }
+    .tut-keys kbd {
+      display: inline-block; padding: 0 4px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; line-height: 15px; color: rgba(255,255,255,0.6);
+    }
+    @media (max-width: 640px) {
+      /* No arrow keys to press on a phone. */
+      .tut-keys { display: none; }
+    }
+
+    /* ─── Cheatsheet ─── */
+    #tut-cheatsheet {
+      position: fixed; inset: 0; z-index: 100002;
+      background: rgba(6, 10, 18, 0.95);
+      display: none; align-items: center; justify-content: center;
+      padding: 24px; overflow-y: auto;
+    }
+    #tut-cheatsheet.visible { display: flex; }
+    .tut-sheet {
+      width: min(880px, 100%);
+      background: rgba(12, 18, 30, 0.97);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 28px 30px;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+    }
+    .tut-sheet h2 {
+      font-size: 18px; font-weight: 600; margin: 0 0 4px;
+      color: rgba(255,255,255,0.95);
+    }
+    .tut-sheet .tut-sheet-sub {
+      font-size: 12px; color: rgba(255,255,255,0.45); margin-bottom: 22px;
+    }
+    .tut-sheet-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 22px 34px;
+    }
+    .tut-sheet-group h3 {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: rgba(218, 119, 86, 0.85); margin: 0 0 10px; font-weight: 600;
+    }
+    /* Keys on their own line above the description. Side-by-side looked neat
+       for "Tab+S / Settings" but collapsed into a one-word-per-line column as
+       soon as a row had eight keys in it. */
+    .tut-sheet-row {
+      display: block; padding: 5px 0; font-size: 12px;
+    }
+    .tut-sheet-row .k {
+      display: block; margin-bottom: 3px;
+      color: rgba(255,255,255,0.75);
+    }
+    .tut-sheet-row .v { display: block; color: rgba(255,255,255,0.55); line-height: 1.45; }
+    /* "+click" / "+scroll" sit between keys and would otherwise inherit the
+       dim row colour and read as invisible next to the bright kbd chips. */
+    .tut-sheet .kx { color: rgba(255,255,255,0.75); font-size: 11px; }
+    .tut-sheet kbd {
+      display: inline-block; padding: 2px 7px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; color: rgba(255,255,255,0.92);
+      white-space: nowrap;
+    }
+    .tut-sheet-foot {
+      margin-top: 24px; padding-top: 18px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
+
+    /* ─── Chapter card (between-chapter breather) ─── */
+    .tut-chapter-card {
+      position: fixed; inset: 0; z-index: 100001;
+      display: none; align-items: center; justify-content: center;
+      /* A full-screen blur, re-rasterised every frame of the fade while the
+         panes behind it are animating, was the most expensive thing in the
+         tour. A heavier flat scrim reads the same and costs nothing. */
+      background: rgba(6, 10, 18, 0.88);
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    .tut-chapter-card.visible { display: flex; opacity: 1; }
+    .tut-chapter-card-inner { text-align: center; max-width: 460px; padding: 0 24px; }
+    .tut-chapter-num {
+      font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(218, 119, 86, 0.9); margin-bottom: 12px; font-weight: 600;
+    }
+    .tut-chapter-name {
+      font-size: 30px; font-weight: 600; letter-spacing: -0.02em;
+      color: rgba(255,255,255,0.96); margin-bottom: 12px;
+    }
+    .tut-chapter-desc {
+      font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.55);
+    }
+
+    @media (max-width: 640px) {
+      /* Still clear of the edge, and above the home indicator. */
+      #tut-prompt {
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+        padding: 16px 18px;
+      }
+      .tut-sheet { padding: 22px 18px; }
+      .tut-chapter-name { font-size: 24px; }
+
+      /* Next must never be the button that falls off the edge — on a touch
+         device it is the only way past a keyboard step. Give it its own full
+         width row and let the secondary actions share the row above it. */
+      .tut-nav { gap: 6px 8px; }
+      .tut-nav-hint { flex-basis: 100%; margin-bottom: 8px; }
+      .tut-nav > .tut-nav-btn:nth-of-type(1) { margin-left: 0; }
+      #tut-btn-sheet, #tut-btn-skip { flex: 0 1 auto; padding: 7px 10px; font-size: 11px; }
+      #tut-btn-back { margin-left: auto; }
+      #tut-btn-next { flex: 1 0 100%; order: 10; padding: 11px 14px; font-size: 13px; }
+
+      /* Bottom-left is where the prompt card now lives, so the exit moves to
+         the top edge rather than sitting on top of the Next button. */
+      #tut-home-btn {
+        bottom: auto; top: 12px; left: 12px;
+        padding: 7px 12px; font-size: 12px;
+      }
+    }
+
 
     /* ─── Dim overlay ─── */
     #tut-dim {
@@ -137,12 +545,17 @@
     }
     #tut-dim.visible { display: block; }
 
-    /* ─── Spotlight: lift targeted elements above dim ─── */
+    /* ─── Spotlight: lift targeted elements above dim ───
+       Only the stacking context is forced. Forcing position:relative here
+       would break absolutely-positioned targets — the add-pane menu would be
+       laid out from the wrong origin and land off-screen. Statically
+       positioned targets do need a position to accept a z-index, so
+       spotlight() adds .tut-spotlight-static to just those. */
     .tut-spotlight-target {
-      position: relative !important;
       z-index: 99998 !important;
       pointer-events: auto !important;
     }
+    .tut-spotlight-target.tut-spotlight-static { position: relative; }
 
     /* When HUD needs to be above dim */
     #hud-container.tut-above-dim {
@@ -457,6 +870,10 @@
       <span class="menu-icon"><svg viewBox="0 0 24 24"><circle cx="7" cy="6" r="2.5" fill="currentColor"/><circle cx="17" cy="6" r="2.5" fill="currentColor"/><circle cx="7" cy="18" r="2.5" fill="currentColor"/><line x1="7" y1="8.5" x2="7" y2="15.5" stroke="currentColor" stroke-width="2"/><path d="M17 8.5c0 4-10 4-10 7" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
       <span class="menu-label"><span class="shortcut-letter">G</span>it Graph</span>
     </button>
+    <button class="menu-item" data-type="beads" data-shortcut="b">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="3" fill="currentColor" opacity="0.7"/><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="18" cy="12" r="3" fill="currentColor" opacity="0.7"/><line x1="9" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.5"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">B</span>eads Issues</span>
+    </button>
     <button class="menu-item" data-type="iframe" data-shortcut="w">
       <span class="menu-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3" y1="12" x2="8" y2="12" stroke="currentColor" stroke-width="2"/><line x1="16" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"/><path d="M12 3c-2 3-2 6 0 9s2 6 0 9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>
       <span class="menu-label"><span class="shortcut-letter">W</span>eb Page</span>
@@ -464,6 +881,19 @@
     <button class="menu-item" data-type="folder" data-shortcut="d">
       <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
       <span class="menu-label"><span class="shortcut-letter">D</span>irectory</span>
+    </button>
+    <button class="menu-item" data-type="conversations" data-shortcut="c">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="12" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">C</span>laude Sessions</span>
+    </button>
+    <div class="menu-separator"></div>
+    <button class="menu-item" data-type="project">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+      <span class="menu-label"><span class="shortcut-letter">P</span>roject Area</span>
+    </button>
+    <button class="menu-item" data-type="checkpoint">
+      <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z" fill="currentColor"/></svg></span>
+      <span class="menu-label">Che<span class="shortcut-letter">c</span>kpoint</span>
     </button>
   </div>
 
@@ -489,12 +919,73 @@
 
   <div id="tut-prompt">
     <div class="tut-progress">
+      <div class="tut-dots" id="tut-dots"></div>
       <div class="tut-progress-bar"><div class="tut-progress-fill" id="tut-progress-fill"></div></div>
       <span class="tut-progress-label" id="tut-progress-label"></span>
     </div>
     <div class="tut-chapter" id="tut-chapter"></div>
     <div class="tut-title" id="tut-title"></div>
     <div class="tut-body" id="tut-body"></div>
+    <div class="tut-nav">
+      <span class="tut-nav-hint" id="tut-nav-hint"></span>
+      <button class="tut-nav-btn ghost" id="tut-btn-sheet" type="button">Shortcuts</button>
+      <button class="tut-nav-btn ghost" id="tut-btn-skip" type="button">Skip tour</button>
+      <button class="tut-nav-btn" id="tut-btn-back" type="button">Back</button>
+      <button class="tut-nav-btn primary" id="tut-btn-next" type="button">Next</button>
+    </div>
+  </div>
+
+  <div class="tut-chapter-card" id="tut-chapter-card">
+    <div class="tut-chapter-card-inner">
+      <div class="tut-chapter-num" id="tut-chapter-num"></div>
+      <div class="tut-chapter-name" id="tut-chapter-name"></div>
+      <div class="tut-chapter-desc" id="tut-chapter-desc"></div>
+    </div>
+  </div>
+
+  <div id="tut-cheatsheet">
+    <div class="tut-sheet">
+      <h2>Keyboard cheatsheet</h2>
+      <div class="tut-sheet-sub">Hold <kbd>Tab</kbd> and press a key. Everything here also has a button or menu equivalent.</div>
+      <div class="tut-sheet-grid">
+        <div class="tut-sheet-group">
+          <h3>Panes</h3>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>A</kbd></span><span class="v">Open the add-pane menu</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>T</kbd> <kbd>N</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>B</kbd> <kbd>W</kbd> <kbd>D</kbd> <kbd>C</kbd></span><span class="v">Pick a type while the menu is open</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Shift</kbd><span class="kx">+click</span></span><span class="v">Place several panes in a row</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>W</kbd></span><span class="v">Close the focused pane</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>Q</kbd></span><span class="v">Cycle through panes</span></div>
+        </div>
+        <div class="tut-sheet-group">
+          <h3>Navigate</h3>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd> <kbd>Tab</kbd></span><span class="v">Move mode, then <kbd>WASD</kbd> and <kbd>Enter</kbd></span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>1</kbd>..<kbd>9</kbd></span><span class="v">Jump straight to a pane or project</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Ctrl</kbd><span class="kx">+scroll</span></span><span class="v">Zoom the canvas</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Ctrl</kbd>+<kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd></span><span class="v">Zoom the focused pane</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>M</kbd></span><span class="v">Minimap</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>P</kbd></span><span class="v">Projects sidebar</span></div>
+        </div>
+        <div class="tut-sheet-group">
+          <h3>Agents</h3>
+          <div class="tut-sheet-row"><span class="k"><kbd>Shift</kbd><span class="kx">+click</span></span><span class="v">Select terminals for broadcast</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Esc</kbd></span><span class="v">Clear the selection</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>@</kbd></span><span class="v">Mention a file, page or issue into a terminal</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>U</kbd></span><span class="v">Claude usage limits</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>D</kbd></span><span class="v">Machines panel</span></div>
+        </div>
+        <div class="tut-sheet-group">
+          <h3>Workspace</h3>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>S</kbd></span><span class="v">Settings</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>H</kbd></span><span class="v">Hide every overlay</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>`</kbd></span><span class="v">Next tab in a tab group</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Tab</kbd>+<kbd>=</kbd></span><span class="v">New tab in a tab group</span></div>
+          <div class="tut-sheet-row"><span class="k"><kbd>Ctrl</kbd>+<kbd>S</kbd></span><span class="v">Save the focused file pane</span></div>
+        </div>
+      </div>
+      <div class="tut-sheet-foot">
+        <button class="tut-nav-btn primary" id="tut-sheet-close" type="button">Close</button>
+      </div>
+    </div>
   </div>
 
   <div id="tut-complete">
@@ -517,15 +1008,31 @@
   </a>
 
   <script>
+    // Welcome-splash skip. Recorded as 'skipped', not 'completed', and pushed
+    // to the server too so the redirect does not follow them to another device.
     document.getElementById('tut-skip-btn').addEventListener('click', function() {
-      try { localStorage.setItem('tc_tutorial', 'completed'); } catch (e) {}
-      window.location.href = '/';
+      try { localStorage.setItem('tc_tutorial', 'skipped'); } catch (e) {}
+      try { localStorage.removeItem('tc_tutorial_chapter'); } catch (e) {}
+      var go = function() { window.location.href = '/'; };
+      fetch('/api/preferences', { credentials: 'include' })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function(prefs) {
+          var tc = prefs.tutorialsCompleted || {};
+          tc['getting-started'] = 'skipped';
+          prefs.tutorialsCompleted = tc;
+          return fetch('/api/preferences', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(prefs),
+          });
+        })
+        .then(go, go);
     });
   </script>
 
   <!-- ═══ Guide scripts (loaded before engine) ═══ -->
-  <script src="tutorial-getting-started.min.js"></script>
-  <script src="tutorial-panes.min.js"></script>
+  <script src="tutorial-tour.min.js"></script>
 
   <script>
   (function() {
@@ -535,9 +1042,14 @@
     const SNAP_THRESHOLD = 38;
     const SNAP_GAP = 10;
     const PANE_DEFAULTS = {
-      'terminal':  { width: 600, height: 400 },
-      'file':      { width: 600, height: 400 },
-      'git-graph': { width: 500, height: 450 },
+      'terminal':      { width: 600, height: 400 },
+      'file':          { width: 600, height: 400 },
+      'git-graph':     { width: 500, height: 450 },
+      'note':          { width: 420, height: 320 },
+      'beads':         { width: 620, height: 340 },
+      'iframe':        { width: 420, height: 320 },
+      'folder':        { width: 380, height: 300 },
+      'conversations': { width: 460, height: 300 },
     };
 
     // ─── DOM refs ───
@@ -904,8 +1416,12 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
 
     function enterPlacementMode(type) {
       return new Promise(resolve => {
-        const size = PANE_DEFAULTS[type];
-        const labels = { 'terminal': 'Terminal', 'file': 'File', 'git-graph': 'Git Graph' };
+        const size = PANE_DEFAULTS[type] || { width: 560, height: 380 };
+        const labels = {
+          'terminal': 'Terminal', 'file': 'File', 'git-graph': 'Git Graph',
+          'note': 'Note', 'beads': 'Issues', 'iframe': 'Web Page',
+          'folder': 'Directory', 'conversations': 'Claude Sessions',
+        };
         const label = labels[type] || type;
 
         const ghost = document.createElement('div');
@@ -987,8 +1503,12 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
     // Shift+Click placement mode — ignores non-Shift clicks
     function enterShiftPlacementMode(type) {
       return new Promise(resolve => {
-        const size = PANE_DEFAULTS[type];
-        const labels = { 'terminal': 'Terminal', 'file': 'File', 'git-graph': 'Git Graph' };
+        const size = PANE_DEFAULTS[type] || { width: 560, height: 380 };
+        const labels = {
+          'terminal': 'Terminal', 'file': 'File', 'git-graph': 'Git Graph',
+          'note': 'Note', 'beads': 'Issues', 'iframe': 'Web Page',
+          'folder': 'Directory', 'conversations': 'Claude Sessions',
+        };
         const label = labels[type] || type;
 
         const ghost = document.createElement('div');
@@ -1508,6 +2028,263 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       return paneData;
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  Generic fake pane
+    //
+    //  The three builders above predate the other pane types and each repeat
+    //  the same twenty lines. Everything added since goes through this one
+    //  factory instead: pass a header and a body, get a working canvas pane.
+    //  The page already loads the real styles.css, so these inherit genuine
+    //  app styling rather than re-inventing it.
+    // ══════════════════════════════════════════════════════════════════════
+    function createFakePane(type, x, y, opts) {
+      opts = opts || {};
+      const id = 'tut-' + (++paneIdCounter);
+      const size = opts.size || PANE_DEFAULTS[type] || { width: 560, height: 380 };
+      const paneData = { id, type, x, y, width: size.width, height: size.height, el: null };
+
+      const pane = document.createElement('div');
+      pane.className = 'pane' + (opts.paneClass ? ' ' + opts.paneClass : '');
+      pane.id = `pane-${id}`;
+      pane.style.cssText = `left:${x}px;top:${y}px;width:${size.width}px;height:${size.height}px;z-index:${10 + paneIdCounter}`;
+      pane.dataset.paneId = id;
+
+      const device = opts.device === null ? '' : `<span class="device-label">${opts.device || 'my-server'}</span>`;
+      pane.innerHTML = `
+        <div class="pane-header">
+          <span class="pane-title">${device}${opts.icon || ''}${opts.title || type}</span>
+          <div class="pane-header-right">
+            ${opts.headerExtra || ''}
+            <button class="pane-expand" aria-label="Expand">&#x26F6;</button>
+            <button class="pane-close" aria-label="Close">&times;</button>
+          </div>
+        </div>
+        <div class="pane-content">${opts.body || ''}</div>
+        <div class="pane-resize-handle"></div>`;
+
+      canvas.appendChild(pane);
+      paneData.el = pane;
+      panes.push(paneData);
+
+      setupPaneDrag(pane, paneData);
+      setupPaneResize(pane, paneData);
+
+      const content = pane.querySelector('.pane-content');
+      content.addEventListener('mousedown', e => e.stopPropagation());
+      content.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+
+      updateHudCounts();
+      return paneData;
+    }
+
+    const ICON_ATTR = 'viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:5px"';
+
+    // ─── Beads issues ───
+    const BEADS_ROWS = [
+      ['◐', 'bd-a12', 'P1', 'feature', 'Streaming responses in the chat pane'],
+      ['○', 'bd-c4f', 'P1', 'bug',     'Terminal drops ANSI colour after resize'],
+      ['🔒', 'bd-j91', 'P2', 'task', 'Split the renderer into modules'],
+      ['○', 'bd-k3d', 'P2', 'feature', 'Per-device colour overrides'],
+      ['●', 'bd-x77', 'P3', 'chore',   'Bump the agent tarball'],
+    ];
+    function createFakeBeadsPane(x, y) {
+      const rows = BEADS_ROWS.map(([st, id, p, ty, title]) => `
+        <tr class="beads-row">
+          <td class="beads-col-status">${st}</td>
+          <td class="beads-col-id">${id}</td>
+          <td class="beads-col-priority">${p}</td>
+          <td class="beads-col-type">${ty}</td>
+          <td class="beads-col-title">${title}</td>
+        </tr>`).join('');
+      return createFakePane('beads', x, y, {
+        size: { width: 620, height: 340 },
+        paneClass: 'beads-pane',
+        icon: `<svg ${ICON_ATTR}><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>`,
+        title: 'Issues',
+        body: `
+          <div class="beads-container">
+            <div class="beads-header">
+              <div class="beads-counts">
+                <span class="beads-filter-btn beads-badge beads-badge-open active">○ 2</span>
+                <span class="beads-filter-btn beads-badge beads-badge-progress active">◐ 1</span>
+                <span class="beads-filter-btn beads-badge beads-badge-blocked active">🔒 1</span>
+              </div>
+              <div class="beads-search-wrap"><input type="text" class="beads-search" placeholder="Search issues..." readonly></div>
+              <button class="beads-add-btn">+</button>
+            </div>
+            <div class="beads-table-wrap">
+              <table class="beads-table">
+                <colgroup><col style="width:24px"><col style="width:58px"><col style="width:36px"><col style="width:62px"><col></colgroup>
+                <thead><tr>
+                  <th class="beads-col-status"></th><th class="beads-col-id">ID</th>
+                  <th class="beads-col-priority">P</th><th class="beads-col-type">Type</th>
+                  <th class="beads-col-title">Title</th>
+                </tr></thead>
+                <tbody class="beads-table-body">${rows}</tbody>
+              </table>
+            </div>
+          </div>`,
+      });
+    }
+
+    // ─── Markdown note ───
+    function createFakeNotePane(x, y) {
+      return createFakePane('note', x, y, {
+        size: { width: 420, height: 320 },
+        paneClass: 'note-pane',
+        device: null,
+        icon: `<svg ${ICON_ATTR}><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 4v6h6"/></svg>`,
+        title: 'Release notes',
+        body: `
+          <div class="tut-note-body">
+            <div class="tut-note-h">Ship checklist</div>
+            <div class="tut-note-p">Rebuild the agent tarball before tagging.</div>
+            <div class="tut-note-li">✓ Terminal colour fix</div>
+            <div class="tut-note-li">✓ Layout persistence</div>
+            <div class="tut-note-li tut-note-todo">□ Update the tutorial</div>
+            <div class="tut-note-code">npm run build</div>
+          </div>`,
+      });
+    }
+
+    // ─── Claude sessions ───
+    const CONV_ROWS = [
+      ['Fix the auth refresh loop', '49agents', 'main', '2h ago'],
+      ['Split app.js into modules', '49agents', 'split-modules', 'yesterday'],
+      ['Why is the HUD re-rendering?', 'relay', 'main', '3d ago'],
+    ];
+    function createFakeConversationsPane(x, y) {
+      const rows = CONV_ROWS.map(([t, repo, branch, when]) => `
+        <div class="tut-conv-row">
+          <div class="tut-conv-title">${t}</div>
+          <div class="tut-conv-meta"><span>${repo}</span><span class="tut-conv-branch">${branch}</span><span>${when}</span></div>
+        </div>`).join('');
+      return createFakePane('conversations', x, y, {
+        size: { width: 460, height: 300 },
+        icon: `<svg ${ICON_ATTR}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+        title: 'Claude sessions',
+        body: `<div class="tut-conv-list">${rows}</div>`,
+      });
+    }
+
+    // ─── Directory tree ───
+    function createFakeFolderPane(x, y) {
+      return createFakePane('folder', x, y, {
+        size: { width: 380, height: 300 },
+        icon: `<svg ${ICON_ATTR}><path d="M3 7h6l2 2h10v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7z"/></svg>`,
+        title: '~/49agents',
+        body: `
+          <div class="tut-tree">
+            <div class="tut-tree-row tut-tree-dir">▾ agent/</div>
+            <div class="tut-tree-row tut-tree-dir" style="padding-left:18px">▾ services/</div>
+            <div class="tut-tree-row" style="padding-left:36px">tmux.js</div>
+            <div class="tut-tree-row" style="padding-left:36px">beads.js</div>
+            <div class="tut-tree-row tut-tree-dir">▸ cloud/</div>
+            <div class="tut-tree-row">README.md</div>
+            <div class="tut-tree-row">49ctl</div>
+          </div>`,
+      });
+    }
+
+    // ─── Web page ───
+    function createFakeIframePane(x, y) {
+      return createFakePane('iframe', x, y, {
+        size: { width: 420, height: 320 },
+        device: null,
+        icon: `<svg ${ICON_ATTR}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>`,
+        title: 'localhost:5173',
+        body: `
+          <div class="tut-web">
+            <div class="tut-web-bar"><span class="tut-web-url">localhost:5173</span></div>
+            <div class="tut-web-body">
+              <div class="tut-web-hero"></div>
+              <div class="tut-web-line"></div>
+              <div class="tut-web-line short"></div>
+              <div class="tut-web-btn">Your dev server, live on the canvas</div>
+            </div>
+          </div>`,
+      });
+    }
+
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Claude state + notifications
+    //
+    //  The backlight classes come straight from styles.css, so what the tour
+    //  shows here is exactly what a real pane looks like when Claude is
+    //  working, waiting on a permission, or asking a question.
+    // ══════════════════════════════════════════════════════════════════════
+    const CLAUDE_STATE_CLASSES = [
+      'claude-working', 'claude-idle', 'claude-permission',
+      'claude-question', 'claude-input-needed',
+    ];
+
+    function setClaudeState(paneData, state) {
+      const el = paneData && paneData.el ? paneData.el : paneData;
+      if (!el) return;
+      CLAUDE_STATE_CLASSES.forEach(c => el.classList.remove(c));
+      if (state && state !== 'idle') el.classList.add('claude-' + state);
+    }
+
+    // Wipe the canvas back to empty. Going Back re-runs a chapter from a known
+    // state, which is far simpler to reason about than unwinding each beat.
+    function resetCanvas() {
+      panes.slice().forEach(p => { if (p.el) p.el.remove(); });
+      panes.length = 0;
+      canvas.querySelectorAll('.pane').forEach(el => el.remove());
+      clearSpotlight();
+      clearTutToasts();
+      paneMenu.classList.add('hidden');
+      panX = 0; panY = 0; zoom = 1;
+      updateCanvasTransform();
+      updateHudCounts();
+    }
+
+    function toastStack() {
+      let s = document.getElementById('tut-toast-stack');
+      if (!s) {
+        s = document.createElement('div');
+        s.id = 'tut-toast-stack';
+        document.body.appendChild(s);
+      }
+      return s;
+    }
+
+    // Returns { el, dismiss(), waitForClick() }.
+    function showTutToast(kind, title, sub) {
+      const el = document.createElement('div');
+      el.className = 'tut-toast state-' + kind;
+      el.innerHTML = `
+        <div class="tut-toast-head">${kind === 'question' ? 'Claude is asking' : 'Permission needed'}</div>
+        <div class="tut-toast-title">${title}</div>
+        <div class="tut-toast-sub">${sub}</div>`;
+      toastStack().appendChild(el);
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('visible')));
+
+      const dismiss = () => {
+        el.classList.add('leaving');
+        setTimeout(() => el.remove(), 400);
+      };
+      return {
+        el,
+        dismiss,
+        waitForClick: () => new Promise(res => {
+          el.addEventListener('click', function h() {
+            el.removeEventListener('click', h);
+            dismiss();
+            res('action');
+          });
+        }),
+      };
+    }
+
+    function clearTutToasts() {
+      toastStack().querySelectorAll('.tut-toast').forEach(t => {
+        t.classList.add('leaving');
+        setTimeout(() => t.remove(), 400);
+      });
+    }
+
 
     // ═════════════════════════════════════════════════
     //  UI HELPERS
@@ -1535,6 +2312,487 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
     }
 
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Navigation controller
+    //
+    //  Every beat resolves through here, and the Next button is always one of
+    //  the ways it can resolve. That is the whole point: a user who cannot
+    //  perform a gesture — wrong pointer, touch device, no keyboard — is never
+    //  stuck, they just press Next. Back re-runs the chapter from its start.
+    // ══════════════════════════════════════════════════════════════════════
+    const navBtnNext  = document.getElementById('tut-btn-next');
+    const navBtnBack  = document.getElementById('tut-btn-back');
+    const navBtnSkip  = document.getElementById('tut-btn-skip');
+    const navBtnSheet = document.getElementById('tut-btn-sheet');
+    const navHint     = document.getElementById('tut-nav-hint');
+    const dotsEl      = document.getElementById('tut-dots');
+
+    let lastNavKey = 0;   // throttles arrow-key repeat
+
+    const nav = {
+      resolve: null,      // resolves the beat currently awaiting input
+      pending: null,      // a press that landed between beats, replayed into the next one
+      autoTimer: null,
+      chapters: [],
+      chapterIdx: 0,
+    };
+
+    // Resolve whatever beat is in flight. `how` tells the guide why it ended.
+    //
+    // Between two beats there are short windows — a chapter returning, the
+    // canvas resetting, the next title card mounting — where nothing is
+    // listening. A press landing in one of those used to be dropped entirely,
+    // which is what made the arrows feel unreliable. Buffer it instead and
+    // let the next beat consume it the moment it starts.
+    function settleBeat(how) {
+      if (nav.autoTimer) { clearTimeout(nav.autoTimer); nav.autoTimer = null; }
+      const r = nav.resolve;
+      nav.resolve = null;
+      if (r) { r(how); return; }
+      if (how === 'next' || how === 'back') nav.pending = how;
+    }
+
+    navBtnNext.addEventListener('click', () => settleBeat('next'));
+    navBtnBack.addEventListener('click', () => {
+      if (navBtnBack.disabled) return;
+      settleBeat('back');
+    });
+
+    // Keyboard nav. Kept off the Tab key so it never collides with the chords
+    // the tour is trying to teach.
+    document.addEventListener('keydown', (e) => {
+      if (document.getElementById('tut-cheatsheet').classList.contains('visible')) {
+        if (e.key === 'Escape') { e.preventDefault(); closeCheatsheet(); }
+        return;
+      }
+      // Deliberately not gated on the prompt being visible — chapter title
+      // cards are pausable too, and a key pressed over one used to vanish.
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+
+      // Holding an arrow fires key repeat at ~30/s. Without this the tour
+      // tears through several chapters from one long press and the user has
+      // no idea where they ended up.
+      if (e.repeat) return;
+      const now = performance.now();
+      if (now - lastNavKey < 260) return;
+      lastNavKey = now;
+
+      // Symmetrical: -> is one step forward, <- is one step back. The runner
+      // decides whether that crosses a chapter boundary.
+      if (e.key === 'ArrowRight') { flashNav(navBtnNext); settleBeat('next'); }
+      else if (!navBtnBack.disabled) { flashNav(navBtnBack); settleBeat('back'); }
+    });
+
+    // An arrow press has no pointer feedback of its own, so echo it on the
+    // button it corresponds to. Without this, keyboard navigation felt like
+    // nothing was responding even when it was.
+    function flashNav(btn) {
+      if (!btn || btn.disabled) return;
+      btn.classList.remove('tut-pressed');
+      void btn.offsetWidth;              // restart the animation
+      btn.classList.add('tut-pressed');
+      setTimeout(() => btn.classList.remove('tut-pressed'), 220);
+    }
+
+    function renderDots() {
+      dotsEl.innerHTML = '';
+      nav.chapters.forEach((_, i) => {
+        const d = document.createElement('span');
+        d.className = 'tut-dot' + (i === nav.chapterIdx ? ' active' : (i < nav.chapterIdx ? ' done' : ''));
+        dotsEl.appendChild(d);
+      });
+      // Back moves one step now, so it stays live everywhere except the very
+      // first step of the very first chapter.
+      navBtnBack.disabled = nav.chapterIdx <= 0 && (nav.stepIdx || 0) <= 0;
+    }
+
+    /**
+     * The core beat primitive.
+     *
+     * opts.wait   — a Promise for the gesture we are teaching (optional)
+     * opts.auto   — ms after which the beat advances on its own (optional)
+     * opts.hint   — footer text; defaults to something sensible per mode
+     * opts.next   — label for the Next button
+     *
+     * Resolves 'action' if the user did the thing, 'next' if they pressed
+     * Next / Right, 'back' if they went back, 'auto' if it timed out.
+     */
+    // The waitFor* helpers each attach a document listener and only detach it
+    // when the gesture finally happens. beat() can now resolve without that
+    // ever occurring — the user pressed Next — so those listeners would pile
+    // up and keep swallowing keystrokes (a stray WASD handler would hijack
+    // typing for the rest of the tour).
+    //
+    // captureWaits() records every listener added while the gesture promises
+    // are being constructed, and hands back a function that rips them out.
+    // Guides call it implicitly: beat({ wait: ... }) is always given a promise
+    // created inside this window.
+    let _capturing = null;
+
+    // Patch the few targets the waitFor* helpers bind to. Each records
+    // (target, type, fn, opts) while a capture window is open.
+    [document, canvasContainer, paneMenu].forEach(target => {
+      const rawAdd = target.addEventListener.bind(target);
+      target.addEventListener = function (type, fn, opts) {
+        if (_capturing) _capturing.push([target, type, fn, opts]);
+        return rawAdd(type, fn, opts);
+      };
+    });
+
+    // Build the gesture promise inside a capture window so its listeners can
+    // be revoked if the beat ends another way.
+    function captureWaits(makePromise) {
+      const prev = _capturing;
+      const mine = [];
+      _capturing = mine;
+      let p;
+      try { p = makePromise(); } finally { _capturing = prev; }
+      return {
+        promise: p,
+        cancel: () => mine.forEach(([target, t, f, o]) => target.removeEventListener(t, f, o)),
+      };
+    }
+
+    // Arrow keys drive the whole tour, but nothing on screen said so. Mention
+    // them once per beat, next to whatever that beat is actually doing.
+    const ARROW_KEYS = '<span class="tut-keys"><kbd>←</kbd><kbd>→</kbd> step back / forward</span>';
+
+    function defaultHint(opts) {
+      // A beat with both wants the gesture but will not block forever, so say
+      // both things rather than picking one and lying about the other.
+      if (opts.wait && opts.auto) {
+        return '<span class="tut-waiting">Try it — moves on shortly either way</span>' + ARROW_KEYS;
+      }
+      if (opts.wait) {
+        return '<span class="tut-waiting">Waiting for you — try it, or skip ahead</span>' + ARROW_KEYS;
+      }
+      if (opts.auto) {
+        return '<span class="tut-auto">Moves on by itself</span>' + ARROW_KEYS;
+      }
+      return '<span class="tut-auto">Press Next when you are ready</span>' + ARROW_KEYS;
+    }
+
+    function beat(opts) {
+      opts = opts || {};
+      renderDots();
+
+      // Three states, and the user should never have to guess which one they
+      // are in. Previously the only cue was a spinner on the Next button, and
+      // a narration beat was distinguished from a waiting beat by its hint
+      // being *empty* — an absence is not a signal.
+      //
+      //   auto            → draining ring, "moves on by itself"
+      //   wait            → steady dot,    "waiting for you"
+      //   wait + auto     → draining ring, but the gesture is what it wants
+      //   neither         → plain button,  "press Next"
+      const label = opts.next || 'Next';
+      if (opts.auto) {
+        navBtnNext.innerHTML =
+          `<svg class="tut-autoring" viewBox="0 0 14 14" aria-hidden="true">` +
+          `<circle class="ring-track" cx="7" cy="7" r="5.75"></circle>` +
+          `<circle class="ring-fill" cx="7" cy="7" r="5.75" style="animation-duration:${opts.auto}ms"></circle>` +
+          `</svg>${label}`;
+      } else if (opts.wait) {
+        navBtnNext.innerHTML = `<span class="tut-holddot" aria-hidden="true"></span>${label}`;
+      } else {
+        navBtnNext.innerHTML = label;
+      }
+
+      navHint.innerHTML = opts.hint !== undefined ? opts.hint : defaultHint(opts);
+
+      // opts.wait may be a promise or a thunk returning one. A thunk is
+      // preferable: it lets us capture and later revoke the listeners the
+      // gesture installs.
+      let waiter = null;
+      if (typeof opts.wait === 'function') waiter = captureWaits(opts.wait);
+      else if (opts.wait && typeof opts.wait.then === 'function') waiter = { promise: opts.wait, cancel: opts.cancel || (() => {}) };
+
+      // Consume a press buffered between beats, so it is honoured rather than
+      // silently dropped. Listeners are torn down first — the gesture this
+      // beat was going to wait for never gets a chance to fire.
+      if (nav.pending) {
+        const how = nav.pending;
+        nav.pending = null;
+        if (waiter) { try { waiter.cancel(); } catch (e) {} }
+        navHint.innerHTML = '';
+        return Promise.resolve(how);
+      }
+
+      return new Promise(resolve => {
+        let done = false;
+        const finish = (how) => {
+          if (done) return;
+          done = true;
+          nav.resolve = null;
+          if (nav.autoTimer) { clearTimeout(nav.autoTimer); nav.autoTimer = null; }
+          // Anything the user did not do, stop listening for.
+          if (waiter && how !== 'action') {
+            try { waiter.cancel(); } catch (e) {}
+            // Placement mode also leaves a ghost and a body class behind.
+            try {
+              document.querySelectorAll('.placement-ghost').forEach(g => g.remove());
+              canvasContainer.classList.remove('placement-active');
+              removeSnapGuides();
+            } catch (e) {}
+          }
+          navHint.innerHTML = '';
+          resolve(how);
+        };
+        nav.resolve = finish;
+        if (waiter) waiter.promise.then(() => finish('action'), () => {});
+        if (opts.auto) nav.autoTimer = setTimeout(() => finish('auto'), opts.auto);
+      });
+    }
+
+    // A beat that only narrates. Auto-advances so the tour keeps breathing,
+    // but the user can always outrun it.
+    // The old tour reused the same stepIdx across consecutive prompts, so the
+    // bar sat still for two or three screens and the "12 steps" label never
+    // matched the 19 screens it actually showed. say() now advances the
+    // counter itself; chapters set nav.stepTotal and nothing else has to
+    // remember a number.
+    function say(chapter, title, body, ms) {
+      nav.stepIdx = (nav.stepIdx || 0) + 1;
+      showPrompt(chapter, title, body, nav.stepIdx - 1, Math.max(nav.stepTotal || 1, nav.stepIdx));
+      return beat({ auto: ms || 4200 });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Step runner
+    //
+    //  Chapters are { setup(), steps[] }. Because the steps are data rather
+    //  than an await chain, the runner can move to any index in either
+    //  direction — which is the whole point: ← goes back one step, not one
+    //  chapter, and the two arrows are finally symmetrical.
+    //
+    //  Going back replays: re-run setup() from an empty canvas, then apply()
+    //  every step before the target. apply() must therefore be idempotent and
+    //  instant. undo() exists only for effects that would otherwise persist
+    //  across a *forward* step (a zoom, a spotlight).
+    // ══════════════════════════════════════════════════════════════════════
+    async function runChapters(chapters, meta) {
+      let ci = Math.min(loadResume(), chapters.length - 1);
+      if (ci < 0) ci = 0;
+      let si = 0;
+      let replaying = false;
+      let dir = 1;          // travel direction, so skipped steps are stepped
+                            // over the way the user is actually moving
+
+      while (ci < chapters.length) {
+        const chapter = chapters[ci];
+        nav.chapterIdx = ci;
+        nav.stepTotal = chapter.steps.length;
+        saveResume(ci);
+
+        // Rebuild the scene, then fast-forward to the step we want.
+        chapter.setup();
+        for (let i = 0; i < si; i++) {
+          const s = chapter.steps[i];
+          if (s.apply) s.apply();
+          if (s.undo) s.undo();          // its visual effect belongs to that step only
+        }
+
+        // Only announce the chapter when arriving at its start going forward.
+        if (si === 0 && !replaying) {
+          nav.pending = null;
+          const m = meta[ci];
+          if (await chapterCard(m.num, m.name, m.desc) === 'back') {
+            if (ci > 0) { ci--; si = chapters[ci].steps.length - 1; replaying = true; continue; }
+          }
+        }
+        replaying = false;
+
+        // Walk the steps.
+        let outcome = 'next';
+        while (si < chapter.steps.length) {
+          const step = chapter.steps[si];
+
+          // A skipped step must be stepped over in whichever direction we are
+          // travelling. Always skipping forward meant pressing Back onto one
+          // bounced straight off it and returned you to where you started —
+          // "Or jump straight there" could not be left, because the WASD step
+          // behind it is skipped whenever move mode was never entered.
+          if (step.skipIf && step.skipIf()) {
+            if (dir < 0) {
+              if (si === 0) {                       // nothing skippable behind it
+                if (ci > 0) { ci--; si = chapters[ci].steps.length - 1; replaying = true; break; }
+                si = 0; dir = 1; continue;          // at the very start: stay put
+              }
+              si--;
+            } else {
+              si++;
+            }
+            continue;
+          }
+          dir = 1;                                  // landed on a real step
+          if (step.apply) step.apply();
+
+          nav.stepIdx = si;
+          const [chap, title, body] = step.say || step.prompt;
+          showPrompt(chap, title, body, si, chapter.steps.length);
+
+          const how = await beat({
+            wait: step.wait,
+            auto: step.say ? (step.ms || 4200) : step.ms,
+            // A step may word its own hint, but the arrow reminder is the
+            // runner's to add — otherwise custom hints quietly lose it.
+            hint: step.hint === undefined ? undefined
+                : '<span class="tut-waiting">' + step.hint + '</span>' + ARROW_KEYS,
+            next: step.next,
+          });
+
+          if (step.ensure) step.ensure();
+
+          if (how === 'back') { outcome = 'back'; break; }
+          if (step.undo) step.undo();
+          si++;
+        }
+
+        // The skip loop can exit by jumping chapters itself; it sets
+        // `replaying` and leaves `outcome` alone.
+        if (outcome === 'next' && replaying) continue;
+
+        if (outcome === 'back') {
+          dir = -1;                                            // now travelling backwards
+          if (si > 0) { si--; replaying = true; continue; }    // back one step
+          if (ci > 0) {                                        // back into previous chapter
+            ci--;
+            si = chapters[ci].steps.length - 1;
+            replaying = true;
+            continue;
+          }
+          si = 0;                                              // already at the very start
+          dir = 1;
+          replaying = true;
+          continue;
+        }
+
+        ci++;
+        si = 0;
+      }
+
+      hidePrompt();
+      clearSpotlight();
+      await markTutorial('completed');
+      clearResume();
+      await sleep(300);
+      tutComplete.classList.add('visible');
+    }
+
+    // ─── Cheatsheet ───
+    const sheetEl = document.getElementById('tut-cheatsheet');
+    function openCheatsheet() { sheetEl.classList.add('visible'); }
+    function closeCheatsheet() { sheetEl.classList.remove('visible'); }
+    navBtnSheet.addEventListener('click', openCheatsheet);
+    document.getElementById('tut-sheet-close').addEventListener('click', closeCheatsheet);
+    sheetEl.addEventListener('click', (e) => { if (e.target === sheetEl) closeCheatsheet(); });
+
+    // ─── Chapter title card ───
+    // Interruptible pause. A plain sleep() swallows every key pressed during
+    // it, which is what made rapid arrow presses feel like they did nothing:
+    // the tour was busy waiting and the input went nowhere. This resolves
+    // early on Next/Back and reports which, so callers can bail out.
+    function pause(ms) {
+      // A press that arrived while nothing was listening lands here.
+      if (nav.pending) { const how = nav.pending; nav.pending = null; return Promise.resolve(how); }
+      return new Promise(resolve => {
+        let done = false;
+        const finish = (how) => {
+          if (done) return;
+          done = true;
+          clearTimeout(t);
+          if (nav.resolve === finish) nav.resolve = null;
+          resolve(how);
+        };
+        const t = setTimeout(() => finish('auto'), ms);
+        nav.resolve = finish;
+      });
+    }
+
+    async function chapterCard(num, name, desc) {
+      const card = document.getElementById('tut-chapter-card');
+      document.getElementById('tut-chapter-num').textContent = num;
+      document.getElementById('tut-chapter-name').textContent = name;
+      document.getElementById('tut-chapter-desc').textContent = desc;
+      card.classList.add('visible');
+      // Skippable: hammering → should not stall on a title card.
+      const how = await pause(1500);
+      card.classList.remove('visible');
+      await pause(how === 'auto' ? 380 : 160);
+      return how;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Completion state
+    //
+    //  Finishing and skipping are recorded differently. Both satisfy the
+    //  app's redirect check, so a skipper is not dragged back here, but the
+    //  tutorial menu can still tell who actually walked through it.
+    //  Both paths write the server flag as well as localStorage, otherwise
+    //  the same user gets redirected into the tour again on their next device.
+    // ══════════════════════════════════════════════════════════════════════
+    async function markTutorial(state) {
+      try { localStorage.setItem('tc_tutorial', state); } catch (e) {}
+      try {
+        const resp = await fetch('/api/preferences', { credentials: 'include' });
+        if (!resp.ok) return;                    // not logged in: local flag is enough
+        const prefs = await resp.json();
+        const tc = prefs.tutorialsCompleted || {};
+        tc['getting-started'] = state === 'completed' ? true : state;
+        prefs.tutorialsCompleted = tc;
+        await fetch('/api/preferences', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(prefs),
+        });
+      } catch (e) { /* offline or logged out — localStorage still carries it */ }
+    }
+
+    // Remember which chapter they reached, so a half-finished tour resumes
+    // instead of restarting from the welcome splash.
+    function saveResume(idx) {
+      try { localStorage.setItem('tc_tutorial_chapter', String(idx)); } catch (e) {}
+    }
+    function loadResume() {
+      const v = parseInt(localStorage.getItem('tc_tutorial_chapter') || '0', 10);
+      return isNaN(v) ? 0 : v;
+    }
+    function clearResume() {
+      try { localStorage.removeItem('tc_tutorial_chapter'); } catch (e) {}
+    }
+
+    async function skipTour() {
+      settleBeat('skip');
+      await markTutorial('skipped');
+      clearResume();
+      window.location.href = '/';
+    }
+    navBtnSkip.addEventListener('click', skipTour);
+
+    // ─── Spotlight: generic, no per-ID CSS rule needed ───
+    let spotlit = [];
+    function spotlight(...els) {
+      clearSpotlight();
+      els.forEach(sel => {
+        const el = typeof sel === 'string' ? document.querySelector(sel) : sel;
+        if (!el) return;
+        // A z-index only applies to positioned elements, but overriding an
+        // existing position would move the target. Only statically positioned
+        // ones get relative.
+        if (getComputedStyle(el).position === 'static') el.classList.add('tut-spotlight-static');
+        el.classList.add('tut-spotlight-target');
+        spotlit.push(el);
+      });
+      tutDim.classList.add('visible');
+    }
+    function clearSpotlight() {
+      spotlit.forEach(el => el.classList.remove('tut-spotlight-target', 'tut-spotlight-static'));
+      spotlit = [];
+      tutDim.classList.remove('visible');
+    }
 
     function waitForClick(selector, glowClass) {
       return new Promise(resolve => {
@@ -2421,25 +3679,37 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
 
 
     // ═══ GUIDE ROUTING ═══
-    const guideParam = new URLSearchParams(window.location.search).get('guide') || 'getting-started';
+    //
+    // There is one guide now. `?chapter=N` jumps straight to a chapter so the
+    // ? menu can offer replays, and `?guide=panes` — the old second tour —
+    // still resolves, landing on the chapter that absorbed its content.
+    const params = new URLSearchParams(window.location.search);
+    const legacyGuide = params.get('guide');
+    const guideParam = 'getting-started';
 
-    // Update welcome text per guide
-    const welcomeTexts = {
-      'getting-started': { title: '49Agents', sub: 'Your remote dev machines, one canvas away.<br>Let\'s walk through setting up your workspace.' },
-      'panes': { title: 'Panes & Navigation', sub: 'Learn broadcast mode, WASD navigation, and pane management.' },
-    };
-    const wt = welcomeTexts[guideParam] || welcomeTexts['getting-started'];
-    document.querySelector('.tut-logo').textContent = wt.title;
-    document.querySelector('.tut-sub').innerHTML = wt.sub;
+    const LEGACY_CHAPTER = { 'panes': 2 };   // old panes tour ≈ chapter 3 (0-indexed 2)
+    let startChapter = null;
+    if (params.has('chapter')) {
+      const n = parseInt(params.get('chapter'), 10);
+      if (!isNaN(n)) startChapter = Math.max(0, n);
+    } else if (legacyGuide && LEGACY_CHAPTER[legacyGuide] !== undefined) {
+      startChapter = LEGACY_CHAPTER[legacyGuide];
+    }
+    // A deep-linked replay should begin where it was asked to, not where the
+    // user happened to stop last time.
+    if (startChapter !== null) {
+      try { localStorage.setItem('tc_tutorial_chapter', String(startChapter)); } catch (e) {}
+    }
 
-    // Update completion text per guide
-    const completionTexts = {
-      'getting-started': { title: "You're all set", sub: "You've seen the core features. Now connect your machine and start building." },
-      'panes': { title: 'Navigation mastered', sub: 'You now know broadcast mode, WASD pane navigation, and multi-placement.' },
-    };
-    const ct = completionTexts[guideParam] || completionTexts['getting-started'];
-    document.querySelector('.tut-complete-title').textContent = ct.title;
-    document.querySelector('.tut-complete-sub').textContent = ct.sub;
+    document.querySelector('.tut-logo').textContent = '49Agents';
+    document.querySelector('.tut-sub').innerHTML =
+      'All your agents, terminals and projects on one canvas.<br>' +
+      'Five short chapters. Some steps play by themselves, some wait for you — ' +
+      '<kbd>←</kbd> <kbd>→</kbd> or the buttons move you through either way.';
+
+    document.querySelector('.tut-complete-title').textContent = "You're all set";
+    document.querySelector('.tut-complete-sub').textContent =
+      'Connect a machine and your terminals, editors and git graphs appear on the canvas. The ? menu has the tour and a shortcut cheatsheet whenever you want them.';
 
     // Home button visibility
     const tutHomeBtn = document.getElementById('tut-home-btn');
@@ -2475,6 +3745,17 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       waitForMoveMode, waitForWASDNav, waitForEnterSelect, waitForTabW,
       // Hotkey helpers
       waitForTabA, waitForTabH,
+      // Navigation: every beat routes through beat()/say() so Next, Back and
+      // Skip stay live no matter what the step is waiting for.
+      beat, say, pause, nav, chapterCard, renderDots, ARROW_KEYS, runChapters,
+      spotlight, clearSpotlight,
+      markTutorial, saveResume, loadResume, clearResume,
+      openCheatsheet, closeCheatsheet,
+      // Pane types added after the original three
+      createFakePane, createFakeBeadsPane, createFakeNotePane,
+      createFakeConversationsPane, createFakeFolderPane, createFakeIframePane,
+      // Claude state + notifications
+      setClaudeState, showTutToast, clearTutToasts, resetCanvas,
       tutOverlay, tutDim, tutComplete, tutHomeBtn, addPaneBtn, paneMenu, controls, canvas, canvasContainer, tutPrompt,
       panes, PANE_DEFAULTS,
       get panX() { return panX; }, set panX(v) { panX = v; },
@@ -2482,6 +3763,23 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       get zoom() { return zoom; }, set zoom(v) { zoom = v; },
       updateCanvasTransform,
     };
+
+    // ?sheet=1 — the cheatsheet on its own, for someone who only wants the
+    // shortcuts. Closing it returns to the app rather than starting a tour.
+    if (params.get('sheet')) {
+      document.getElementById('tut-skip-btn').style.display = 'none';
+      document.getElementById('tut-start-btn').style.display = 'none';
+      tutOverlay.classList.add('hidden');
+      tutHomeBtn.style.display = 'flex';
+      openCheatsheet();
+      document.getElementById('tut-sheet-close').addEventListener('click', () => {
+        window.location.href = '/';
+      });
+      sheetEl.addEventListener('click', (e) => {
+        if (e.target === sheetEl) window.location.href = '/';
+      });
+      return;
+    }
 
     const guide = window.TUT_GUIDES && window.TUT_GUIDES[guideParam];
     if (guide) {

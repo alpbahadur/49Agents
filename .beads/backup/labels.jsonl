@@ -1,6 +1,12 @@
 {"issue_id":"bd_49Agents-0zg","label":"feature"}
 {"issue_id":"bd_49Agents-0zg","label":"frontend"}
 {"issue_id":"bd_49Agents-0zg","label":"ux"}
+{"issue_id":"bd_49Agents-c2f","label":"auth"}
+{"issue_id":"bd_49Agents-c2f","label":"cloud"}
+{"issue_id":"bd_49Agents-c2f","label":"frontend"}
+{"issue_id":"bd_49Agents-c2f","label":"local"}
+{"issue_id":"bd_49Agents-c2f","label":"onboarding"}
+{"issue_id":"bd_49Agents-c2f","label":"telemetry"}
 {"issue_id":"bd_49Agents-d9c","label":"agent"}
 {"issue_id":"bd_49Agents-d9c","label":"feature"}
 {"issue_id":"bd_49Agents-d9c","label":"frontend"}

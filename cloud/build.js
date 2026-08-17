@@ -11,7 +11,7 @@ const srcDir = join(__dirname, 'src-client');
 const publicDir = join(__dirname, 'public');
 
 // Non-module files: terser + obfuscator only
-const simpleTargets = ['themes.js', 'analytics.js', 'tutorial.js', 'tutorial-getting-started.js', 'tutorial-panes.js', 'dev-panel.js'];
+const simpleTargets = ['themes.js', 'analytics.js', 'tutorial-tour.js', 'dev-panel.js'];
 
 // Obfuscator config — focused on making code unreadable without bloating size
 const obfuscatorOptions = {
