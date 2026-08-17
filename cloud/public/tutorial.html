@@ -2334,7 +2334,6 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       resolve: null,      // resolves the beat currently awaiting input
       pending: null,      // a press that landed between beats, replayed into the next one
       autoTimer: null,
-      backTo: null,       // set by the guide when a chapter boundary is crossed
       chapters: [],
       chapterIdx: 0,
     };
@@ -2356,8 +2355,7 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
 
     navBtnNext.addEventListener('click', () => settleBeat('next'));
     navBtnBack.addEventListener('click', () => {
-      if (nav.chapterIdx <= 0) return;
-      nav.backTo = nav.chapterIdx - 1;
+      if (navBtnBack.disabled) return;
       settleBeat('back');
     });
 
@@ -2381,12 +2379,10 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       if (now - lastNavKey < 260) return;
       lastNavKey = now;
 
+      // Symmetrical: -> is one step forward, <- is one step back. The runner
+      // decides whether that crosses a chapter boundary.
       if (e.key === 'ArrowRight') { flashNav(navBtnNext); settleBeat('next'); }
-      else if (nav.chapterIdx > 0) {
-        flashNav(navBtnBack);
-        nav.backTo = nav.chapterIdx - 1;
-        settleBeat('back');
-      }
+      else if (!navBtnBack.disabled) { flashNav(navBtnBack); settleBeat('back'); }
     });
 
     // An arrow press has no pointer feedback of its own, so echo it on the
@@ -2407,7 +2403,9 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
         d.className = 'tut-dot' + (i === nav.chapterIdx ? ' active' : (i < nav.chapterIdx ? ' done' : ''));
         dotsEl.appendChild(d);
       });
-      navBtnBack.disabled = nav.chapterIdx <= 0;
+      // Back moves one step now, so it stays live everywhere except the very
+      // first step of the very first chapter.
+      navBtnBack.disabled = nav.chapterIdx <= 0 && (nav.stepIdx || 0) <= 0;
     }
 
     /**
@@ -2459,7 +2457,7 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
 
     // Arrow keys drive the whole tour, but nothing on screen said so. Mention
     // them once per beat, next to whatever that beat is actually doing.
-    const ARROW_KEYS = '<span class="tut-keys"><kbd>←</kbd><kbd>→</kbd> to step through</span>';
+    const ARROW_KEYS = '<span class="tut-keys"><kbd>←</kbd><kbd>→</kbd> step back / forward</span>';
 
     function defaultHint(opts) {
       // A beat with both wants the gesture but will not block forever, so say
@@ -2559,6 +2557,103 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       nav.stepIdx = (nav.stepIdx || 0) + 1;
       showPrompt(chapter, title, body, nav.stepIdx - 1, Math.max(nav.stepTotal || 1, nav.stepIdx));
       return beat({ auto: ms || 4200 });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Step runner
+    //
+    //  Chapters are { setup(), steps[] }. Because the steps are data rather
+    //  than an await chain, the runner can move to any index in either
+    //  direction — which is the whole point: ← goes back one step, not one
+    //  chapter, and the two arrows are finally symmetrical.
+    //
+    //  Going back replays: re-run setup() from an empty canvas, then apply()
+    //  every step before the target. apply() must therefore be idempotent and
+    //  instant. undo() exists only for effects that would otherwise persist
+    //  across a *forward* step (a zoom, a spotlight).
+    // ══════════════════════════════════════════════════════════════════════
+    async function runChapters(chapters, meta) {
+      let ci = Math.min(loadResume(), chapters.length - 1);
+      if (ci < 0) ci = 0;
+      let si = 0;
+      let replaying = false;
+
+      while (ci < chapters.length) {
+        const chapter = chapters[ci];
+        nav.chapterIdx = ci;
+        nav.stepTotal = chapter.steps.length;
+        saveResume(ci);
+
+        // Rebuild the scene, then fast-forward to the step we want.
+        chapter.setup();
+        for (let i = 0; i < si; i++) {
+          const s = chapter.steps[i];
+          if (s.apply) s.apply();
+          if (s.undo) s.undo();          // its visual effect belongs to that step only
+        }
+
+        // Only announce the chapter when arriving at its start going forward.
+        if (si === 0 && !replaying) {
+          nav.pending = null;
+          const m = meta[ci];
+          if (await chapterCard(m.num, m.name, m.desc) === 'back') {
+            if (ci > 0) { ci--; si = chapters[ci].steps.length - 1; replaying = true; continue; }
+          }
+        }
+        replaying = false;
+
+        // Walk the steps.
+        let outcome = 'next';
+        while (si < chapter.steps.length) {
+          const step = chapter.steps[si];
+
+          if (step.skipIf && step.skipIf()) { si++; continue; }
+          if (step.apply) step.apply();
+
+          nav.stepIdx = si;
+          const [chap, title, body] = step.say || step.prompt;
+          showPrompt(chap, title, body, si, chapter.steps.length);
+
+          const how = await beat({
+            wait: step.wait,
+            auto: step.say ? (step.ms || 4200) : step.ms,
+            // A step may word its own hint, but the arrow reminder is the
+            // runner's to add — otherwise custom hints quietly lose it.
+            hint: step.hint === undefined ? undefined
+                : '<span class="tut-waiting">' + step.hint + '</span>' + ARROW_KEYS,
+            next: step.next,
+          });
+
+          if (step.ensure) step.ensure();
+
+          if (how === 'back') { outcome = 'back'; break; }
+          if (step.undo) step.undo();
+          si++;
+        }
+
+        if (outcome === 'back') {
+          if (si > 0) { si--; replaying = true; continue; }   // back one step
+          if (ci > 0) {                                        // back into previous chapter
+            ci--;
+            si = chapters[ci].steps.length - 1;
+            replaying = true;
+            continue;
+          }
+          si = 0;                                              // already at the very start
+          replaying = true;
+          continue;
+        }
+
+        ci++;
+        si = 0;
+      }
+
+      hidePrompt();
+      clearSpotlight();
+      await markTutorial('completed');
+      clearResume();
+      await sleep(300);
+      tutComplete.classList.add('visible');
     }
 
     // ─── Cheatsheet ───
@@ -3627,7 +3722,7 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       waitForTabA, waitForTabH,
       // Navigation: every beat routes through beat()/say() so Next, Back and
       // Skip stay live no matter what the step is waiting for.
-      beat, say, pause, nav, chapterCard, renderDots, ARROW_KEYS,
+      beat, say, pause, nav, chapterCard, renderDots, ARROW_KEYS, runChapters,
       spotlight, clearSpotlight,
       markTutorial, saveResume, loadResume, clearResume,
       openCheatsheet, closeCheatsheet,

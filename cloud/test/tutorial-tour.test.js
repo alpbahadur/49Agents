@@ -81,7 +81,8 @@ test('skipping is recorded distinctly from finishing, on both paths', () => {
   // Previously Skip wrote the same 'completed' flag as finishing, so a tour
   // nobody watched was indistinguishable from one they did.
   assert.ok(tutorialHtml.includes("localStorage.setItem('tc_tutorial', 'skipped')"));
-  assert.ok(tourJs.includes("markTutorial('completed')"));
+  // Completion is recorded by the step runner, which owns the end of the tour.
+  assert.ok(tutorialHtml.includes("markTutorial('completed')"));
 
   // Skip must also reach the server, or the redirect follows the user onto
   // every other device they log in from.
@@ -154,7 +155,8 @@ test('every beat states whether it advances on its own or waits', () => {
 
 test('the arrow keys that drive the tour are advertised', () => {
   // They were wired up from the start but nothing on screen mentioned them.
-  assert.ok(tutorialHtml.includes('to step through'));
+  // The wording matters: the arrows move one *step*, not one chapter.
+  assert.ok(tutorialHtml.includes('step back / forward'));
   assert.match(tutorialHtml, /const ARROW_KEYS/);
 
   // Every default hint carries the reminder...
@@ -164,10 +166,12 @@ test('the arrow keys that drive the tour are advertised', () => {
   );
   assert.equal((hint.match(/ARROW_KEYS/g) || []).length, 4, 'each hint branch appends it');
 
-  // ...and so does every hand-written one, via ctx.ARROW_KEYS.
-  const custom = [...tourJs.matchAll(/hint:\s*'<span[^\n]*/g)].map(m => m[0]);
-  for (const h of custom) {
-    assert.ok(h.includes('ARROW_KEYS'), `custom hint omits the arrow reminder: ${h}`);
+  // A step may word its own hint, but the runner is what appends the arrow
+  // reminder — otherwise a custom hint silently loses it.
+  assert.match(tutorialHtml, /hint: step\.hint === undefined \? undefined[\s\S]*?ARROW_KEYS/);
+  const customHints = [...tourJs.matchAll(/\bhint:\s*'([^']*)'/g)].map(m => m[1]);
+  for (const h of customHints) {
+    assert.ok(!h.includes('tut-waiting'), `step hints are plain text now: ${h}`);
   }
 
   // And the splash sets the expectation before the tour even starts.
@@ -227,21 +231,16 @@ test('an arrow press is never silently dropped', () => {
   assert.match(pauseFn.slice(0, 700), /if \(nav\.pending\)/);
 
   // And a press that brought us into a chapter is not replayed into its card.
-  assert.ok(tourJs.includes('ctx.nav.pending = null'));
+  assert.ok(tutorialHtml.includes('nav.pending = null'));
 });
 
 test('waiting between beats stays interruptible', () => {
   // A plain sleep() swallows every key pressed during it. Mid-chapter pauses
   // go through pause(), which resolves early on Next/Back.
   assert.ok(tutorialHtml.includes('function pause(ms)'));
-  const chapterBody = tourJs.slice(tourJs.indexOf('async function chapter1'));
-  assert.ok(
-    (chapterBody.match(/await ctx\.pause\(/g) || []).length >= 8,
-    'mid-chapter waits should use pause(), not sleep()'
-  );
   // The title card is skippable too, and reports how it ended.
   assert.match(tutorialHtml, /const how = await pause\(1500\)/);
-  assert.ok(tourJs.includes('const cardHow = await ctx.chapterCard'));
+  assert.ok(tutorialHtml.includes("chapterCard(m.num, m.name, m.desc) === 'back'"));
 });
 
 test('held arrow keys cannot run away with the tour', () => {
@@ -270,10 +269,63 @@ test('the prompt card is not flush against the bottom edge', () => {
   assert.ok(mm && Number(mm[1]) >= 20, 'mobile prompt sits too close to the edge');
 });
 
+test('the arrows move one step, not one chapter', () => {
+  // Back used to jump to the start of the previous chapter while Next
+  // advanced a single substep — asymmetric, and the main thing that made
+  // progression confusing. Both now move exactly one step.
+  assert.ok(!tutorialHtml.includes('backTo'), 'the chapter-jump path should be gone');
+  assert.match(tutorialHtml, /else if \(!navBtnBack\.disabled\) \{ flashNav\(navBtnBack\); settleBeat\('back'\); \}/);
+
+  // Back is live everywhere except the very first step of the first chapter.
+  assert.match(tutorialHtml, /navBtnBack\.disabled = nav\.chapterIdx <= 0 && \(nav\.stepIdx \|\| 0\) <= 0;/);
+
+  // Stepping back past a chapter boundary lands on the previous chapter's
+  // LAST step, not its first.
+  const runner = tutorialHtml.slice(tutorialHtml.indexOf('async function runChapters'));
+  assert.match(runner, /si = chapters\[ci\]\.steps\.length - 1;/);
+});
+
+test('chapters are declarative so any step can be replayed', () => {
+  // An imperative await-chain cannot be rewound; that is why back-navigation
+  // had to throw the user to a chapter boundary. Steps are data now, and
+  // going back re-runs setup() then fast-forwards each apply().
+  assert.ok(tourJs.includes('ctx.runChapters(chapters, CHAPTERS)'));
+  const chapterFns = tourJs.match(/function chapter\d\(ctx\) \{/g) || [];
+  assert.equal(chapterFns.length, 5);
+  // Each returns { setup, steps }.
+  assert.equal((tourJs.match(/^      setup\(\) \{/gm) || []).length, 5);
+  assert.equal((tourJs.match(/^      steps: \[/gm) || []).length, 5);
+
+  // The replay path exists and re-applies prior steps.
+  const runner = tutorialHtml.slice(tutorialHtml.indexOf('async function runChapters'));
+  assert.match(runner, /chapter\.setup\(\)/);
+  assert.match(runner, /for \(let i = 0; i < si; i\+\+\)/);
+});
+
+test('every Tab chord the app implements is taught somewhere', () => {
+  // The old tour taught three of eleven. This keeps the tour honest against
+  // modules/shortcuts.js rather than letting it drift again.
+  const shortcuts = readFileSync(join(cloud, 'src-client/modules/shortcuts.js'), 'utf8');
+  const implemented = new Set(
+    [...shortcuts.matchAll(/e\.key === '([^']+)' && tabHeld/g)].map(m => m[1])
+  );
+  const taught = new Set(
+    [...tourJs.matchAll(/<kbd>Tab<\/kbd>\+<kbd>([^<]+)<\/kbd>/g)].map(m => m[1].toLowerCase())
+  );
+  const missing = [...implemented].filter(k => !taught.has(k));
+  assert.deepEqual(missing, [], `chords implemented but never taught: ${missing.join(', ')}`);
+
+  // And the non-chord keys that matter.
+  for (const k of ['Ctrl', 'Shift', 'Esc', 'Enter', 'WASD']) {
+    assert.ok(tourJs.includes(k), `${k} is never mentioned`);
+  }
+});
+
 test('progress advances on every prompt', () => {
   // The old tour reused one stepIdx across consecutive prompts, so the bar
   // froze for several screens and "12 steps" never matched the 19 shown.
-  const say = tutorialHtml.slice(tutorialHtml.indexOf('function say(chapter'));
-  assert.ok(say.slice(0, 400).includes('nav.stepIdx = (nav.stepIdx || 0) + 1'));
-  assert.ok(tourJs.includes('ctx.nav.stepIdx = 0'), 'progress must reset per chapter');
+  // The runner shows "step i of chapter.steps.length", so the bar can never
+  // disagree with the number of screens actually shown.
+  assert.match(tutorialHtml, /showPrompt\(chap, title, body, si, chapter\.steps\.length\)/);
+  assert.match(tutorialHtml, /nav\.stepIdx = si;/);
 });
