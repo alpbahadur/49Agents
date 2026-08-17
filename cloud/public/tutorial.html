@@ -3748,6 +3748,7 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       // Navigation: every beat routes through beat()/say() so Next, Back and
       // Skip stay live no matter what the step is waiting for.
       beat, say, pause, nav, chapterCard, renderDots, ARROW_KEYS, runChapters,
+      isLocalMode: () => window.__tcAuthMode === 'local',
       spotlight, clearSpotlight,
       markTutorial, saveResume, loadResume, clearResume,
       openCheatsheet, closeCheatsheet,
@@ -3763,6 +3764,15 @@ ${GIT_IND}<span class="${M}">●</span> <span class="${M}">0c8d2f5</span> <span 
       get zoom() { return zoom; }, set zoom(v) { zoom = v; },
       updateCanvasTransform,
     };
+
+    // This page does not run app.js, so it resolves the mode itself. The last
+    // step of the tour reads it to decide whether the user still has a machine
+    // to connect. Fire-and-forget: it lands long before the tour gets there,
+    // and an unset value reads as cloud, which is the safe wording.
+    fetch('/api/auth/mode')
+      .then(r => r.ok ? r.json() : null)
+      .then(m => { if (m) window.__tcAuthMode = m.mode; })
+      .catch(() => {});
 
     // ?sheet=1 — the cheatsheet on its own, for someone who only wants the
     // shortcuts. Closing it returns to the app rather than starting a tour.

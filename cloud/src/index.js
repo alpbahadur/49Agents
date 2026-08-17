@@ -1,4 +1,5 @@
 import { createServer } from 'http';
+import { networkInterfaces } from 'os';
 import { spawnSync } from 'child_process';
 import express from 'express';
 import helmet from 'helmet';
@@ -161,6 +162,43 @@ app.get('/api/auth/mode', (req, res) => {
   res.json({
     mode: isLocalMode() ? 'local' : 'cloud',
     cloudAuthUrl: isLocalMode() ? config.cloudAuthUrl : undefined,
+  });
+});
+
+/**
+ * How a *second* machine can reach this server.
+ *
+ * The install command the Add Machine dialog hands out embeds the browser's
+ * own origin, which is fine on a hosted relay but wrong for a self-hosted
+ * instance: the user is looking at http://localhost, and pasting that on
+ * another machine points the agent back at itself.
+ *
+ * So the server reports its own reachable address. loopbackOnly also tells the
+ * dialog when the answer is "it cannot be reached at all yet" — the local-mode
+ * default binds 127.0.0.1, and the user has to opt into a LAN bind first.
+ */
+app.get('/api/network', (req, res) => {
+  const loopbackOnly = config.host === '127.0.0.1' || config.host === 'localhost' || config.host === '::1';
+
+  let lanAddress = null;
+  try {
+    const nets = networkInterfaces();
+    for (const addrs of Object.values(nets)) {
+      for (const a of addrs || []) {
+        // Node <18 reports family as the string 'IPv4', newer as the number 4.
+        const isV4 = a.family === 'IPv4' || a.family === 4;
+        if (isV4 && !a.internal && !lanAddress) lanAddress = a.address;
+      }
+    }
+  } catch {
+    // Interface enumeration is best-effort; the dialog copes with null.
+  }
+
+  res.json({
+    loopbackOnly,
+    lanAddress,
+    port: config.port,
+    host: config.host,
   });
 });
 
@@ -362,6 +400,13 @@ async function start() {
     console.log(`[cloud] 49Agents Cloud Server`);
     console.log(`[cloud] Listening on http://${config.host}:${config.port}`);
     console.log(`[cloud] Environment: ${config.nodeEnv}`);
+    // Local mode now binds loopback by default, which stops a LAN neighbour
+    // registering as your agent. Anyone who *wants* to reach this box from
+    // another device needs to know how to get the old behaviour back.
+    if (isLocalMode() && config.host === '127.0.0.1') {
+      console.log(`[cloud] Local mode: reachable from this machine only.`);
+      console.log(`[cloud] To reach it from another device, set HOST=0.0.0.0 (only on a network you trust).`);
+    }
   });
 }
 

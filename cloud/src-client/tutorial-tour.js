@@ -370,8 +370,17 @@
           say: [C, 'And the rest',
             '<kbd>Tab</kbd>+<kbd>S</kbd> opens settings — themes, fonts, night mode, notification sounds. Every chord is on the <span class="hl">Shortcuts</span> button below, and in the <kbd>?</kbd> menu once you are back in the app.'],
           ms: 5200,
+          // On a self-hosted instance this is the last thing said, so it is
+          // what has to carry the closing label.
+          next: ctx.isLocalMode() ? 'Finish' : undefined,
         },
         {
+          // Dropped entirely when self-hosted. ./49ctl start already launched
+          // an agent for this machine and it connects on its own, so there is
+          // no setup left to describe — a "connect your machine" step at the
+          // end of the tour would be asking for something already done.
+          // Adding a *second* machine is discoverable from + Add Machine.
+          skipIf: () => ctx.isLocalMode(),
           apply() { ctx.spotlight('#hud-container'); },
           undo()  { ctx.clearSpotlight(); },
           prompt: ['Set up', 'Connect your own machine',
