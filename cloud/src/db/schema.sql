@@ -78,6 +78,9 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   focus_mode         TEXT NOT NULL DEFAULT 'hover',
   teleport_animation INTEGER NOT NULL DEFAULT 1,
   projects_sidebar_position TEXT NOT NULL DEFAULT 'right',
+  beads_button_enabled INTEGER NOT NULL DEFAULT 0,
+  pane_naming_enabled INTEGER NOT NULL DEFAULT 1,
+  pane_number_hotkeys_enabled INTEGER NOT NULL DEFAULT 1,
   updated_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

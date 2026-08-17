@@ -15,7 +15,14 @@ export function initConnectionDeps(ctx) { _ctx = ctx; }
 // pendingRequests, pendingScanCallbacks and agentRequest — moved to
 // modules/ws-transport.js
 
-// Update connection status indicator
+// Update connection status indicator.
+//
+// The header dot was removed — a connected pane is self-evident (it renders
+// output), and its "Connected" tooltip sat on top of the pane controls. The
+// states that do need surfacing already have louder signals: the disconnect
+// overlay and the offline placeholder. The lookup stays because panes built
+// elsewhere may still carry an indicator, and the call sites are the natural
+// place to hang any future status UI.
 export function updateConnectionStatus(paneId, status) {
   const indicator = document.querySelector(`#pane-${paneId} .connection-status`);
   if (indicator) {
@@ -146,7 +153,6 @@ export function renderOfflinePlaceholder(paneData) {
       ${_ctx.paneNameHtml(paneData)}
       <div class="pane-header-right">
         ${_ctx.shortcutBadgeHtml(paneData)}
-        <span class="connection-status disconnected" data-tooltip="Disconnected"></span>
         <button class="pane-close" aria-label="Close pane"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
     </div>

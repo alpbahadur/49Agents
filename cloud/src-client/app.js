@@ -86,6 +86,22 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   let projectsSidebarPosition = 'right'; // 'left' or 'right'
   let teleportAnimation = true; // false = instant teleport
 
+  // Optional pane-header affordances. These drive body-level classes rather
+  // than the pane templates, so flipping one in settings applies to panes
+  // that are already on the canvas instead of waiting for a re-render.
+  // Beads is off by default — it means nothing to someone who does not use
+  // beads, and an unexplained icon in every header is the kind of clutter a
+  // new user reads as complexity.
+  let beadsButtonEnabled = false;
+  let paneNamingEnabled = true;
+  let paneNumberHotkeysEnabled = true;
+
+  function applyPaneChromePrefs() {
+    document.body.classList.toggle('hide-beads-btn', !beadsButtonEnabled);
+    document.body.classList.toggle('hide-pane-naming', !paneNamingEnabled);
+    document.body.classList.toggle('hide-pane-shortcuts', !paneNumberHotkeysEnabled);
+  }
+
   // ---------------------------------------------------------------------------
   // Client-side telemetry tracker (local mode only, respects consent)
   // ---------------------------------------------------------------------------
@@ -1051,12 +1067,24 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       if (prefs.teleportAnimation !== undefined) {
         teleportAnimation = prefs.teleportAnimation;
       }
+      if (prefs.beadsButtonEnabled !== undefined) {
+        beadsButtonEnabled = prefs.beadsButtonEnabled;
+      }
+      if (prefs.paneNamingEnabled !== undefined) {
+        paneNamingEnabled = prefs.paneNamingEnabled;
+      }
+      if (prefs.paneNumberHotkeysEnabled !== undefined) {
+        paneNumberHotkeysEnabled = prefs.paneNumberHotkeysEnabled;
+      }
+      applyPaneChromePrefs();
       // Projects are applied after the module wiring below, since
       // loadProjectsFromPrefs lives in modules/projects.js and its context
       // is not initialised yet at this point.
       loadedPrefs = prefs;
     } catch (e) {
       console.error('[App] Preferences load failed:', e.message);
+      // Fall back to the defaults rather than leaving the chrome unstyled.
+      applyPaneChromePrefs();
     }
 
     // xterm.js is loaded via ESM import at top of file
@@ -1103,6 +1131,12 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       setProjectsSidebarPosition: (v) => { projectsSidebarPosition = v; },
       getTeleportAnimation: () => teleportAnimation,
       setTeleportAnimation: (v) => { teleportAnimation = v; },
+      getBeadsButtonEnabled: () => beadsButtonEnabled,
+      setBeadsButtonEnabled: (v) => { beadsButtonEnabled = v; applyPaneChromePrefs(); },
+      getPaneNamingEnabled: () => paneNamingEnabled,
+      setPaneNamingEnabled: (v) => { paneNamingEnabled = v; applyPaneChromePrefs(); },
+      getPaneNumberHotkeysEnabled: () => paneNumberHotkeysEnabled,
+      setPaneNumberHotkeysEnabled: (v) => { paneNumberHotkeysEnabled = v; applyPaneChromePrefs(); },
       getHudExpanded, getAgentsHudExpanded, getHudHidden, getDeviceColorOverrides,
       getTutorialsCompleted: () => tutorialsCompleted,
     });
@@ -1135,6 +1169,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getHudExpanded, setHudExpanded, getAgentsHudExpanded, setAgentsHudExpanded,
       getFeedbackHudExpanded, getHudHidden, setHudHidden,
       getFleetPaneHidden, setFleetPaneHidden, getAgentsPaneHidden, setAgentsPaneHidden,
+      getPaneNumberHotkeysEnabled: () => paneNumberHotkeysEnabled,
     });
     initAgentUiDeps({
       getWs: () => ws,

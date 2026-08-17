@@ -280,8 +280,11 @@ export function setupKeyboardShortcuts() {
     // Tab+1..9: jump to pane or project with that shortcut number (shared pool)
     if (tabHeld && e.key >= '1' && e.key <= '9') {
       const num = parseInt(e.key, 10);
-      // Check panes first (includes checkpoint panes)
-      const targetPane = state.panes.find(p => p.shortcutNumber === num);
+      // Check panes first (includes checkpoint panes). Panes drop out of the
+      // pool when the setting is off; projects keep their numbers either way,
+      // since that shortcut is not what the setting turns off.
+      const paneHotkeys = _ctx.getPaneNumberHotkeysEnabled ? _ctx.getPaneNumberHotkeysEnabled() : true;
+      const targetPane = paneHotkeys ? state.panes.find(p => p.shortcutNumber === num) : null;
       if (targetPane) {
         tabChordUsed = true;
         e.preventDefault();
