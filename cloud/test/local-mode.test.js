@@ -107,11 +107,16 @@ test('the status line survives a HUD re-render', () => {
   assert.ok(!/\brenderHud\(\)/.test(fn), 'must not call renderHud from agent-ui');
 });
 
-test('the tutorial ending matches the mode', () => {
-  // Telling a self-hosted user to install an agent sends them after software
-  // that is running right now.
-  assert.match(tourJs, /ctx\.isLocalMode\(\)/);
-  assert.match(tourJs, /Your machine is already connected/);
-  // The hosted wording is still there for the case that needs it.
-  assert.match(tourJs, /Connect your own machine/);
+test('the connect-a-machine step is dropped when self-hosted', () => {
+  // Not reworded — removed. ./49ctl start already connected this machine, so
+  // a setup step at the end of the tour has nothing left to ask for.
+  const step = tourJs.slice(tourJs.indexOf("skipIf: () => ctx.isLocalMode()"));
+  assert.match(step.slice(0, 700), /prompt: \['Set up', 'Connect your own machine'/);
+
+  // Hosted users still get it, and it still closes the tour.
+  assert.match(step.slice(0, 700), /next: 'Finish'/);
+
+  // With that step gone, the one before it has to carry the closing label,
+  // or a self-hosted user ends the tour on a button reading "Next".
+  assert.match(tourJs, /next: ctx\.isLocalMode\(\) \? 'Finish' : undefined/);
 });
