@@ -23,6 +23,29 @@ export function showRelayNotification(message, type, duration) {
   setTimeout(() => { el.remove(); }, duration || 5000);
 }
 
+/**
+ * Where a second machine should point its agent.
+ *
+ * The browser's own origin is the right answer on a hosted relay, but on a
+ * self-hosted instance the user is looking at http://localhost — pasting that
+ * on another machine tells its agent to connect to itself. The server knows
+ * its real address, so it is asked.
+ *
+ * Returns null outside local mode, meaning "the origin is already correct".
+ */
+async function fetchLocalReachableHost() {
+  if (!isLocalMode()) return null;
+  try {
+    const res = await fetch('/api/network');
+    if (!res.ok) return null;
+    const net = await res.json();
+    if (!net.lanAddress) return null;
+    return { host: `${net.lanAddress}:${net.port}`, loopbackOnly: net.loopbackOnly };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchInstallCommand(hostname, platform = 'linux') {
   const res = await fetch('/api/agents/token', {
     method: 'POST',
@@ -32,11 +55,17 @@ export async function fetchInstallCommand(hostname, platform = 'linux') {
   });
   const data = await res.json();
   if (!data.token) throw new Error(data.error || 'Unknown');
+
+  // Self-hosted: substitute the address another machine can actually resolve.
+  const reachable = await fetchLocalReachableHost();
+  const httpHost = reachable ? reachable.host : location.host;
+  const httpOrigin = reachable ? `http://${reachable.host}` : location.origin;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+
   if (platform === 'windows') {
-    return `$env:TC_TOKEN="${data.token}"; irm ${location.origin}/dl/install.ps1 | iex`;
+    return `$env:TC_TOKEN="${data.token}"; irm ${httpOrigin}/dl/install.ps1 | iex`;
   }
-  return `curl -fsSL ${location.origin}/dl/install.sh | TC_TOKEN=${data.token} TC_CLOUD_URL=${proto}//${location.host} sh`;
+  return `curl -fsSL ${httpOrigin}/dl/install.sh | TC_TOKEN=${data.token} TC_CLOUD_URL=${proto}//${httpHost} sh`;
 }
 
 // --- Agent Update Notification Helpers ---
@@ -276,7 +305,16 @@ export function showAddMachineDialog() {
   card.style.cssText = 'background:#1a1a2e;border:1px solid #4ec9b0;border-radius:12px;padding:32px;max-width:560px;width:90%;color:#e0e0e0;font-family:monospace;';
   card.innerHTML = `
     <h3 style="margin:0 0 12px;color:#4ec9b0;">Add Machine</h3>
-    <p style="opacity:0.8;margin:0 0 16px;">Copy the command below and paste it on the target machine.</p>
+    <p style="opacity:0.8;margin:0 0 10px;line-height:1.6;">
+      Run a second agent on <em>another</em> computer — a desktop, a server, a VM — and its
+      terminals, editors and git graphs appear on this same canvas, labelled with that
+      machine's name. Each machine runs its own agent; you drive them all from here.
+    </p>
+    <p style="opacity:0.55;margin:0 0 16px;font-size:12px;line-height:1.6;">
+      Paste the command below into a terminal <strong>on that machine</strong>. It installs the
+      agent and connects it. Nothing needs installing on the machine you are reading this on.
+    </p>
+    <div id="add-machine-reach" style="display:none;margin:0 0 16px;padding:10px 12px;border-radius:6px;font-size:12px;line-height:1.6;"></div>
     <div style="margin-bottom:12px;">
       <label style="display:block;margin-bottom:4px;opacity:0.6;font-size:12px;">Platform</label>
       <div id="add-machine-platform" style="display:flex;gap:0;margin-bottom:12px;">
@@ -312,6 +350,39 @@ export function showAddMachineDialog() {
 
   closeBtn.addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  // Self-hosted instances need a word about reachability before the command is
+  // any use: the default bind is loopback, so another machine cannot connect
+  // until the user opts into a LAN bind. Saying that up front beats handing
+  // them a command that silently fails.
+  if (isLocalMode()) {
+    fetch('/api/network')
+      .then(r => r.ok ? r.json() : null)
+      .then(net => {
+        const box = document.getElementById('add-machine-reach');
+        if (!net || !box) return;
+
+        if (net.loopbackOnly) {
+          box.style.display = 'block';
+          box.style.background = 'rgba(181, 137, 0, 0.12)';
+          box.style.border = '1px solid rgba(181, 137, 0, 0.5)';
+          box.style.color = '#e8c46a';
+          box.innerHTML =
+            `This server is only listening on this machine, so another computer cannot reach it yet.<br><br>` +
+            `Restart it with <code style="color:#fff;">HOST=0.0.0.0 ./49ctl start</code> — on a network you trust — ` +
+            `then reopen this dialog. Anyone who can reach the port can run commands on your machines, so avoid public Wi-Fi.`;
+        } else if (net.lanAddress) {
+          box.style.display = 'block';
+          box.style.background = 'rgba(78, 201, 176, 0.08)';
+          box.style.border = '1px solid rgba(78, 201, 176, 0.35)';
+          box.style.color = '#9fdcd0';
+          box.innerHTML =
+            `The other machine must be able to reach <code style="color:#fff;">${net.lanAddress}:${net.port}</code> — ` +
+            `same network, VPN, or Tailscale. The command below already points there.`;
+        }
+      })
+      .catch(() => {});
+  }
 
   // Platform toggle
   let selectedPlatform = 'linux';

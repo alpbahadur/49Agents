@@ -120,3 +120,37 @@ test('the connect-a-machine step is dropped when self-hosted', () => {
   // or a self-hosted user ends the tour on a button reading "Next".
   assert.match(tourJs, /next: ctx\.isLocalMode\(\) \? 'Finish' : undefined/);
 });
+
+test('a second machine gets an address it can actually reach', () => {
+  // The install command embeds the browser's origin, which on a self-hosted
+  // instance is localhost — pasting that on another machine points its agent
+  // back at itself. The server reports its own LAN address instead.
+  assert.match(indexJs, /app\.get\('\/api\/network'/);
+  assert.match(indexJs, /loopbackOnly/);
+  assert.match(indexJs, /a\.family === 'IPv4' \|\| a\.family === 4/);
+
+  // Substitution happens only in local mode; a hosted origin is already right.
+  assert.match(agentUi, /if \(!isLocalMode\(\)\) return null;/);
+  assert.match(agentUi, /const httpOrigin = reachable \? `http:\/\/\$\{reachable\.host\}` : location\.origin;/);
+  assert.match(agentUi, /const httpHost = reachable \? reachable\.host : location\.host;/);
+});
+
+test('the dialog says what adding a machine is for', () => {
+  // It used to open with "Copy the command below" and no statement of what
+  // the feature does or which machine to run it on.
+  const dialog = agentUi.slice(agentUi.indexOf('export function showAddMachineDialog'));
+  assert.match(dialog.slice(0, 3000), /Run a second agent on <em>another<\/em> computer/);
+  assert.match(dialog.slice(0, 3000), /on that machine/);
+  assert.match(dialog.slice(0, 3000), /Nothing needs installing on the machine you are reading this on/);
+});
+
+test('loopback-only is called out before the command is copied', () => {
+  // Otherwise the local-mode default hands over a command that cannot work,
+  // and the failure surfaces on the other machine with no explanation.
+  const dialog = agentUi.slice(agentUi.indexOf('export function showAddMachineDialog'));
+  assert.match(dialog, /if \(net\.loopbackOnly\)/);
+  assert.match(dialog, /cannot reach it yet/);
+  assert.match(dialog, /HOST=0\.0\.0\.0 \.\/49ctl start/);
+  // And the risk of opening it up is stated, not buried.
+  assert.match(dialog, /can run commands on your machines/);
+});
