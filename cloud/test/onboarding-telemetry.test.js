@@ -621,3 +621,15 @@ test('onboarding waits until the tutorial is finished', () => {
   assert.ok(redirect !== -1 && call !== -1, 'both present in init');
   assert.ok(call > redirect, 'onboarding starts only after the tutorial redirect check');
 });
+
+test('the export token env var name is consistent', () => {
+  const config = readFileSync(join(here, '..', 'src', 'config.js'), 'utf-8');
+  const ingest = readFileSync(join(here, '..', 'src', 'telemetry', 'ingest.js'), 'utf-8');
+
+  // ADMIN_TOKEN is a reserved name on our host, so the export uses its own.
+  assert.ok(/TELEMETRY_ADMIN_TOKEN/.test(config), 'config reads the namespaced variable');
+  assert.ok(!/process\.env\.ADMIN_TOKEN\b/.test(config), 'no bare ADMIN_TOKEN left');
+
+  // The 503 tells an operator which variable to set, so it has to match.
+  assert.ok(/TELEMETRY_ADMIN_TOKEN unset/.test(ingest), 'error names the right variable');
+});

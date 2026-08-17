@@ -243,7 +243,7 @@ export function setupTelemetryIngestRoutes(app) {
   // GET /api/admin/telemetry/export pulls the collected data down.
   app.get('/api/admin/telemetry/export', (req, res) => {
     if (!config.adminToken) {
-      return res.status(503).json({ error: 'Export not configured (ADMIN_TOKEN unset)' });
+      return res.status(503).json({ error: 'Export not configured (TELEMETRY_ADMIN_TOKEN unset)' });
     }
 
     const auth = req.get('Authorization') || '';
