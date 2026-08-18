@@ -2,7 +2,7 @@ import { Terminal } from './lib/xterm.mjs';
 import { FitAddon } from './lib/addon-fit.mjs';
 import { WebLinksAddon } from './lib/addon-web-links.mjs';
 import { playDismissSound, playNotificationSound, setSoundEnabled as _setSoundEnabled } from './modules/sounds.js';
-import { escapeHtml, formatBytes, metricColorClass, formatLocationPath, isExternalInputFocused, truncateUrl, isAgentVersionOutdated, getTerminalFontFamily } from './modules/utils.js';
+import { escapeHtml, formatBytes, metricColorClass, formatLocationPath, isExternalInputFocused, truncateUrl, isAgentVersionOutdated, getTerminalFontFamily, PANE_HEADER_CONTROLS, normalizePaneHeaderOrder } from './modules/utils.js';
 import { APP_VERSION, PANE_DEFAULTS, PANE_ENDPOINT_MAP, ICON_BEADS, ICON_GIT_GRAPH, ICON_FOLDER, ICON_CONVERSATIONS, CLAUDE_STATE_SVGS, CLAUDE_LOGO_SVG, RESET_ICON_SVG, WIFI_OFF_SVG, DEVICE_COLORS, TERMINAL_FONTS, CANVAS_BACKGROUNDS, osIcon } from './modules/constants.js';
 import { initMinimap, startMinimapLoop, hideMinimap, renderMinimap, getCanvasBounds, calcPlacementPos, setMinimapEnabled, getMinimapEnabled } from './modules/minimap.js';
 import { initNotificationDeps, initNotifications, showPromoToasts, showToast, dismissToast, snoozeNotification, sendBrowserNotification, updateTabTitleBadge, handleStateTransition, previousClaudeStates, notifiedStates, activeToasts, snoozedNotifications, snoozeCount, getIsFirstClaudeStateUpdate, setIsFirstClaudeStateUpdate, getNotificationContainer, showAdminToast, dismissAdminToast } from './modules/notifications.js';
@@ -94,12 +94,45 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // new user reads as complexity.
   let beadsButtonEnabled = false;
   let paneNamingEnabled = true;
-  let paneNumberHotkeysEnabled = true;
+  let paneNumberHotkeysEnabled = false;
+  let newTabButtonEnabled = false;
+
+  // PANE_HEADER_CONTROLS and normalizePaneHeaderOrder live in modules/utils.js
+  // so the reconciliation logic can be tested on its own.
+  const PANE_CONTROL_SELECTORS = {
+    shortcut: '.pane-shortcut-badge',
+    beads: '.beads-tag-btn',
+    reload: '.term-refresh-history',
+    zoom: '.pane-zoom-controls',
+    newtab: '.pane-new-tab',
+  };
+  let paneHeaderOrder = [...PANE_HEADER_CONTROLS];
+
+  /**
+   * Ordering rides on the flex `order` property via a stylesheet rather than
+   * per-element styles, so it applies to panes built later without any
+   * re-render. Expand and close sit after the pool at a fixed order.
+   */
+  function applyPaneHeaderOrder() {
+    let styleEl = document.getElementById('pane-header-order-style');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'pane-header-order-style';
+      document.head.appendChild(styleEl);
+    }
+    const rules = paneHeaderOrder.map((key, i) =>
+      `.pane-header-right ${PANE_CONTROL_SELECTORS[key]} { order: ${i + 1}; }`);
+    rules.push('.pane-header-right .pane-expand { order: 90; }');
+    rules.push('.pane-header-right .pane-close { order: 91; }');
+    styleEl.textContent = rules.join('\n');
+  }
 
   function applyPaneChromePrefs() {
     document.body.classList.toggle('hide-beads-btn', !beadsButtonEnabled);
     document.body.classList.toggle('hide-pane-naming', !paneNamingEnabled);
     document.body.classList.toggle('hide-pane-shortcuts', !paneNumberHotkeysEnabled);
+    document.body.classList.toggle('hide-pane-new-tab', !newTabButtonEnabled);
+    applyPaneHeaderOrder();
   }
 
   // ---------------------------------------------------------------------------
@@ -216,6 +249,60 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   // is up it stays up, across reloads, until Continue is pressed: the server
   // keeps reporting the question as unanswered and every load re-opens it.
   // ---------------------------------------------------------------------------
+  /**
+   * One-time tip shown when a user first lands on the canvas with the tutorial
+   * behind them — completed or skipped, since both routes leave them here
+   * without ever meeting these two hotkeys.
+   *
+   * It sits centre-bottom rather than in the toast corner, where notification
+   * toasts have trained people to ignore things, and it clears itself when
+   * either hotkey is actually pressed, so the card doubles as the exercise.
+   */
+  const _hotkeyTip = {
+    KEY: 'tc_hotkey_tip',
+    _el: null,
+    _onKey: null,
+
+    show() {
+      try { if (localStorage.getItem(this.KEY)) return; } catch (e) { return; }
+      if (this._el) return;
+
+      const card = document.createElement('div');
+      card.id = 'hotkey-tip';
+      card.innerHTML = `
+        <div class="hotkey-tip-title">Two shortcuts worth knowing</div>
+        <div class="hotkey-tip-row"><kbd>Tab</kbd><span>+</span><kbd>H</kbd><span class="hotkey-tip-desc">hide or show the HUD</span></div>
+        <div class="hotkey-tip-row"><kbd>Tab</kbd><span>+</span><kbd>M</kbd><span class="hotkey-tip-desc">hide or show the minimap</span></div>
+        <div class="hotkey-tip-hint">Try one now — this closes once you do.</div>
+        <button class="hotkey-tip-dismiss" type="button">Got it</button>`;
+      document.body.appendChild(card);
+      this._el = card;
+
+      card.querySelector('.hotkey-tip-dismiss').addEventListener('click', () => this.dismiss());
+
+      // Listening for the keys themselves, rather than hooking the HUD and
+      // minimap toggles, keeps this independent of how those are wired.
+      this._onKey = (e) => {
+        const k = (e.key || '').toLowerCase();
+        if ((k === 'h' || k === 'm') && tabHeld) this.dismiss();
+      };
+      document.addEventListener('keydown', this._onKey, true);
+
+      requestAnimationFrame(() => card.classList.add('visible'));
+    },
+
+    dismiss() {
+      if (!this._el) return;
+      try { localStorage.setItem(this.KEY, 'seen'); } catch (e) {}
+      if (this._onKey) document.removeEventListener('keydown', this._onKey, true);
+      this._onKey = null;
+      const el = this._el;
+      this._el = null;
+      el.classList.remove('visible');
+      setTimeout(() => el.remove(), 250);
+    },
+  };
+
   const _onboarding = {
     _timer: null,
     _lastTick: null,
@@ -1088,6 +1175,12 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       if (prefs.paneNumberHotkeysEnabled !== undefined) {
         paneNumberHotkeysEnabled = prefs.paneNumberHotkeysEnabled;
       }
+      if (prefs.newTabButtonEnabled !== undefined) {
+        newTabButtonEnabled = prefs.newTabButtonEnabled;
+      }
+      if (prefs.paneHeaderOrder) {
+        paneHeaderOrder = normalizePaneHeaderOrder(prefs.paneHeaderOrder);
+      }
       applyPaneChromePrefs();
       // Projects are applied after the module wiring below, since
       // loadProjectsFromPrefs lives in modules/projects.js and its context
@@ -1149,6 +1242,11 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       setPaneNamingEnabled: (v) => { paneNamingEnabled = v; applyPaneChromePrefs(); },
       getPaneNumberHotkeysEnabled: () => paneNumberHotkeysEnabled,
       setPaneNumberHotkeysEnabled: (v) => { paneNumberHotkeysEnabled = v; applyPaneChromePrefs(); },
+      getNewTabButtonEnabled: () => newTabButtonEnabled,
+      setNewTabButtonEnabled: (v) => { newTabButtonEnabled = v; applyPaneChromePrefs(); },
+      getPaneHeaderOrder: () => [...paneHeaderOrder],
+      getPaneHeaderControls: () => [...PANE_HEADER_CONTROLS],
+      setPaneHeaderOrder: (v) => { paneHeaderOrder = normalizePaneHeaderOrder(v); applyPaneHeaderOrder(); },
       getHudExpanded, getAgentsHudExpanded, getHudHidden, getDeviceColorOverrides,
       getTutorialsCompleted: () => tutorialsCompleted,
     });
@@ -1456,6 +1554,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
     // Only now that the tutorial is known to be behind them.
     _onboarding.init();
+    _hotkeyTip.show();
   }
 
   // CLAUDE_LOGO_SVG — imported from modules/constants.js

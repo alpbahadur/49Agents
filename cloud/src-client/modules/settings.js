@@ -47,6 +47,8 @@ export function getAllPrefs(overrides) {
     projectsSidebarPosition: _ctx.getProjectsSidebarPosition(),
     teleportAnimation: _ctx.getTeleportAnimation(),
     beadsButtonEnabled: _ctx.getBeadsButtonEnabled(),
+    newTabButtonEnabled: _ctx.getNewTabButtonEnabled(),
+    paneHeaderOrder: _ctx.getPaneHeaderOrder(),
     paneNamingEnabled: _ctx.getPaneNamingEnabled(),
     paneNumberHotkeysEnabled: _ctx.getPaneNumberHotkeysEnabled(),
     ...overrides,
@@ -128,6 +130,61 @@ function bindToggleRow(id, apply) {
   });
 }
 
+const PANE_CONTROL_LABELS = {
+  shortcut: 'Number badge',
+  beads: 'Beads issue',
+  reload: 'Reload history',
+  zoom: 'Zoom',
+  newtab: 'New tab',
+};
+
+/**
+ * Reorder row for the pane header controls. Arrows rather than drag and drop:
+ * the list is five items long, and arrows work on touch and by keyboard
+ * without a drag surface. Expand and close are not listed — they stay pinned
+ * to the right so close never moves under the cursor by surprise.
+ */
+function paneHeaderOrderHtml(order) {
+  const rows = order.map((key, i) => `
+    <div class="settings-order-row" data-key="${key}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;">
+      <span style="font-size:12px;color:#b8b8d0;">${i + 1}. ${PANE_CONTROL_LABELS[key] || key}</span>
+      <span style="display:flex;gap:4px;">
+        <button class="settings-order-btn" data-dir="up" data-key="${key}" aria-label="Move ${PANE_CONTROL_LABELS[key] || key} left" ${i === 0 ? 'disabled' : ''} style="width:24px;height:24px;border-radius:4px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:${i === 0 ? '#4a4a68' : '#b8b8d0'};cursor:${i === 0 ? 'default' : 'pointer'};font-family:inherit;">&#8592;</button>
+        <button class="settings-order-btn" data-dir="down" data-key="${key}" aria-label="Move ${PANE_CONTROL_LABELS[key] || key} right" ${i === order.length - 1 ? 'disabled' : ''} style="width:24px;height:24px;border-radius:4px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:${i === order.length - 1 ? '#4a4a68' : '#b8b8d0'};cursor:${i === order.length - 1 ? 'default' : 'pointer'};font-family:inherit;">&#8594;</button>
+      </span>
+    </div>`).join('');
+  return `
+    <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:13px;">Pane Header Button Order</div>
+      <div style="font-size:11px;color:#6a6a8a;margin-bottom:8px;">Left to right. Expand and close stay pinned at the end.</div>
+      <div id="settings-pane-order" style="display:flex;flex-direction:column;gap:4px;">${rows}</div>
+    </div>`;
+}
+
+/**
+ * Re-renders itself after every move so the numbering and the disabled state
+ * of the end arrows stay correct.
+ */
+function bindPaneHeaderOrder() {
+  const container = document.getElementById('settings-pane-order');
+  if (!container) return;
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('.settings-order-btn');
+    if (!btn || btn.disabled) return;
+    const order = _ctx.getPaneHeaderOrder();
+    const from = order.indexOf(btn.dataset.key);
+    const to = btn.dataset.dir === 'up' ? from - 1 : from + 1;
+    if (from < 0 || to < 0 || to >= order.length) return;
+    [order[from], order[to]] = [order[to], order[from]];
+    _ctx.setPaneHeaderOrder(order);
+    savePrefsToCloud({ paneHeaderOrder: order });
+    const fresh = paneHeaderOrderHtml(_ctx.getPaneHeaderOrder());
+    const temp = document.createElement('div');
+    temp.innerHTML = fresh;
+    container.innerHTML = temp.querySelector('#settings-pane-order').innerHTML;
+  });
+}
+
 export function showSettingsModal() {
   const TERMINAL_THEMES = _ctx.getTerminalThemes();
   const currentTerminalTheme = _ctx.getCurrentTerminalTheme();
@@ -138,6 +195,8 @@ export function showSettingsModal() {
   const beadsButtonEnabled = _ctx.getBeadsButtonEnabled();
   const paneNamingEnabled = _ctx.getPaneNamingEnabled();
   const paneNumberHotkeysEnabled = _ctx.getPaneNumberHotkeysEnabled();
+  const newTabButtonEnabled = _ctx.getNewTabButtonEnabled();
+  const paneHeaderOrder = _ctx.getPaneHeaderOrder();
   const projectsSidebarPosition = _ctx.getProjectsSidebarPosition();
   const snoozeDurationMs = _ctx.getSnoozeDurationMs();
 
@@ -251,7 +310,9 @@ export function showSettingsModal() {
     </div>
 ${toggleRowHtml('settings-pane-naming-toggle', 'Pane Names', 'Show the editable name field in pane headers', paneNamingEnabled)}
 ${toggleRowHtml('settings-pane-hotkeys-toggle', 'Pane Number Hotkeys', 'Number badges in headers, and Tab+1..9 to jump', paneNumberHotkeysEnabled)}
+${toggleRowHtml('settings-new-tab-toggle', 'New Tab Button', 'Add a terminal tab to a pane from its header', newTabButtonEnabled)}
 ${toggleRowHtml('settings-beads-btn-toggle', 'Beads Issue Button', 'Tag panes with a beads issue from the header', beadsButtonEnabled)}
+${paneHeaderOrderHtml(paneHeaderOrder)}
 
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
       <div>
@@ -438,10 +499,15 @@ ${toggleRowHtml('settings-beads-btn-toggle', 'Beads Issue Button', 'Tag panes wi
     _ctx.setPaneNumberHotkeysEnabled(on);
     savePrefsToCloud({ paneNumberHotkeysEnabled: on });
   });
+  bindToggleRow('settings-new-tab-toggle', (on) => {
+    _ctx.setNewTabButtonEnabled(on);
+    savePrefsToCloud({ newTabButtonEnabled: on });
+  });
   bindToggleRow('settings-beads-btn-toggle', (on) => {
     _ctx.setBeadsButtonEnabled(on);
     savePrefsToCloud({ beadsButtonEnabled: on });
   });
+  bindPaneHeaderOrder();
 
   // Sidebar position buttons
   document.querySelectorAll('.settings-sidebar-pos-btn').forEach(btn => {

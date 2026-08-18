@@ -21,7 +21,9 @@ export function setupPreferencesRoutes(app) {
       projectsSidebarPosition: prefs.projects_sidebar_position || 'right',
       beadsButtonEnabled: !!prefs.beads_button_enabled,
       paneNamingEnabled: prefs.pane_naming_enabled === undefined ? true : !!prefs.pane_naming_enabled,
-      paneNumberHotkeysEnabled: prefs.pane_number_hotkeys_enabled === undefined ? true : !!prefs.pane_number_hotkeys_enabled,
+      paneNumberHotkeysEnabled: !!prefs.pane_number_hotkeys_enabled,
+      newTabButtonEnabled: !!prefs.new_tab_button_enabled,
+      paneHeaderOrder: prefs.pane_header_order ? JSON.parse(prefs.pane_header_order) : [],
     });
   });
 
@@ -31,12 +33,14 @@ export function setupPreferencesRoutes(app) {
       canvasBg, snoozeDuration, terminalFont, hudState, tutorialsCompleted,
       projects, focusMode, teleportAnimation, projectsSidebarPosition,
       beadsButtonEnabled, paneNamingEnabled, paneNumberHotkeysEnabled,
+      newTabButtonEnabled, paneHeaderOrder,
     } = req.body;
     savePreferences(req.user.id, {
       nightMode, terminalTheme, notificationSound, autoRemoveDone,
       canvasBg, snoozeDuration, terminalFont, hudState, tutorialsCompleted,
       projects, focusMode, teleportAnimation, projectsSidebarPosition,
       beadsButtonEnabled, paneNamingEnabled, paneNumberHotkeysEnabled,
+      newTabButtonEnabled, paneHeaderOrder,
     });
     res.json({ ok: true });
   });

@@ -213,6 +213,17 @@ export function initDatabase() {
     db.prepare('ALTER TABLE user_preferences ADD COLUMN pane_number_hotkeys_enabled INTEGER NOT NULL DEFAULT 1').run();
     console.log('[db] Migration: Added pane_number_hotkeys_enabled column to user_preferences');
   } catch (e) { /* already exists */ }
+  // Added after the column above shipped with a default of 1. Anyone who
+  // already has a row keeps their stored value — the new default only applies
+  // to users created from here on, who now start with a quieter header.
+  try {
+    db.prepare('ALTER TABLE user_preferences ADD COLUMN new_tab_button_enabled INTEGER NOT NULL DEFAULT 0').run();
+    console.log('[db] Migration: Added new_tab_button_enabled column to user_preferences');
+  } catch (e) { /* already exists */ }
+  try {
+    db.prepare("ALTER TABLE user_preferences ADD COLUMN pane_header_order TEXT NOT NULL DEFAULT '[]'").run();
+    console.log('[db] Migration: Added pane_header_order column to user_preferences');
+  } catch (e) { /* already exists */ }
 
   // Migration: notifications tables
   try {

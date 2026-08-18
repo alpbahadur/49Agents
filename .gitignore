@@ -19,3 +19,16 @@ extensions/
 
 # Deploy scripts (contain server credentials)
 scripts/
+
+# Telemetry pull notes (contains the admin token)
+TELEMETRY-PULL.local.md
+*.local.md
+telemetry.json
+telemetry.csv
+
+# Playwright MCP scratch output (snapshots, console logs, screenshots)
+.playwright-mcp/
+
+# node_modules is also symlinked in some worktrees, which the trailing
+# slash above does not match
+node_modules
