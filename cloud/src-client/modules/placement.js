@@ -636,9 +636,9 @@ export async function showConversationsDirPickerThenPlace() {
 export async function showConvosFolderPickerThenPlace(targetAgentId, device) {
   const deviceLabel = device ? _ctx.deviceLabelHtml(device, 'font-size:11px; padding:2px 8px;') : '';
   const headerHTML = `
-    <svg viewBox="0 0 24 24" width="16" height="16" style="color:rgba(255,255,255,0.6);">${ICON_CONVERSATIONS}</svg>
+    <svg viewBox="0 0 24 24" width="16" height="16" style="color:var(--ink-60);">${ICON_CONVERSATIONS}</svg>
     ${deviceLabel}
-    <span style="color:rgba(255,255,255,0.7); font-size:13px; font-weight:500;">Choose Directory</span>`;
+    <span style="color:var(--ink-70); font-size:13px; font-weight:500;">Choose Directory</span>`;
 
   showFolderScanPicker({
     id: 'convos-dir-browser',
@@ -669,9 +669,9 @@ export async function showFolderPaneDevicePickerThenPlace() {
 export async function showFolderPickerThenPlace(targetAgentId, device) {
   const deviceLabel = device ? _ctx.deviceLabelHtml(device, 'font-size:11px; padding:2px 8px;') : '';
   const headerHTML = `
-    <svg viewBox="0 0 24 24" width="16" height="16" style="color:rgba(255,255,255,0.6);">${ICON_FOLDER}</svg>
+    <svg viewBox="0 0 24 24" width="16" height="16" style="color:var(--ink-60);">${ICON_FOLDER}</svg>
     ${deviceLabel}
-    <span style="color:rgba(255,255,255,0.7); font-size:13px; font-weight:500;">Choose Folder</span>`;
+    <span style="color:var(--ink-70); font-size:13px; font-weight:500;">Choose Folder</span>`;
 
   showFolderScanPicker({
     id: 'folder-pane-browser',
@@ -704,8 +704,8 @@ export async function showBeadsRepoPickerWithDeviceThenPlace() {
 
 export async function showBeadsRepoPickerThenPlace(targetAgentId, device) {
   const headerHTML = `
-    <svg viewBox="0 0 24 24" width="16" height="16" style="color:rgba(255,255,255,0.6);">${ICON_BEADS}</svg>
-    <span style="color:rgba(255,255,255,0.7); font-size:13px; font-weight:500;">Choose Folder</span>`;
+    <svg viewBox="0 0 24 24" width="16" height="16" style="color:var(--ink-60);">${ICON_BEADS}</svg>
+    <span style="color:var(--ink-70); font-size:13px; font-weight:500;">Choose Folder</span>`;
 
   showFolderScanPicker({
     id: 'git-repo-browser',
@@ -718,18 +718,18 @@ export async function showBeadsRepoPickerThenPlace(targetAgentId, device) {
       let scanDone = false;
 
       const backBar = document.createElement('div');
-      backBar.style.cssText = 'display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0;';
+      backBar.style.cssText = 'display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid var(--ink-06); flex-shrink:0;';
       const backBtn = document.createElement('button');
       backBtn.setAttribute('data-nav-item', '');
-      backBtn.style.cssText = 'background:none; border:none; color:rgba(255,255,255,0.5); cursor:pointer; font-size:12px; padding:2px 6px; border-radius:3px;';
+      backBtn.style.cssText = 'background:none; border:none; color:var(--ink-50); cursor:pointer; font-size:12px; padding:2px 6px; border-radius:3px;';
       backBtn.textContent = '\u2190 Back';
       backBtn.addEventListener('click', () => navigateFolder(folderPath));
-      backBtn.addEventListener('mouseenter', () => { backBtn.style.color = '#fff'; });
-      backBtn.addEventListener('mouseleave', () => { backBtn.style.color = 'rgba(255,255,255,0.5)'; });
+      backBtn.addEventListener('mouseenter', () => { backBtn.style.color = 'var(--text-bright)'; });
+      backBtn.addEventListener('mouseleave', () => { backBtn.style.color = 'var(--ink-50)'; });
       backBar.appendChild(backBtn);
 
       const scanStatus = document.createElement('span');
-      scanStatus.style.cssText = 'font-size:11px; color:rgba(255,255,255,0.3); margin-left:4px;';
+      scanStatus.style.cssText = 'font-size:11px; color:var(--ink-30); margin-left:4px;';
       scanStatus.textContent = 'Scanning...';
       backBar.appendChild(scanStatus);
 
@@ -746,9 +746,9 @@ export async function showBeadsRepoPickerThenPlace(targetAgentId, device) {
         item.setAttribute('data-nav-item', '');
         item.style.cssText = 'display:flex; align-items:center; gap:10px; padding:9px 16px; cursor:pointer; transition:background 0.1s; font-size:13px;';
         item.innerHTML = `
-          <svg viewBox="0 0 24 24" width="16" height="16" style="color:#e8a882;">${ICON_BEADS}</svg>
+          <svg viewBox="0 0 24 24" width="16" height="16" style="color:var(--accent-soft-hex);">${ICON_BEADS}</svg>
           <span style="flex:1; overflow:hidden;">
-            <strong style="color:rgba(255,255,255,0.9);">${escapeHtml(proj.name)}</strong><br>
+            <strong style="color:var(--ink-90);">${escapeHtml(proj.name)}</strong><br>
             <span style="opacity:0.4; font-size:11px;">${escapeHtml(proj.path)}</span>
           </span>
         `;
@@ -777,7 +777,7 @@ export async function showBeadsRepoPickerThenPlace(targetAgentId, device) {
         repoListEl.innerHTML = '';
         if (finalProjects.length === 0) {
           const empty = document.createElement('div');
-          empty.style.cssText = 'padding:20px; text-align:center; color:rgba(255,255,255,0.3); font-size:12px;';
+          empty.style.cssText = 'padding:20px; text-align:center; color:var(--ink-30); font-size:12px;';
           empty.textContent = 'No beads projects found in this folder';
           repoListEl.appendChild(empty);
         } else {

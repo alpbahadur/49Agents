@@ -6,7 +6,8 @@ export function setupPreferencesRoutes(app) {
   app.get('/api/preferences', requireAuth, (req, res) => {
     const prefs = getPreferences(req.user.id);
     res.json({
-      nightMode:          !!prefs.night_mode,
+      appTheme:           prefs.app_theme || 'system',
+      starterTerminalCreated: !!prefs.starter_terminal_created,
       terminalTheme:      prefs.terminal_theme,
       notificationSound:  !!prefs.notification_sound,
       autoRemoveDone:     !!prefs.auto_remove_done,
@@ -29,14 +30,14 @@ export function setupPreferencesRoutes(app) {
 
   app.put('/api/preferences', requireAuth, (req, res) => {
     const {
-      nightMode, terminalTheme, notificationSound, autoRemoveDone,
+      appTheme, starterTerminalCreated, terminalTheme, notificationSound, autoRemoveDone,
       canvasBg, snoozeDuration, terminalFont, hudState, tutorialsCompleted,
       projects, focusMode, teleportAnimation, projectsSidebarPosition,
       beadsButtonEnabled, paneNamingEnabled, paneNumberHotkeysEnabled,
       newTabButtonEnabled, paneHeaderOrder,
     } = req.body;
     savePreferences(req.user.id, {
-      nightMode, terminalTheme, notificationSound, autoRemoveDone,
+      appTheme, starterTerminalCreated, terminalTheme, notificationSound, autoRemoveDone,
       canvasBg, snoozeDuration, terminalFont, hudState, tutorialsCompleted,
       projects, focusMode, teleportAnimation, projectsSidebarPosition,
       beadsButtonEnabled, paneNamingEnabled, paneNumberHotkeysEnabled,

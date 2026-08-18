@@ -107,7 +107,7 @@ export async function showRecentsOrBrowse(paneType, agentId, onRecent, browseFn)
 
   // Header
   const header = document.createElement('div');
-  header.style.cssText = 'padding:8px 14px 4px; font-size:11px; color:rgba(255,255,255,0.35); font-weight:500; text-transform:uppercase; letter-spacing:0.5px;';
+  header.style.cssText = 'padding:8px 14px 4px; font-size:11px; color:var(--ink-35); font-weight:500; text-transform:uppercase; letter-spacing:0.5px;';
   header.textContent = 'Recent';
   picker.appendChild(header);
 
@@ -125,14 +125,14 @@ export async function showRecentsOrBrowse(paneType, agentId, onRecent, browseFn)
       picker.remove();
       onRecent(r.context, r.label);
     });
-    btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(255,255,255,0.1)'; });
+    btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--ink-10)'; });
     btn.addEventListener('mouseleave', () => { btn.style.background = 'none'; });
     picker.appendChild(btn);
   }
 
   // Divider
   const divider = document.createElement('div');
-  divider.style.cssText = 'height:1px; background:rgba(255,255,255,0.08); margin:4px 8px;';
+  divider.style.cssText = 'height:1px; background:var(--ink-08); margin:4px 8px;';
   picker.appendChild(divider);
 
   // Browse button
@@ -146,7 +146,7 @@ export async function showRecentsOrBrowse(paneType, agentId, onRecent, browseFn)
     picker.remove();
     browseFn();
   });
-  browseBtn.addEventListener('mouseenter', () => { browseBtn.style.background = 'rgba(255,255,255,0.1)'; });
+  browseBtn.addEventListener('mouseenter', () => { browseBtn.style.background = 'var(--ink-10)'; });
   browseBtn.addEventListener('mouseleave', () => { browseBtn.style.background = 'none'; });
   picker.appendChild(browseBtn);
 

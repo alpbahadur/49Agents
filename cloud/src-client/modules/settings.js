@@ -1,12 +1,12 @@
 // ─── Preferences & Settings Modal ─────────────────────────────────────────
-// User prefs (theme, font, canvas bg, night mode), settings modal UI,
+// User prefs (theme, font, canvas bg), settings modal UI,
 // theme/font pickers, hotkeys reference.
 //
 // Canvas background and terminal font are owned here. Every other preference
 // lives in app.js and is reached through the injected context, because a
 // module cannot assign to an imported binding.
 
-import { APP_VERSION, TERMINAL_FONTS, CANVAS_BACKGROUNDS } from './constants.js';
+import { APP_VERSION, TERMINAL_FONTS, CANVAS_BACKGROUNDS, APP_THEMES } from './constants.js';
 import { getTerminalFontFamily } from './utils.js';
 import { setSoundEnabled as _setSoundEnabled } from './sounds.js';
 
@@ -17,8 +17,10 @@ export function initSettingsDeps(ctx) { _ctx = ctx; }
 let prefsSaveTimer = null;
 let currentCanvasBg = 'default';
 let currentTerminalFont = 'JetBrains Mono';
+let currentAppTheme = 'system';
 
 export function getCurrentCanvasBg() { return currentCanvasBg; }
+export function getCurrentAppTheme() { return currentAppTheme; }
 export function getCurrentTerminalFont() { return currentTerminalFont; }
 
 /**
@@ -29,7 +31,7 @@ export function setCurrentTerminalFont(fontName) { currentTerminalFont = fontNam
 
 export function getAllPrefs(overrides) {
   return {
-    nightMode: !!document.getElementById('night-mode-overlay'),
+    appTheme: currentAppTheme,
     terminalTheme: _ctx.getCurrentTerminalTheme(),
     notificationSound: _ctx.getNotificationSoundEnabled(),
     autoRemoveDone: _ctx.getAutoRemoveDoneNotifs(),
@@ -44,6 +46,7 @@ export function getAllPrefs(overrides) {
       hud_hidden: _ctx.getHudHidden(),
     },
     tutorialsCompleted: _ctx.getTutorialsCompleted(),
+    starterTerminalCreated: _ctx.getStarterTerminalCreated(),
     projectsSidebarPosition: _ctx.getProjectsSidebarPosition(),
     teleportAnimation: _ctx.getTeleportAnimation(),
     beadsButtonEnabled: _ctx.getBeadsButtonEnabled(),
@@ -63,36 +66,66 @@ export function applyTerminalFont(fontName) {
   });
 }
 
-export function savePrefsToCloud(overrides) {
+export function savePrefsToCloud(overrides, opts = {}) {
   if (prefsSaveTimer) clearTimeout(prefsSaveTimer);
+  // Debouncing suits settings the user is actively fiddling with. A one-shot
+  // marker is different: if the tab closes inside the debounce window the write
+  // is lost and the flag reads false on the next load, so those go out at once.
+  if (opts.immediate) {
+    return _ctx.cloudFetch('PUT', '/api/preferences', getAllPrefs(overrides))
+      .catch(e => console.error('[Prefs] Save failed:', e.message));
+  }
   prefsSaveTimer = setTimeout(() => {
     _ctx.cloudFetch('PUT', '/api/preferences', getAllPrefs(overrides))
       .catch(e => console.error('[Prefs] Save failed:', e.message));
   }, 500);
 }
 
+const darkQuery = typeof matchMedia === 'function'
+  ? matchMedia('(prefers-color-scheme: dark)')
+  : null;
+
+/** Resolve a stored preference to the concrete theme to paint. */
+function resolveTheme(pref) {
+  if (pref === 'light' || pref === 'dark') return pref;
+  return darkQuery && darkQuery.matches ? 'dark' : 'light';
+}
+
+/**
+ * Paint a theme. `data-theme` on <html> swaps the token block in styles.css;
+ * everything built on --ink-rgb/--surface-* re-tints from that one attribute.
+ * Canvas background is reapplied because the default swatch is theme-derived.
+ */
+export function setAppTheme(pref) {
+  currentAppTheme = APP_THEMES[pref] ? pref : 'system';
+  document.documentElement.setAttribute('data-theme', resolveTheme(currentAppTheme));
+  // Mirrored locally so the pre-render script in index.html can replay the
+  // choice on the next load without waiting for /api/preferences.
+  try { localStorage.setItem('tc-app-theme', currentAppTheme); } catch (e) {}
+  setCanvasBackground(currentCanvasBg);
+}
+
+// Following the OS means tracking it for the whole session, not just at boot.
+if (darkQuery) {
+  const onSystemChange = () => { if (currentAppTheme === 'system') setAppTheme('system'); };
+  if (darkQuery.addEventListener) darkQuery.addEventListener('change', onSystemChange);
+  else if (darkQuery.addListener) darkQuery.addListener(onSystemChange);
+}
+
 export function setCanvasBackground(key) {
   const bg = CANVAS_BACKGROUNDS[key] || CANVAS_BACKGROUNDS.default;
   currentCanvasBg = key;
-  document.body.style.backgroundColor = bg.color;
+  // Themed swatches defer to the active theme's canvas token; the rest pin
+  // their own colour so an explicit dark pick survives a theme switch.
+  document.body.style.backgroundColor = bg.themed ? 'var(--canvas)' : bg.color;
   // Handle grid background
   if (bg.grid) {
-    document.body.style.backgroundImage = 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)';
+    const gridLine = 'var(--ink-05)';
+    document.body.style.backgroundImage = `linear-gradient(${gridLine} 1px, transparent 1px), linear-gradient(90deg, ${gridLine} 1px, transparent 1px)`;
     document.body.style.backgroundSize = '40px 40px';
   } else {
     document.body.style.backgroundImage = 'none';
     document.body.style.backgroundSize = '';
-  }
-}
-
-export function setNightMode(enabled) {
-  let overlay = document.getElementById('night-mode-overlay');
-  if (enabled && !overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'night-mode-overlay';
-    document.body.appendChild(overlay);
-  } else if (!enabled && overlay) {
-    overlay.remove();
   }
 }
 
@@ -103,15 +136,15 @@ export function setNightMode(enabled) {
  */
 function toggleRowHtml(id, label, description, on) {
   return `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div>
         <div style="font-size:13px;">${label}</div>
-        <div style="font-size:11px;color:#6a6a8a;">${description}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${description}</div>
       </div>
       <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
         <input type="checkbox" id="${id}" ${on ? 'checked' : ''} style="opacity:0;width:0;height:0;">
-        <span style="position:absolute;inset:0;background:${on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)'};border-radius:11px;transition:0.2s;"></span>
-        <span style="position:absolute;top:2px;left:${on ? '20px' : '2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
+        <span style="position:absolute;inset:0;background:${on ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)'};border-radius:11px;transition:0.2s;"></span>
+        <span style="position:absolute;top:2px;left:${on ? '20px' : '2px'};width:18px;height:18px;background:var(--on-accent);border-radius:50%;transition:0.2s;"></span>
       </label>
     </div>`;
 }
@@ -124,7 +157,7 @@ function bindToggleRow(id, apply) {
     const on = input.checked;
     const track = input.nextElementSibling;
     const knob = track.nextElementSibling;
-    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
+    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)';
     knob.style.left = on ? '20px' : '2px';
     apply(on);
   });
@@ -146,17 +179,17 @@ const PANE_CONTROL_LABELS = {
  */
 function paneHeaderOrderHtml(order) {
   const rows = order.map((key, i) => `
-    <div class="settings-order-row" data-key="${key}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;">
-      <span style="font-size:12px;color:#b8b8d0;">${i + 1}. ${PANE_CONTROL_LABELS[key] || key}</span>
+    <div class="settings-order-row" data-key="${key}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:var(--ink-03);border:1px solid var(--ink-06);border-radius:6px;">
+      <span style="font-size:12px;color:var(--text-secondary);">${i + 1}. ${PANE_CONTROL_LABELS[key] || key}</span>
       <span style="display:flex;gap:4px;">
-        <button class="settings-order-btn" data-dir="up" data-key="${key}" aria-label="Move ${PANE_CONTROL_LABELS[key] || key} left" ${i === 0 ? 'disabled' : ''} style="width:24px;height:24px;border-radius:4px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:${i === 0 ? '#4a4a68' : '#b8b8d0'};cursor:${i === 0 ? 'default' : 'pointer'};font-family:inherit;">&#8592;</button>
-        <button class="settings-order-btn" data-dir="down" data-key="${key}" aria-label="Move ${PANE_CONTROL_LABELS[key] || key} right" ${i === order.length - 1 ? 'disabled' : ''} style="width:24px;height:24px;border-radius:4px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:${i === order.length - 1 ? '#4a4a68' : '#b8b8d0'};cursor:${i === order.length - 1 ? 'default' : 'pointer'};font-family:inherit;">&#8594;</button>
+        <button class="settings-order-btn" data-dir="up" data-key="${key}" aria-label="Move ${PANE_CONTROL_LABELS[key] || key} left" ${i === 0 ? 'disabled' : ''} style="width:24px;height:24px;border-radius:4px;border:1px solid var(--ink-10);background:transparent;color:${i === 0 ? '#4a4a68' : '#b8b8d0'};cursor:${i === 0 ? 'default' : 'pointer'};font-family:inherit;">&#8592;</button>
+        <button class="settings-order-btn" data-dir="down" data-key="${key}" aria-label="Move ${PANE_CONTROL_LABELS[key] || key} right" ${i === order.length - 1 ? 'disabled' : ''} style="width:24px;height:24px;border-radius:4px;border:1px solid var(--ink-10);background:transparent;color:${i === order.length - 1 ? '#4a4a68' : '#b8b8d0'};cursor:${i === order.length - 1 ? 'default' : 'pointer'};font-family:inherit;">&#8594;</button>
       </span>
     </div>`).join('');
   return `
-    <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div style="font-size:13px;">Pane Header Button Order</div>
-      <div style="font-size:11px;color:#6a6a8a;margin-bottom:8px;">Left to right. Expand and close stay pinned at the end.</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Left to right. Expand and close stay pinned at the end.</div>
       <div id="settings-pane-order" style="display:flex;flex-direction:column;gap:4px;">${rows}</div>
     </div>`;
 }
@@ -205,15 +238,14 @@ export function showSettingsModal() {
   if (existing) { existing.remove(); return; }
 
   const user = window.__tcUser || {};
-  const nightModeOn = !!document.getElementById('night-mode-overlay');
 
   const overlay = document.createElement('div');
   overlay.id = 'settings-modal';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100000;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:100000;';
 
   const dialog = document.createElement('div');
   dialog.className = 'tc-scrollbar';
-  dialog.style.cssText = 'background:#1a1a2e;border:1px solid rgba(var(--accent-rgb),0.3);border-radius:12px;padding:24px;max-width:400px;width:90%;color:#e0e0e0;font-family:Montserrat,sans-serif;max-height:80vh;overflow-y:auto;';
+  dialog.style.cssText = 'background:var(--surface-solid);border:1px solid rgba(var(--accent-rgb),0.3);border-radius:12px;padding:24px;max-width:400px;width:90%;color:var(--text-primary);font-family:Montserrat,sans-serif;max-height:80vh;overflow-y:auto;';
 
   // Current theme/font info for collapsed preview
   const curTheme = TERMINAL_THEMES[currentTerminalTheme] || TERMINAL_THEMES.default || {};
@@ -222,90 +254,94 @@ export function showSettingsModal() {
 
   dialog.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-      <h3 style="margin:0;font-size:16px;font-weight:400;color:#8b8bb0;">Settings</h3>
-      <button id="settings-close-btn" style="background:none;border:none;color:#6a6a8a;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1;">&times;</button>
+      <h3 style="margin:0;font-size:16px;font-weight:400;color:var(--text-secondary);">Settings</h3>
+      <button id="settings-close-btn" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1;">&times;</button>
     </div>
 
-    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px;margin-bottom:16px;">
+    <div style="background:var(--ink-03);border:1px solid var(--ink-06);border-radius:8px;padding:14px;margin-bottom:16px;">
       <div style="display:flex;align-items:center;gap:12px;">
-        ${user.avatar ? `<img src="${user.avatar}" style="width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);" alt="">` : '<div style="width:40px;height:40px;border-radius:50%;background:rgba(var(--accent-rgb),0.3);display:flex;align-items:center;justify-content:center;font-size:18px;">U</div>'}
+        ${user.avatar ? `<img src="${user.avatar}" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--ink-10);" alt="">` : '<div style="width:40px;height:40px;border-radius:50%;background:rgba(var(--accent-rgb),0.3);display:flex;align-items:center;justify-content:center;font-size:18px;">U</div>'}
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${user.name || 'User'}</div>
-          <div style="font-size:12px;color:#6a6a8a;">@${user.login || 'unknown'} &middot; <span style="color:${user.tier === 'poweruser' ? '#e0a0ff' : user.tier === 'pro' ? '#4ec9b0' : user.tier === 'team' ? '#569cd6' : '#6a6a8a'};text-transform:uppercase;font-size:10px;letter-spacing:0.5px;">${user.tier || 'free'}</span></div>
+          <div style="font-size:12px;color:var(--text-muted);">@${user.login || 'unknown'} &middot; <span style="color:${user.tier === 'poweruser' ? '#e0a0ff' : user.tier === 'pro' ? 'var(--status-ok)' : user.tier === 'team' ? 'var(--status-info)' : 'var(--text-muted)'};text-transform:uppercase;font-size:10px;letter-spacing:0.5px;">${user.tier || 'free'}</span></div>
         </div>
-        <button id="settings-logout-btn" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit;white-space:nowrap;">Logout</button>
+        <button id="settings-logout-btn" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--status-danger);font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit;white-space:nowrap;">Logout</button>
       </div>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--ink-rgb),0.06);">
       <div>
-        <div style="font-size:13px;">Night Mode</div>
-        <div style="font-size:11px;color:#6a6a8a;">Red overlay for low-light use</div>
+        <div style="font-size:13px;">Appearance</div>
+        <div style="font-size:11px;color:var(--text-muted);">Light, dark, or follow your system</div>
       </div>
-      <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
-        <input type="checkbox" id="settings-night-toggle" ${nightModeOn ? 'checked' : ''} style="opacity:0;width:0;height:0;">
-        <span style="position:absolute;inset:0;background:${nightModeOn ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'};border-radius:11px;transition:0.2s;"></span>
-        <span style="position:absolute;top:2px;left:${nightModeOn ? '20px' : '2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
-      </label>
+      <div id="settings-theme-seg" role="group" aria-label="Appearance" style="display:flex;gap:2px;background:rgba(var(--ink-rgb),0.06);border-radius:8px;padding:2px;">
+        ${Object.entries(APP_THEMES).map(([key, t]) => `
+          <button type="button" data-theme-choice="${key}" aria-pressed="${currentAppTheme === key}" style="
+            border:none;cursor:pointer;font-family:inherit;font-size:11px;
+            padding:5px 10px;border-radius:6px;transition:background 0.15s,color 0.15s;
+            background:${currentAppTheme === key ? 'rgba(var(--accent-rgb),0.9)' : 'transparent'};
+            color:${currentAppTheme === key ? 'var(--on-accent)' : 'var(--text-muted)'};
+          ">${t.name}</button>`).join('')}
+      </div>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div>
         <div style="font-size:13px;">Notification Sound</div>
-        <div style="font-size:11px;color:#6a6a8a;">Play sound on state changes</div>
+        <div style="font-size:11px;color:var(--text-muted);">Play sound on state changes</div>
       </div>
       <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
         <input type="checkbox" id="settings-sound-toggle" ${notificationSoundEnabled ? 'checked' : ''} style="opacity:0;width:0;height:0;">
-        <span style="position:absolute;inset:0;background:${notificationSoundEnabled ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)'};border-radius:11px;transition:0.2s;"></span>
-        <span style="position:absolute;top:2px;left:${notificationSoundEnabled ? '20px' : '2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
+        <span style="position:absolute;inset:0;background:${notificationSoundEnabled ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)'};border-radius:11px;transition:0.2s;"></span>
+        <span style="position:absolute;top:2px;left:${notificationSoundEnabled ? '20px' : '2px'};width:18px;height:18px;background:var(--on-accent);border-radius:50%;transition:0.2s;"></span>
       </label>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div>
         <div style="font-size:13px;">Auto-Remove Done Notifications</div>
-        <div style="font-size:11px;color:#6a6a8a;">Automatically dismiss "Task complete" after 15s</div>
+        <div style="font-size:11px;color:var(--text-muted);">Automatically dismiss "Task complete" after 15s</div>
       </div>
       <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
         <input type="checkbox" id="settings-auto-remove-done-toggle" ${autoRemoveDoneNotifs ? 'checked' : ''} style="opacity:0;width:0;height:0;">
-        <span style="position:absolute;inset:0;background:${autoRemoveDoneNotifs ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)'};border-radius:11px;transition:0.2s;"></span>
-        <span style="position:absolute;top:2px;left:${autoRemoveDoneNotifs ? '20px' : '2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
+        <span style="position:absolute;inset:0;background:${autoRemoveDoneNotifs ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)'};border-radius:11px;transition:0.2s;"></span>
+        <span style="position:absolute;top:2px;left:${autoRemoveDoneNotifs ? '20px' : '2px'};width:18px;height:18px;background:var(--on-accent);border-radius:50%;transition:0.2s;"></span>
       </label>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div>
         <div style="font-size:13px;">Focus on Hover</div>
-        <div style="font-size:11px;color:#6a6a8a;">Hover to focus panes (off = click to focus)</div>
+        <div style="font-size:11px;color:var(--text-muted);">Hover to focus panes (off = click to focus)</div>
       </div>
       <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
         <input type="checkbox" id="settings-focus-mode-toggle" ${focusMode === 'hover' ? 'checked' : ''} style="opacity:0;width:0;height:0;">
-        <span style="position:absolute;inset:0;background:${focusMode === 'hover' ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)'};border-radius:11px;transition:0.2s;"></span>
-        <span style="position:absolute;top:2px;left:${focusMode === 'hover' ? '20px' : '2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
+        <span style="position:absolute;inset:0;background:${focusMode === 'hover' ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)'};border-radius:11px;transition:0.2s;"></span>
+        <span style="position:absolute;top:2px;left:${focusMode === 'hover' ? '20px' : '2px'};width:18px;height:18px;background:var(--on-accent);border-radius:50%;transition:0.2s;"></span>
       </label>
     </div>
 
-    <div id="settings-telemetry-row" style="display:none;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div id="settings-telemetry-row" style="display:none;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div>
         <div style="font-size:13px;">Usage Telemetry</div>
-        <div style="font-size:11px;color:#6a6a8a;">Send anonymous usage data to improve 49Agents</div>
+        <div style="font-size:11px;color:var(--text-muted);">Send anonymous usage data to improve 49Agents</div>
       </div>
       <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
         <input type="checkbox" id="settings-telemetry-toggle" style="opacity:0;width:0;height:0;">
-        <span style="position:absolute;inset:0;background:rgba(255,255,255,0.1);border-radius:11px;transition:0.2s;"></span>
-        <span style="position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
+        <span style="position:absolute;inset:0;background:var(--ink-10);border-radius:11px;transition:0.2s;"></span>
+        <span style="position:absolute;top:2px;left:2px;width:18px;height:18px;background:var(--on-accent);border-radius:50%;transition:0.2s;"></span>
       </label>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div>
         <div style="font-size:13px;">Teleport Animation</div>
-        <div style="font-size:11px;color:#6a6a8a;">Animate when jumping to projects/checkpoints</div>
+        <div style="font-size:11px;color:var(--text-muted);">Animate when jumping to projects/checkpoints</div>
       </div>
       <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
         <input type="checkbox" id="settings-teleport-anim-toggle" ${teleportAnimation ? 'checked' : ''} style="opacity:0;width:0;height:0;">
-        <span style="position:absolute;inset:0;background:${teleportAnimation ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)'};border-radius:11px;transition:0.2s;"></span>
-        <span style="position:absolute;top:2px;left:${teleportAnimation ? '20px' : '2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
+        <span style="position:absolute;inset:0;background:${teleportAnimation ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)'};border-radius:11px;transition:0.2s;"></span>
+        <span style="position:absolute;top:2px;left:${teleportAnimation ? '20px' : '2px'};width:18px;height:18px;background:var(--on-accent);border-radius:50%;transition:0.2s;"></span>
       </label>
     </div>
 ${toggleRowHtml('settings-pane-naming-toggle', 'Pane Names', 'Show the editable name field in pane headers', paneNamingEnabled)}
@@ -314,48 +350,48 @@ ${toggleRowHtml('settings-new-tab-toggle', 'New Tab Button', 'Add a terminal tab
 ${toggleRowHtml('settings-beads-btn-toggle', 'Beads Issue Button', 'Tag panes with a beads issue from the header', beadsButtonEnabled)}
 ${paneHeaderOrderHtml(paneHeaderOrder)}
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div>
         <div style="font-size:13px;">Projects Sidebar Position</div>
-        <div style="font-size:11px;color:#6a6a8a;">Where the sidebar appears (Tab+P)</div>
+        <div style="font-size:11px;color:var(--text-muted);">Where the sidebar appears (Tab+P)</div>
       </div>
       <div id="settings-sidebar-pos" style="display:flex;gap:4px;">
-        ${['left', 'right'].map(pos => `<button class="settings-sidebar-pos-btn" data-pos="${pos}" style="padding:4px 10px;border-radius:4px;border:1px solid ${projectsSidebarPosition === pos ? 'rgba(var(--accent-rgb),0.4)' : 'rgba(255,255,255,0.08)'};background:${projectsSidebarPosition === pos ? 'rgba(var(--accent-rgb),0.2)' : 'transparent'};color:${projectsSidebarPosition === pos ? '#fff' : '#8b8bb0'};font-size:11px;cursor:pointer;font-family:inherit;">${pos}</button>`).join('')}
+        ${['left', 'right'].map(pos => `<button class="settings-sidebar-pos-btn" data-pos="${pos}" style="padding:4px 10px;border-radius:4px;border:1px solid ${projectsSidebarPosition === pos ? 'rgba(var(--accent-rgb),0.4)' : 'var(--ink-08)'};background:${projectsSidebarPosition === pos ? 'rgba(var(--accent-rgb),0.2)' : 'transparent'};color:${projectsSidebarPosition === pos ? 'var(--on-accent)' : 'var(--text-secondary)'};font-size:11px;cursor:pointer;font-family:inherit;">${pos}</button>`).join('')}
       </div>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div>
         <div style="font-size:13px;">Snooze Duration</div>
-        <div style="font-size:11px;color:#6a6a8a;">How long to mute per terminal</div>
+        <div style="font-size:11px;color:var(--text-muted);">How long to mute per terminal</div>
       </div>
       <span id="settings-snooze-slot"></span>
     </div>
 
-    <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div style="font-size:13px;margin-bottom:8px;">Canvas Background</div>
       <div id="settings-bg-list" style="display:flex;gap:6px;flex-wrap:wrap;">
         ${Object.entries(CANVAS_BACKGROUNDS).map(([key, bg]) => {
           const isSel = key === currentCanvasBg;
-          return `<div class="settings-bg-item" data-bg="${key}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;cursor:pointer;background:${isSel ? 'rgba(var(--accent-rgb),0.2)' : 'rgba(255,255,255,0.03)'};border:1px solid ${isSel ? 'rgba(var(--accent-rgb),0.4)' : 'rgba(255,255,255,0.06)'};transition:all 0.15s ease;">
-            <span style="width:16px;height:16px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:${bg.color};${bg.grid ? 'background-image:linear-gradient(rgba(255,255,255,0.1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.1) 1px,transparent 1px);background-size:4px 4px;' : ''}"></span>
+          return `<div class="settings-bg-item" data-bg="${key}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;cursor:pointer;background:${isSel ? 'rgba(var(--accent-rgb),0.2)' : 'var(--ink-03)'};border:1px solid ${isSel ? 'rgba(var(--accent-rgb),0.4)' : 'var(--ink-06)'};transition:all 0.15s ease;">
+            <span style="width:16px;height:16px;border-radius:4px;border:1px solid var(--ink-15);background:${bg.color};${bg.grid ? 'background-image:linear-gradient(var(--ink-10) 1px,transparent 1px),linear-gradient(90deg,var(--ink-10) 1px,transparent 1px);background-size:4px 4px;' : ''}"></span>
             <span style="font-size:12px;">${bg.name}</span>
           </div>`;
         }).join('')}
       </div>
     </div>
 
-    <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+    <div style="padding:12px 0;border-bottom:1px solid var(--ink-06);">
       <div id="settings-theme-header" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
         <div style="font-size:13px;">Terminal Theme</div>
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="display:flex;gap:1px;">${curThemeDots}</span>
-          <span style="font-size:12px;color:#6a6a8a;">${curTheme.name || currentTerminalTheme}</span>
-          <span id="settings-theme-arrow" style="font-size:10px;color:#6a6a8a;transition:transform 0.2s;">▶</span>
+          <span style="font-size:12px;color:var(--text-muted);">${curTheme.name || currentTerminalTheme}</span>
+          <span id="settings-theme-arrow" style="font-size:10px;color:var(--text-muted);transition:transform 0.2s;">▶</span>
         </div>
       </div>
       <div id="settings-theme-body" style="display:none;margin-top:8px;">
-        <input id="settings-theme-search" type="text" placeholder="Search themes..." style="width:100%;padding:5px 8px;margin-bottom:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;" />
+        <input id="settings-theme-search" type="text" placeholder="Search themes..." style="width:100%;padding:5px 8px;margin-bottom:6px;background:var(--ink-05);border:1px solid var(--ink-08);border-radius:6px;color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;" />
         <div id="settings-theme-list" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;"></div>
       </div>
     </div>
@@ -364,42 +400,42 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
       <div id="settings-font-header" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
         <div style="font-size:13px;">Terminal Font</div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:12px;color:#6a6a8a;font-family:'${currentTerminalFont}',monospace;">${currentTerminalFont}</span>
-          <span id="settings-font-arrow" style="font-size:10px;color:#6a6a8a;transition:transform 0.2s;">▶</span>
+          <span style="font-size:12px;color:var(--text-muted);font-family:'${currentTerminalFont}',monospace;">${currentTerminalFont}</span>
+          <span id="settings-font-arrow" style="font-size:10px;color:var(--text-muted);transition:transform 0.2s;">▶</span>
         </div>
       </div>
       <div id="settings-font-body" style="display:none;margin-top:8px;">
-        <input id="settings-font-search" type="text" placeholder="Search fonts..." style="width:100%;padding:5px 8px;margin-bottom:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;" />
+        <input id="settings-font-search" type="text" placeholder="Search fonts..." style="width:100%;padding:5px 8px;margin-bottom:6px;background:var(--ink-05);border:1px solid var(--ink-08);border-radius:6px;color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;" />
         <div id="settings-font-list" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;"></div>
       </div>
     </div>
 
-    <div style="padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);">
+    <div style="padding:12px 0;border-top:1px solid var(--ink-06);">
       <div id="settings-hotkeys-header" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
         <div style="font-size:13px;">Keyboard Shortcuts</div>
-        <span id="settings-hotkeys-arrow" style="font-size:10px;color:#6a6a8a;transition:transform 0.2s;">▶</span>
+        <span id="settings-hotkeys-arrow" style="font-size:10px;color:var(--text-muted);transition:transform 0.2s;">▶</span>
       </div>
       <div id="settings-hotkeys-body" style="display:none;margin-top:10px;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;">
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Tab Q</kbd><span style="color:#9999b8;">Cycle terminals</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Tab A</kbd><span style="color:#9999b8;">Add menu</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Tab D</kbd><span style="color:#9999b8;">Toggle fleet pane</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Tab U</kbd><span style="color:#9999b8;">Toggle usage pane</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Tab S</kbd><span style="color:#9999b8;">Settings</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Tab W</kbd><span style="color:#9999b8;">Close pane (all if broadcast)</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Shift+Click</kbd><span style="color:#9999b8;">Broadcast select</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Esc</kbd><span style="color:#9999b8;">Clear broadcast / cancel</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Ctrl+Shift+2</kbd><span style="color:#9999b8;">Mention</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Tab Tab</kbd><span style="color:#9999b8;">Enter move mode</span>
-        <div style="grid-column:1/3;padding:4px 0 2px 8px;color:#7a7a9a;font-size:11px;border-left:2px solid rgba(255,255,255,0.06);">
-          <div style="margin-bottom:3px;"><kbd style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-family:inherit;color:#aaa;font-size:11px;">WASD</kbd> / <kbd style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-family:inherit;color:#aaa;font-size:11px;">Arrows</kbd> Navigate between panes</div>
-          <div style="margin-bottom:3px;"><kbd style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-family:inherit;color:#aaa;font-size:11px;">Enter</kbd> / <kbd style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-family:inherit;color:#aaa;font-size:11px;">Tab</kbd> Select pane &amp; keep zoom</div>
-          <div><kbd style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-family:inherit;color:#aaa;font-size:11px;">Esc</kbd> Cancel &amp; restore original zoom</div>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Tab Q</kbd><span style="color:var(--text-muted);">Cycle terminals</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Tab A</kbd><span style="color:var(--text-muted);">Add menu</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Tab D</kbd><span style="color:var(--text-muted);">Toggle fleet pane</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Tab U</kbd><span style="color:var(--text-muted);">Toggle usage pane</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Tab S</kbd><span style="color:var(--text-muted);">Settings</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Tab W</kbd><span style="color:var(--text-muted);">Close pane (all if broadcast)</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Shift+Click</kbd><span style="color:var(--text-muted);">Broadcast select</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Esc</kbd><span style="color:var(--text-muted);">Clear broadcast / cancel</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Ctrl+Shift+2</kbd><span style="color:var(--text-muted);">Mention</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Tab Tab</kbd><span style="color:var(--text-muted);">Enter move mode</span>
+        <div style="grid-column:1/3;padding:4px 0 2px 8px;color:var(--text-muted);font-size:11px;border-left:2px solid var(--ink-06);">
+          <div style="margin-bottom:3px;"><kbd style="background:var(--ink-06);padding:1px 5px;border-radius:3px;font-family:inherit;color:var(--text-secondary);font-size:11px;">WASD</kbd> / <kbd style="background:var(--ink-06);padding:1px 5px;border-radius:3px;font-family:inherit;color:var(--text-secondary);font-size:11px;">Arrows</kbd> Navigate between panes</div>
+          <div style="margin-bottom:3px;"><kbd style="background:var(--ink-06);padding:1px 5px;border-radius:3px;font-family:inherit;color:var(--text-secondary);font-size:11px;">Enter</kbd> / <kbd style="background:var(--ink-06);padding:1px 5px;border-radius:3px;font-family:inherit;color:var(--text-secondary);font-size:11px;">Tab</kbd> Select pane &amp; keep zoom</div>
+          <div><kbd style="background:var(--ink-06);padding:1px 5px;border-radius:3px;font-family:inherit;color:var(--text-secondary);font-size:11px;">Esc</kbd> Cancel &amp; restore original zoom</div>
         </div>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Ctrl+Scroll</kbd><span style="color:#9999b8;">Zoom canvas</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Scroll</kbd><span style="color:#9999b8;">Pan canvas / scroll terminal</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Ctrl +/-/0</kbd><span style="color:#9999b8;">Zoom pane (focused) or canvas</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Shift+Scroll</kbd><span style="color:#9999b8;">Pan canvas (over panes)</span>
-        <kbd style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-family:inherit;color:#ccc;">Middle-drag</kbd><span style="color:#9999b8;">Pan canvas (anywhere)</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Ctrl+Scroll</kbd><span style="color:var(--text-muted);">Zoom canvas</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Scroll</kbd><span style="color:var(--text-muted);">Pan canvas / scroll terminal</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Ctrl +/-/0</kbd><span style="color:var(--text-muted);">Zoom pane (focused) or canvas</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Shift+Scroll</kbd><span style="color:var(--text-muted);">Pan canvas (over panes)</span>
+        <kbd style="background:var(--ink-08);padding:2px 6px;border-radius:4px;font-family:inherit;color:var(--text-primary);">Middle-drag</kbd><span style="color:var(--text-muted);">Pan canvas (anywhere)</span>
       </div>
     </div>
 
@@ -426,20 +462,24 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
     window.location.href = '/login';
   });
 
-  // Night mode toggle
-  const nightToggle = document.getElementById('settings-night-toggle');
-  nightToggle.addEventListener('change', () => {
-    const on = nightToggle.checked;
-    setNightMode(on);
-    // Update toggle visual
-    const track = nightToggle.nextElementSibling;
-    const knob = track.nextElementSibling;
-    track.style.background = on ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)';
-    knob.style.left = on ? '20px' : '2px';
-    savePrefsToCloud({ nightMode: on });
+  // Sound toggle
+  // Appearance segmented control
+  const themeSeg = document.getElementById('settings-theme-seg');
+  themeSeg.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-theme-choice]');
+    if (!btn) return;
+    const choice = btn.dataset.themeChoice;
+    if (choice === currentAppTheme) return;
+    setAppTheme(choice);
+    themeSeg.querySelectorAll('[data-theme-choice]').forEach(b => {
+      const on = b.dataset.themeChoice === choice;
+      b.setAttribute('aria-pressed', String(on));
+      b.style.background = on ? 'rgba(var(--accent-rgb),0.9)' : 'transparent';
+      b.style.color = on ? 'var(--on-accent)' : 'var(--text-muted)';
+    });
+    savePrefsToCloud({ appTheme: choice });
   });
 
-  // Sound toggle
   const soundToggle = document.getElementById('settings-sound-toggle');
   soundToggle.addEventListener('change', () => {
     const on = soundToggle.checked;
@@ -447,7 +487,7 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
     _setSoundEnabled(on);
     const track = soundToggle.nextElementSibling;
     const knob = track.nextElementSibling;
-    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
+    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)';
     knob.style.left = on ? '20px' : '2px';
     savePrefsToCloud({ notificationSound: on });
   });
@@ -459,7 +499,7 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
     _ctx.setAutoRemoveDoneNotifs(on);
     const track = autoRemoveToggle.nextElementSibling;
     const knob = track.nextElementSibling;
-    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
+    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)';
     knob.style.left = on ? '20px' : '2px';
     savePrefsToCloud({ autoRemoveDone: on });
   });
@@ -472,7 +512,7 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
     _ctx.setFocusMode(mode);
     const track = focusModeToggle.nextElementSibling;
     const knob = track.nextElementSibling;
-    track.style.background = hover ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
+    track.style.background = hover ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)';
     knob.style.left = hover ? '20px' : '2px';
     savePrefsToCloud({ focusMode: mode });
   });
@@ -484,7 +524,7 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
     _ctx.setTeleportAnimation(on);
     const track = teleportAnimToggle.nextElementSibling;
     const knob = track.nextElementSibling;
-    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
+    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)';
     knob.style.left = on ? '20px' : '2px';
     savePrefsToCloud({ teleportAnimation: on });
   });
@@ -517,9 +557,9 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
       // Update button styles
       document.querySelectorAll('.settings-sidebar-pos-btn').forEach(b => {
         const isSel = b.dataset.pos === pos;
-        b.style.borderColor = isSel ? 'rgba(var(--accent-rgb),0.4)' : 'rgba(255,255,255,0.08)';
+        b.style.borderColor = isSel ? 'rgba(var(--accent-rgb),0.4)' : 'var(--ink-08)';
         b.style.background = isSel ? 'rgba(var(--accent-rgb),0.2)' : 'transparent';
-        b.style.color = isSel ? '#fff' : '#8b8bb0';
+        b.style.color = isSel ? 'var(--on-accent)' : 'var(--text-secondary)';
       });
       _ctx.applyProjectsSidebarPosition();
       savePrefsToCloud({ projectsSidebarPosition: pos });
@@ -540,13 +580,13 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
       .then(r => r.json())
       .then(data => {
         toggle.checked = data.consent;
-        track.style.background = data.consent ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
+        track.style.background = data.consent ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)';
         knob.style.left = data.consent ? '20px' : '2px';
       }).catch(() => {});
     // Handle toggle changes
     toggle.addEventListener('change', () => {
       const on = toggle.checked;
-      track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
+      track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'var(--ink-10)';
       knob.style.left = on ? '20px' : '2px';
       fetch('/api/auth/telemetry-consent', {
         method: 'POST',
@@ -583,8 +623,8 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
     setCanvasBackground(bgKey);
     document.querySelectorAll('.settings-bg-item').forEach(el => {
       const isSel = el.dataset.bg === bgKey;
-      el.style.background = isSel ? 'rgba(var(--accent-rgb),0.2)' : 'rgba(255,255,255,0.03)';
-      el.style.borderColor = isSel ? 'rgba(var(--accent-rgb),0.4)' : 'rgba(255,255,255,0.06)';
+      el.style.background = isSel ? 'rgba(var(--accent-rgb),0.2)' : 'var(--ink-03)';
+      el.style.borderColor = isSel ? 'rgba(var(--accent-rgb),0.4)' : 'var(--ink-06)';
     });
     savePrefsToCloud({ canvasBg: bgKey });
   });
@@ -609,7 +649,7 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
         <span style="display:flex;gap:1px;">${dots}</span>
       </div>`;
     }
-    themeList.innerHTML = html || '<div style="font-size:12px;color:#6a6a8a;padding:6px;">No matching themes</div>';
+    themeList.innerHTML = html || '<div style="font-size:12px;color:var(--text-muted);padding:6px;">No matching themes</div>';
   }
 
   document.getElementById('settings-theme-header').addEventListener('click', () => {
@@ -634,7 +674,7 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
     const headerPreview = document.getElementById('settings-theme-header').querySelector('div:last-child');
     const dots = [t.red, t.green, t.blue, t.yellow, t.magenta, t.cyan].filter(Boolean)
       .map(c => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:2px;"></span>`).join('');
-    headerPreview.innerHTML = `<span style="display:flex;gap:1px;">${dots}</span><span style="font-size:12px;color:#6a6a8a;">${t.name}</span><span id="settings-theme-arrow" style="font-size:10px;color:#6a6a8a;transform:rotate(90deg);transition:transform 0.2s;">▶</span>`;
+    headerPreview.innerHTML = `<span style="display:flex;gap:1px;">${dots}</span><span style="font-size:12px;color:var(--text-muted);">${t.name}</span><span id="settings-theme-arrow" style="font-size:10px;color:var(--text-muted);transform:rotate(90deg);transition:transform 0.2s;">▶</span>`;
     savePrefsToCloud({ terminalTheme: themeKey });
   });
 
@@ -655,7 +695,7 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
         <span style="font-size:13px;font-family:'${font}',monospace;">${font}</span>
       </div>`;
     }
-    fontList.innerHTML = html || '<div style="font-size:12px;color:#6a6a8a;padding:6px;">No matching fonts</div>';
+    fontList.innerHTML = html || '<div style="font-size:12px;color:var(--text-muted);padding:6px;">No matching fonts</div>';
   }
 
   document.getElementById('settings-font-header').addEventListener('click', () => {
@@ -676,7 +716,7 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
     renderFontList(fontSearch.value);
     // Update collapsed preview
     const headerPreview = document.getElementById('settings-font-header').querySelector('div:last-child');
-    headerPreview.innerHTML = `<span style="font-size:12px;color:#6a6a8a;font-family:'${fontName}',monospace;">${fontName}</span><span id="settings-font-arrow" style="font-size:10px;color:#6a6a8a;transform:rotate(90deg);transition:transform 0.2s;">▶</span>`;
+    headerPreview.innerHTML = `<span style="font-size:12px;color:var(--text-muted);font-family:'${fontName}',monospace;">${fontName}</span><span id="settings-font-arrow" style="font-size:10px;color:var(--text-muted);transform:rotate(90deg);transition:transform 0.2s;">▶</span>`;
     savePrefsToCloud({ terminalFont: fontName });
   });
 

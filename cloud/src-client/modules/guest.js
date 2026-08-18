@@ -23,10 +23,10 @@ export function showGuestRegisterModal(force) {
 
   overlay = document.createElement('div');
   overlay.id = 'guest-register-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200000;';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:200000;';
 
   const card = document.createElement('div');
-  card.style.cssText = 'background:#1a1a2e;border:1px solid #8b8ff6;border-radius:14px;padding:36px;max-width:440px;width:90%;color:#e0e0e0;font-family:Montserrat,sans-serif;text-align:center;';
+  card.style.cssText = 'background:var(--surface-solid);border:1px solid #8b8ff6;border-radius:14px;padding:36px;max-width:440px;width:90%;color:var(--text-primary);font-family:Montserrat,sans-serif;text-align:center;';
 
   const title = force ? 'sorry\u{1F614}\u{1F61E} \u2014 guest session expired' : 'Guest session ending soon';
   const msg = force
@@ -34,7 +34,7 @@ export function showGuestRegisterModal(force) {
     : 'we are not VC funded and we are paying out of pocket. Unfortunately we can not yet afford to let people use this as guests for longer, BUT if you register now, you get to keep all your work!!';
   const continueBtn = force
     ? ''
-    : `<button id="guest-continue-btn" style="background:transparent;color:#5a6578;border:1px solid rgba(255,255,255,0.1);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:13px;margin-top:4px;">continue in guest mode</button>`;
+    : `<button id="guest-continue-btn" style="background:transparent;color:#5a6578;border:1px solid var(--ink-10);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:13px;margin-top:4px;">continue in guest mode</button>`;
 
   // In local mode, redirect to login page instead of showing OAuth modal
   const isLocal = !window.__tcUser || window.__tcAuthMode === 'local';
@@ -45,9 +45,9 @@ export function showGuestRegisterModal(force) {
 
   card.innerHTML = `
     <h2 style="margin:0 0 12px;color:#8b8ff6;font-size:20px;font-weight:600;">${title}</h2>
-    <p style="color:#8a8faa;margin:0 0 24px;font-size:14px;line-height:1.5;">${msg}</p>
+    <p style="color:var(--text-muted);margin:0 0 24px;font-size:14px;line-height:1.5;">${msg}</p>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-      <a href="/login" style="display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 20px;background:rgba(139,143,246,0.15);border:1px solid rgba(139,143,246,0.35);border-radius:8px;color:#e8ecf4;text-decoration:none;font-size:14px;transition:all 0.2s;">
+      <a href="/login" style="display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 20px;background:rgba(139,143,246,0.15);border:1px solid rgba(139,143,246,0.35);border-radius:8px;color:var(--text-primary);text-decoration:none;font-size:14px;transition:all 0.2s;">
         Sign up
       </a>
     </div>

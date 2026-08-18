@@ -13,7 +13,7 @@
 | 6 | **HUD System (Fleet, Agents, Chat)** | ~499-1488 | `createHudContainer()`, `createHud()`, `renderHud()`, `createAgentsHud()`, `renderAgentsHud()`, `createChatHud()`, `applyTerminalTheme()`, `applyDeviceHighlight()` |
 | 7 | **Guest Mode & Claude State Tracking** | ~1491-1942 | `showGuestRegisterModal()`, `initGuestNudge()`, `updateClaudeStates()`, `init()` (bootstrap) |
 | 8 | **WebSocket Communication** | ~1944-2388 | `connectWebSocket()`, `handleWsMessage()` (giant switch), heartbeat, reconnect logic |
-| 9 | **Preferences & Settings Modal** | ~2390-2832 | `getAllPrefs()`, `showSettingsModal()`, `setCanvasBackground()`, `setNightMode()`, `applyTerminalFont()`, theme/font pickers |
+| 9 | **Preferences & Settings Modal** | ~2390-2832 | `getAllPrefs()`, `showSettingsModal()`, `setCanvasBackground()`, `applyTerminalFont()`, theme/font pickers |
 | 10 | **WS Helpers & Agent Management** | ~2835-3210 | `sendWs()`, `showRelayNotification()`, `showUpdateToast()`, `triggerAgentUpdate()`, `showAddMachineDialog()`, `updateAgentOverlay()` |
 | 11 | **REST-over-WS API & Connection Status** | ~3212-3397 | `agentRequest()`, `pendingRequests`, `updateConnectionStatus()`, `findOnlineAgentForDevice()`, `setDisconnectOverlay()`, `renderOfflinePlaceholder()` |
 | 12 | **Pane Creation & Type Registry** | ~3398-4700 | `PANE_TYPES[]`, `loadAgentPanes()`, `createPane()`, `deletePane()`, `createFilePane()`, `createNotePane()`, `createGitGraphPane()`, `createIframePane()`, `createFolderPane()`, `createBeadsPane()`, `createCustomSelect()`, device picker |

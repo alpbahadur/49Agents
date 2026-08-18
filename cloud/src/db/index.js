@@ -180,6 +180,19 @@ export function initDatabase() {
     console.log('[db] Migration: Created recent_pane_contexts table');
   }
 
+  // Migration: starter_terminal_created — one-shot marker so the first empty
+  // canvas gets a terminal and later empty canvases do not.
+  try {
+    db.prepare('ALTER TABLE user_preferences ADD COLUMN starter_terminal_created INTEGER NOT NULL DEFAULT 0').run();
+    console.log('[db] Migration: Added starter_terminal_created column to user_preferences');
+  } catch (e) { /* already exists */ }
+
+  // Migration: app_theme (light / dark / system) on user_preferences
+  try {
+    db.prepare("ALTER TABLE user_preferences ADD COLUMN app_theme TEXT NOT NULL DEFAULT 'system'").run();
+    console.log('[db] Migration: Added app_theme column to user_preferences');
+  } catch (e) { /* already exists */ }
+
   // Migration: projects column on user_preferences
   try {
     db.prepare("ALTER TABLE user_preferences ADD COLUMN projects TEXT NOT NULL DEFAULT '[]'").run();
