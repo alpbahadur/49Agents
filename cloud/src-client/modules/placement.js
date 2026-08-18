@@ -247,6 +247,7 @@ export function renderConversationsPane(paneData) {
     </div>
     <div class="convos-list"></div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);

@@ -199,6 +199,20 @@ export function initDatabase() {
     db.prepare("ALTER TABLE user_preferences ADD COLUMN projects_sidebar_position TEXT NOT NULL DEFAULT 'right'").run();
     console.log('[db] Migration: Added projects_sidebar_position column to user_preferences');
   } catch (e) { /* already exists */ }
+  // Optional pane-header affordances. Beads defaults off — it is meaningless
+  // to anyone not running beads — while naming and number hotkeys stay on.
+  try {
+    db.prepare('ALTER TABLE user_preferences ADD COLUMN beads_button_enabled INTEGER NOT NULL DEFAULT 0').run();
+    console.log('[db] Migration: Added beads_button_enabled column to user_preferences');
+  } catch (e) { /* already exists */ }
+  try {
+    db.prepare('ALTER TABLE user_preferences ADD COLUMN pane_naming_enabled INTEGER NOT NULL DEFAULT 1').run();
+    console.log('[db] Migration: Added pane_naming_enabled column to user_preferences');
+  } catch (e) { /* already exists */ }
+  try {
+    db.prepare('ALTER TABLE user_preferences ADD COLUMN pane_number_hotkeys_enabled INTEGER NOT NULL DEFAULT 1').run();
+    console.log('[db] Migration: Added pane_number_hotkeys_enabled column to user_preferences');
+  } catch (e) { /* already exists */ }
 
   // Migration: notifications tables
   try {

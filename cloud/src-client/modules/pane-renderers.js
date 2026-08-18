@@ -216,8 +216,8 @@ export function renderNotePane(paneData) {
       <div class="pane-header-right">
         ${_ctx.shortcutBadgeHtml(paneData)}
         <div class="pane-zoom-controls">
-          <button class="pane-zoom-btn zoom-out" data-tooltip="Zoom out">\u2212</button>
-          <button class="pane-zoom-btn zoom-in" data-tooltip="Zoom in">+</button>
+          <button class="pane-zoom-btn zoom-out" aria-label="Zoom out" data-tooltip="Zoom out"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="20.5" y2="20.5"/><line x1="7.5" y1="10.5" x2="13.5" y2="10.5"/></svg></button>
+          <button class="pane-zoom-btn zoom-in" aria-label="Zoom in" data-tooltip="Zoom in"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="20.5" y2="20.5"/><line x1="7.5" y1="10.5" x2="13.5" y2="10.5"/><line x1="10.5" y1="7.5" x2="10.5" y2="13.5"/></svg></button>
         </div>
         <button class="note-text-only-btn" aria-label="Preview markdown" data-tooltip="Preview markdown">\u{1F441}</button>
         <button class="pane-close" aria-label="Close pane"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -231,6 +231,7 @@ export function renderNotePane(paneData) {
       </div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);
@@ -428,6 +429,7 @@ export function renderIframePane(paneData) {
       <div class="iframe-overlay"></div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);
@@ -602,8 +604,8 @@ export function renderBeadsPane(paneData) {
       <div class="pane-header-right">
         ${_ctx.shortcutBadgeHtml(paneData)}
         <div class="pane-zoom-controls">
-          <button class="pane-zoom-btn zoom-out" data-tooltip="Zoom out">\u2212</button>
-          <button class="pane-zoom-btn zoom-in" data-tooltip="Zoom in">+</button>
+          <button class="pane-zoom-btn zoom-out" aria-label="Zoom out" data-tooltip="Zoom out"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="20.5" y2="20.5"/><line x1="7.5" y1="10.5" x2="13.5" y2="10.5"/></svg></button>
+          <button class="pane-zoom-btn zoom-in" aria-label="Zoom in" data-tooltip="Zoom in"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="20.5" y2="20.5"/><line x1="7.5" y1="10.5" x2="13.5" y2="10.5"/><line x1="10.5" y1="7.5" x2="10.5" y2="13.5"/></svg></button>
         </div>
         <button class="pane-expand" aria-label="Expand pane" data-tooltip="Expand">\u26F6</button>
         <button class="pane-close" aria-label="Close pane"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -654,6 +656,7 @@ export function renderBeadsPane(paneData) {
       </div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   setupPaneListeners(pane, paneData);
@@ -707,8 +710,8 @@ export function renderFolderPane(paneData) {
           <svg viewBox="0 0 24 24" width="14" height="14"><path d="M23 4v6h-6M1 20v-6h6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" fill="none" stroke="currentColor" stroke-width="2"/></svg>
         </button>
         <div class="pane-zoom-controls">
-          <button class="pane-zoom-btn zoom-out" data-tooltip="Zoom out">\u2212</button>
-          <button class="pane-zoom-btn zoom-in" data-tooltip="Zoom in">+</button>
+          <button class="pane-zoom-btn zoom-out" aria-label="Zoom out" data-tooltip="Zoom out"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="20.5" y2="20.5"/><line x1="7.5" y1="10.5" x2="13.5" y2="10.5"/></svg></button>
+          <button class="pane-zoom-btn zoom-in" aria-label="Zoom in" data-tooltip="Zoom in"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="20.5" y2="20.5"/><line x1="7.5" y1="10.5" x2="13.5" y2="10.5"/><line x1="10.5" y1="7.5" x2="10.5" y2="13.5"/></svg></button>
         </div>
         <button class="pane-expand" aria-label="Expand pane" data-tooltip="Expand">\u26F6</button>
         <button class="pane-close" aria-label="Close pane"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -730,6 +733,7 @@ export function renderFolderPane(paneData) {
       </div>
     </div>
     <div class="pane-resize-handle"></div>
+    <div class="pane-resize-handle-left"></div>
   `;
 
   _ctx.getCanvas().appendChild(pane);

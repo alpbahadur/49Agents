@@ -583,7 +583,25 @@ body.minimap-hidden #controls {
 .pane-header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+}
+
+/* Every icon control in the header shares one hit box, so the row reads as an
+   evenly spaced strip. Spacing is the container's gap alone — per-button
+   margins here drift apart as buttons are added. */
+.pane-header-right > button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* Optional affordances, toggled in settings. Hiding rather than omitting them
+   from the templates means the switch applies to panes already on canvas. */
+body.hide-beads-btn .beads-tag-btn,
+body.hide-pane-naming .pane-name,
+body.hide-pane-shortcuts .pane-shortcut-badge {
+  display: none !important;
 }
 
 /* Shortcut number badge (Tab+1..9 quick-jump) */
@@ -591,8 +609,8 @@ body.minimap-hidden #controls {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -800,8 +818,7 @@ body.minimap-hidden #controls {
   border: none;
   color: rgba(255, 255, 255, 0.3);
   cursor: pointer;
-  padding: 2px;
-  border-radius: 3px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -927,6 +944,30 @@ body.minimap-hidden #controls {
 
 .pane-resize-handle.hold-active {
   background: linear-gradient(135deg, transparent 50%, rgba(139, 92, 246, 0.6) 50%);
+  animation: resizePulse 0.3s ease-in-out infinite alternate;
+}
+
+/* Resize handle - bottom left (mirrored) */
+.pane-resize-handle-left {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nesw-resize;
+  background: linear-gradient(225deg, transparent 50%, rgba(255, 255, 255, 0.15) 50%);
+  border-radius: 0 0 0 12px;
+  transition: background 0.15s ease;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.pane-resize-handle-left:hover {
+  background: linear-gradient(225deg, transparent 50%, rgba(218, 119, 86, 0.4) 50%);
+}
+
+.pane-resize-handle-left.hold-active {
+  background: linear-gradient(225deg, transparent 50%, rgba(139, 92, 246, 0.6) 50%);
   animation: resizePulse 0.3s ease-in-out infinite alternate;
 }
 
@@ -1081,7 +1122,8 @@ body.minimap-hidden #controls {
     min-height: 10px;
   }
 
-  .pane-resize-handle {
+  .pane-resize-handle,
+  .pane-resize-handle-left {
     width: 32px;
     height: 32px;
   }
@@ -1621,7 +1663,8 @@ body.minimap-hidden #controls {
 .pane.note-pane.text-only .pane-header,
 .pane.note-pane.text-only .note-toolbar,
 .pane.note-pane.text-only .note-images,
-.pane.note-pane.text-only .pane-resize-handle {
+.pane.note-pane.text-only .pane-resize-handle,
+.pane.note-pane.text-only .pane-resize-handle-left {
   display: none !important;
 }
 
@@ -1850,23 +1893,23 @@ body.minimap-hidden #controls {
   display: flex;
   align-items: center;
   gap: 2px;
-  margin-right: 6px;
+  flex-shrink: 0;
 }
 
 .pane-zoom-btn {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
   border: none;
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.5);
-  font-size: 12px;
-  font-weight: bold;
   cursor: pointer;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .pane-zoom-btn:hover {
@@ -1910,7 +1953,7 @@ body.minimap-hidden #controls {
   align-items: center;
   gap: 4px;
   padding: 1px 6px 1px 4px;
-  margin-right: 5px;
+  margin-right: 6px;
   background: rgba(232, 123, 53, 0.1);
   border: 1px solid rgba(232, 123, 53, 0.35);
   border-radius: 4px;
@@ -6747,7 +6790,8 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
 
 .checkpoint-pane .pane-header,
 .checkpoint-pane .pane-content,
-.checkpoint-pane .pane-resize-handle {
+.checkpoint-pane .pane-resize-handle,
+.checkpoint-pane .pane-resize-handle-left {
   display: none !important;
 }
 

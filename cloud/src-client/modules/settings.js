@@ -46,6 +46,9 @@ export function getAllPrefs(overrides) {
     tutorialsCompleted: _ctx.getTutorialsCompleted(),
     projectsSidebarPosition: _ctx.getProjectsSidebarPosition(),
     teleportAnimation: _ctx.getTeleportAnimation(),
+    beadsButtonEnabled: _ctx.getBeadsButtonEnabled(),
+    paneNamingEnabled: _ctx.getPaneNamingEnabled(),
+    paneNumberHotkeysEnabled: _ctx.getPaneNumberHotkeysEnabled(),
     ...overrides,
   };
 }
@@ -91,6 +94,40 @@ export function setNightMode(enabled) {
   }
 }
 
+/**
+ * One settings row carrying a switch. The older rows in this modal spell the
+ * same markup out inline; new ones go through here so the three pane-chrome
+ * toggles below don't triple it again.
+ */
+function toggleRowHtml(id, label, description, on) {
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div>
+        <div style="font-size:13px;">${label}</div>
+        <div style="font-size:11px;color:#6a6a8a;">${description}</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
+        <input type="checkbox" id="${id}" ${on ? 'checked' : ''} style="opacity:0;width:0;height:0;">
+        <span style="position:absolute;inset:0;background:${on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)'};border-radius:11px;transition:0.2s;"></span>
+        <span style="position:absolute;top:2px;left:${on ? '20px' : '2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
+      </label>
+    </div>`;
+}
+
+/** Wire a row built by toggleRowHtml: repaint the switch, then persist. */
+function bindToggleRow(id, apply) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  input.addEventListener('change', () => {
+    const on = input.checked;
+    const track = input.nextElementSibling;
+    const knob = track.nextElementSibling;
+    track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
+    knob.style.left = on ? '20px' : '2px';
+    apply(on);
+  });
+}
+
 export function showSettingsModal() {
   const TERMINAL_THEMES = _ctx.getTerminalThemes();
   const currentTerminalTheme = _ctx.getCurrentTerminalTheme();
@@ -98,6 +135,9 @@ export function showSettingsModal() {
   const autoRemoveDoneNotifs = _ctx.getAutoRemoveDoneNotifs();
   const focusMode = _ctx.getFocusMode();
   const teleportAnimation = _ctx.getTeleportAnimation();
+  const beadsButtonEnabled = _ctx.getBeadsButtonEnabled();
+  const paneNamingEnabled = _ctx.getPaneNamingEnabled();
+  const paneNumberHotkeysEnabled = _ctx.getPaneNumberHotkeysEnabled();
   const projectsSidebarPosition = _ctx.getProjectsSidebarPosition();
   const snoozeDurationMs = _ctx.getSnoozeDurationMs();
 
@@ -209,6 +249,9 @@ export function showSettingsModal() {
         <span style="position:absolute;top:2px;left:${teleportAnimation ? '20px' : '2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.2s;"></span>
       </label>
     </div>
+${toggleRowHtml('settings-pane-naming-toggle', 'Pane Names', 'Show the editable name field in pane headers', paneNamingEnabled)}
+${toggleRowHtml('settings-pane-hotkeys-toggle', 'Pane Number Hotkeys', 'Number badges in headers, and Tab+1..9 to jump', paneNumberHotkeysEnabled)}
+${toggleRowHtml('settings-beads-btn-toggle', 'Beads Issue Button', 'Tag panes with a beads issue from the header', beadsButtonEnabled)}
 
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
       <div>
@@ -383,6 +426,21 @@ export function showSettingsModal() {
     track.style.background = on ? 'rgba(var(--accent-rgb),0.5)' : 'rgba(255,255,255,0.1)';
     knob.style.left = on ? '20px' : '2px';
     savePrefsToCloud({ teleportAnimation: on });
+  });
+
+  // Pane chrome toggles — each setter reapplies the body classes that hide or
+  // show the affordance, so panes already on the canvas update immediately.
+  bindToggleRow('settings-pane-naming-toggle', (on) => {
+    _ctx.setPaneNamingEnabled(on);
+    savePrefsToCloud({ paneNamingEnabled: on });
+  });
+  bindToggleRow('settings-pane-hotkeys-toggle', (on) => {
+    _ctx.setPaneNumberHotkeysEnabled(on);
+    savePrefsToCloud({ paneNumberHotkeysEnabled: on });
+  });
+  bindToggleRow('settings-beads-btn-toggle', (on) => {
+    _ctx.setBeadsButtonEnabled(on);
+    savePrefsToCloud({ beadsButtonEnabled: on });
   });
 
   // Sidebar position buttons
