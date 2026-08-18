@@ -600,7 +600,8 @@ body.minimap-hidden #controls {
    from the templates means the switch applies to panes already on canvas. */
 body.hide-beads-btn .beads-tag-btn,
 body.hide-pane-naming .pane-name,
-body.hide-pane-shortcuts .pane-shortcut-badge {
+body.hide-pane-shortcuts .pane-shortcut-badge,
+body.hide-pane-new-tab .pane-new-tab {
   display: none !important;
 }
 
@@ -1928,7 +1929,6 @@ body.hide-pane-shortcuts .pane-shortcut-badge {
   border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.4);
-  font-size: 14px;
   cursor: pointer;
   border-radius: 4px;
   display: flex;
@@ -2146,7 +2146,7 @@ body.hide-pane-shortcuts .pane-shortcut-badge {
   height: 24px;
   border: none;
   background: transparent;
-  color: rgba(218, 150, 110, 0.4);
+  color: rgba(255, 255, 255, 0.4);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2158,8 +2158,8 @@ body.hide-pane-shortcuts .pane-shortcut-badge {
 }
 
 .term-refresh-history:hover {
-  background: rgba(218, 119, 86, 0.2);
-  color: rgba(218, 150, 110, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .term-refresh-history:active {
@@ -7316,4 +7316,90 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .heart { animation: none; }
+}
+
+/* ---- First-run hotkey tip ---------------------------------------------- */
+/* Centre-bottom, not the toast corner: notification toasts have trained
+   people to dismiss that corner without reading it. */
+#hotkey-tip {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 10050;
+  padding: 16px 20px;
+  min-width: 300px;
+  background: rgba(26, 26, 46, 0.96);
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  border-radius: 10px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: auto;
+}
+
+#hotkey-tip.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.hotkey-tip-title {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 10px;
+}
+
+.hotkey-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8b8bb0;
+  margin-bottom: 6px;
+}
+
+.hotkey-tip-row kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hotkey-tip-desc {
+  margin-left: 4px;
+  color: #8b8bb0;
+}
+
+.hotkey-tip-hint {
+  font-size: 11px;
+  color: #6a6a8a;
+  margin: 10px 0 12px;
+}
+
+.hotkey-tip-dismiss {
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.hotkey-tip-dismiss:hover {
+  background: rgba(var(--accent-rgb), 0.25);
+  border-color: rgba(var(--accent-rgb), 0.5);
 }

@@ -66,3 +66,28 @@ export function isAgentVersionOutdated(current, latest) {
 export function getTerminalFontFamily(fontName) {
   return `"${fontName}", "Fira Code", "SF Mono", Menlo, Monaco, monospace`;
 }
+
+/**
+ * The reorderable pane-header controls, in their default left-to-right order.
+ * Expand and close are deliberately not in the pool — they stay pinned to the
+ * right so close never moves under the cursor by surprise.
+ */
+export const PANE_HEADER_CONTROLS = ['shortcut', 'beads', 'reload', 'zoom', 'newtab'];
+
+/**
+ * Reconcile a stored order with the controls this build actually has: drop
+ * anything unknown, collapse duplicates, and append whatever is missing.
+ *
+ * A stored order outlives the build that wrote it — a control can be added or
+ * removed between releases — so this is what stops an old preference from
+ * dropping a button out of the header entirely.
+ */
+export function normalizePaneHeaderOrder(order, controls = PANE_HEADER_CONTROLS) {
+  const seen = new Set();
+  const clean = (Array.isArray(order) ? order : []).filter((key) => {
+    if (!controls.includes(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return [...clean, ...controls.filter(key => !clean.includes(key))];
+}
