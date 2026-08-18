@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS view_state (
 CREATE TABLE IF NOT EXISTS user_preferences (
   user_id            TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   night_mode         INTEGER NOT NULL DEFAULT 0,
+  app_theme          TEXT NOT NULL DEFAULT 'system',
+  starter_terminal_created INTEGER NOT NULL DEFAULT 0,
   terminal_theme     TEXT NOT NULL DEFAULT 'default',
   notification_sound INTEGER NOT NULL DEFAULT 1,
   auto_remove_done   INTEGER NOT NULL DEFAULT 0,

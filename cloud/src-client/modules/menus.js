@@ -243,7 +243,7 @@ export function setupMobileNavDrawer() {
     // Sheet
     const sheet = document.createElement('div');
     sheet.className = 'mobile-nav-sheet';
-    sheet.innerHTML = '<div class="mobile-nav-handle"></div><div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 8px;"><div class="mobile-nav-title" style="padding:0;">Panes</div><button class="mobile-nav-arrange-btn" style="background:rgba(218,119,86,0.15);border:1px solid rgba(218,119,86,0.3);color:rgba(218,119,86,0.9);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;">Arrange</button></div><div class="mobile-nav-list"></div>';
+    sheet.innerHTML = '<div class="mobile-nav-handle"></div><div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 8px;"><div class="mobile-nav-title" style="padding:0;">Panes</div><button class="mobile-nav-arrange-btn" style="background:rgba(var(--accent-rgb), 0.15);border:1px solid rgba(var(--accent-rgb), 0.3);color:rgba(var(--accent-rgb), 0.9);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;">Arrange</button></div><div class="mobile-nav-list"></div>';
     document.body.appendChild(sheet);
 
     const list = sheet.querySelector('.mobile-nav-list');

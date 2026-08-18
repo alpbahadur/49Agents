@@ -470,10 +470,10 @@ export async function showDevicePickerGeneric(onDeviceSelected, onFallback) {
       btn.setAttribute('data-nav-item', '');
       const icon = osIcons[device.os] || '\u{1F4BB}';
       const localBadge = device.isLocal ? ' <span style="opacity:0.5; font-size:11px;">(local)</span>' : '';
-      const onlineColor = device.online ? '#4ec9b0' : '#6a6a8a';
+      const onlineColor = device.online ? 'var(--status-ok)' : 'var(--text-muted)';
       const numLabel = i < 9 ? `<span style="opacity:0.5; font-size:11px; margin-right:4px;">${i + 1}</span>` : '';
       btn.innerHTML = `${numLabel}<span style="font-size:16px;">${icon}</span><span style="flex:1;">${device.name}${localBadge}</span><span style="width:8px; height:8px; border-radius:50%; background:${onlineColor}; display:inline-block;"></span>`;
-      btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(255,255,255,0.1)'; });
+      btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--ink-10)'; });
       btn.addEventListener('mouseleave', () => { btn.style.background = 'none'; });
       btn.addEventListener('click', () => {
         nav.cleanup();
@@ -531,13 +531,13 @@ export async function showDevicePicker(placementPos) {
 let createPaneQueue = Promise.resolve();
 
 // Create a new terminal pane
-export function createPane(device, placementPos, targetAgentId) {
-  const task = createPaneQueue.then(() => _createPaneImpl(device, placementPos, targetAgentId));
+export function createPane(device, placementPos, targetAgentId, opts) {
+  const task = createPaneQueue.then(() => _createPaneImpl(device, placementPos, targetAgentId, opts));
   createPaneQueue = task.catch(() => {});
   return task;
 }
 
-async function _createPaneImpl(device, placementPos, targetAgentId) {
+async function _createPaneImpl(device, placementPos, targetAgentId, opts = {}) {
   const resolvedAgentId = targetAgentId || _ctx.getActiveAgentId();
 
   const position = calcPlacementPos(placementPos, 300, 200);
@@ -567,11 +567,15 @@ async function _createPaneImpl(device, placementPos, targetAgentId) {
     // Wait for that to fire before releasing the queue so the next terminal's
     // ttyd spawn doesn't contend with this one on the agent side.
     await new Promise(r => setTimeout(r, 200));
-
   } catch (e) {
     console.error('[App] Failed to create terminal:', e);
-    alert('Failed to create terminal: ' + e.message);
+    // The starter terminal is created for the user, not by them. A modal error
+    // on an otherwise empty first canvas explains nothing and blocks the app,
+    // so that path fails quietly and leaves the canvas as it was.
+    if (!opts.silent) alert('Failed to create terminal: ' + e.message);
+    return false;
   }
+  return true;
 }
 
 // Resume or reconnect a dead terminal in an existing pane
@@ -655,17 +659,17 @@ export function createBrowserOverlay(id, headerContentHTML) {
 
   const overlay = document.createElement('div');
   overlay.id = id;
-  overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; z-index:10001; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.7);';
+  overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; z-index:10001; display:flex; align-items:center; justify-content:center; background:var(--scrim);';
 
   const browser = document.createElement('div');
-  browser.style.cssText = 'width:500px; max-width:90vw; max-height:70vh; background:rgba(15,20,35,0.98); border:1px solid rgba(var(--accent-rgb),0.3); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.6);';
+  browser.style.cssText = 'width:500px; max-width:90vw; max-height:70vh; background:rgba(15,20,35,0.98); border:1px solid rgba(var(--accent-rgb),0.3); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(var(--sink-rgb), 0.6);';
 
   const header = document.createElement('div');
-  header.style.cssText = 'padding:12px 16px; background:rgba(0,0,0,0.3); border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:10px; flex-shrink:0;';
-  header.innerHTML = headerContentHTML + '<button class="browser-overlay-close" style="margin-left:auto; background:none; border:none; color:rgba(255,255,255,0.4); font-size:20px; cursor:pointer; padding:2px 6px; border-radius:4px;">&times;</button>';
+  header.style.cssText = 'padding:12px 16px; background:rgba(var(--sink-rgb), 0.3); border-bottom:1px solid var(--ink-08); display:flex; align-items:center; gap:10px; flex-shrink:0;';
+  header.innerHTML = headerContentHTML + '<button class="browser-overlay-close" style="margin-left:auto; background:none; border:none; color:var(--ink-40); font-size:20px; cursor:pointer; padding:2px 6px; border-radius:4px;">&times;</button>';
 
   const breadcrumbBar = document.createElement('div');
-  breadcrumbBar.style.cssText = 'padding:8px 16px; background:rgba(0,0,0,0.15); border-bottom:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:4px; flex-shrink:0; overflow-x:auto; font-size:12px;';
+  breadcrumbBar.style.cssText = 'padding:8px 16px; background:rgba(var(--sink-rgb), 0.15); border-bottom:1px solid var(--ink-05); display:flex; align-items:center; gap:4px; flex-shrink:0; overflow-x:auto; font-size:12px;';
 
   const contentArea = document.createElement('div');
   contentArea.className = 'tc-scrollbar';
@@ -695,26 +699,26 @@ function renderBreadcrumb(breadcrumbBar, resolvedPath, onNavigate) {
   const parts = resolvedPath.split('/').filter(p => p);
 
   const rootBtn = document.createElement('button');
-  rootBtn.style.cssText = 'background:none; border:none; color:rgba(255,255,255,0.6); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:3px;';
+  rootBtn.style.cssText = 'background:none; border:none; color:var(--ink-60); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:3px;';
   rootBtn.textContent = '/';
   rootBtn.addEventListener('click', () => onNavigate('/'));
-  rootBtn.addEventListener('mouseenter', () => { rootBtn.style.color = '#fff'; });
-  rootBtn.addEventListener('mouseleave', () => { rootBtn.style.color = 'rgba(255,255,255,0.6)'; });
+  rootBtn.addEventListener('mouseenter', () => { rootBtn.style.color = 'var(--text-bright)'; });
+  rootBtn.addEventListener('mouseleave', () => { rootBtn.style.color = 'var(--ink-60)'; });
   breadcrumbBar.appendChild(rootBtn);
 
   parts.forEach((part, i) => {
     const sep = document.createElement('span');
-    sep.style.cssText = 'color:rgba(255,255,255,0.2); margin:0 2px;';
+    sep.style.cssText = 'color:var(--ink-20); margin:0 2px;';
     sep.textContent = '/';
     breadcrumbBar.appendChild(sep);
 
     const btn = document.createElement('button');
-    btn.style.cssText = 'background:none; border:none; color:rgba(255,255,255,0.6); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:3px;';
+    btn.style.cssText = 'background:none; border:none; color:var(--ink-60); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:3px;';
     btn.textContent = part;
     const targetPath = '/' + parts.slice(0, i + 1).join('/');
     btn.addEventListener('click', () => onNavigate(targetPath));
-    btn.addEventListener('mouseenter', () => { btn.style.color = '#fff'; });
-    btn.addEventListener('mouseleave', () => { btn.style.color = 'rgba(255,255,255,0.6)'; });
+    btn.addEventListener('mouseenter', () => { btn.style.color = 'var(--text-bright)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.color = 'var(--ink-60)'; });
     breadcrumbBar.appendChild(btn);
   });
 }
@@ -724,7 +728,7 @@ function createFolderItem(name, onClick) {
   item.setAttribute('data-nav-item', '');
   item.style.cssText = 'display:flex; align-items:center; gap:10px; padding:7px 16px; cursor:pointer; transition:background 0.1s; font-size:13px;';
   const icon = name === '..' ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>' : '\u{1F4C1}';
-  item.innerHTML = `<span style="width:20px; text-align:center;">${icon}</span><span style="color:rgba(255,255,255,0.85); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(name)}</span>`;
+  item.innerHTML = `<span style="width:20px; text-align:center;">${icon}</span><span style="color:var(--ink-85); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(name)}</span>`;
   item.addEventListener('click', onClick);
   item.addEventListener('mouseenter', () => { item.style.background = 'rgba(var(--accent-rgb),0.15)'; });
   item.addEventListener('mouseleave', () => { item.style.background = 'none'; });
@@ -742,7 +746,7 @@ export function showFolderScanPicker(config) {
   addCleanup(nav.cleanup);
 
   async function navigateFolder(path) {
-    contentArea.innerHTML = '<div style="padding:40px; text-align:center; color:rgba(255,255,255,0.4); font-size:13px;">Loading...</div>';
+    contentArea.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-40); font-size:13px;">Loading...</div>';
 
     try {
       const deviceParam = device ? `&device=${encodeURIComponent(device)}` : '';
@@ -759,8 +763,8 @@ export function showFolderScanPicker(config) {
       // "Scan this folder" / "Open this folder" button
       const selectBtn = document.createElement('div');
       selectBtn.setAttribute('data-nav-item', '');
-      selectBtn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:9px 16px; cursor:pointer; transition:background 0.1s; font-size:13px; background:rgba(var(--accent-rgb),0.1); border-bottom:1px solid rgba(255,255,255,0.05); margin-bottom:2px;';
-      selectBtn.innerHTML = `<span style="width:20px; text-align:center; color:#da7756;">\u2713</span><span style="color:#e8a882; font-weight:500;">${escapeHtml(scanLabel)}</span>`;
+      selectBtn.style.cssText = 'display:flex; align-items:center; gap:10px; padding:9px 16px; cursor:pointer; transition:background 0.1s; font-size:13px; background:rgba(var(--accent-rgb),0.1); border-bottom:1px solid var(--ink-05); margin-bottom:2px;';
+      selectBtn.innerHTML = `<span style="width:20px; text-align:center; color:var(--accent-hex);">\u2713</span><span style="color:var(--accent-soft-hex); font-weight:500;">${escapeHtml(scanLabel)}</span>`;
       selectBtn.addEventListener('click', () => onScan(data.path, contentArea, closeBrowser, navigateFolder, () => nav.refresh()));
       selectBtn.addEventListener('mouseenter', () => { selectBtn.style.background = 'rgba(var(--accent-rgb),0.25)'; });
       selectBtn.addEventListener('mouseleave', () => { selectBtn.style.background = 'rgba(var(--accent-rgb),0.1)'; });
@@ -769,7 +773,7 @@ export function showFolderScanPicker(config) {
       const dirs = data.entries.filter(e => e.type === 'dir');
       if (dirs.length === 0) {
         const empty = document.createElement('div');
-        empty.style.cssText = 'padding:20px; text-align:center; color:rgba(255,255,255,0.3); font-size:12px;';
+        empty.style.cssText = 'padding:20px; text-align:center; color:var(--ink-30); font-size:12px;';
         empty.textContent = 'No subdirectories';
         contentArea.appendChild(empty);
       }
@@ -793,8 +797,8 @@ export function showFolderScanPicker(config) {
 export async function showFileBrowser(device, startPath = '~', placementPos, thenPlace = false, targetAgentId) {
   const headerHTML = `
     ${_ctx.deviceLabelHtml(device, 'font-size:11px; padding:2px 8px;')}
-    <span style="color:rgba(255,255,255,0.7); font-size:13px; font-weight:500;">Browse Files</span>
-    <button id="file-browser-new" style="margin-left:auto; background:rgba(var(--accent-rgb),0.2); border:1px solid rgba(var(--accent-rgb),0.3); color:rgba(255,255,255,0.7); font-size:12px; cursor:pointer; padding:4px 10px; border-radius:6px; transition:all 0.15s;">+ New File</button>`;
+    <span style="color:var(--ink-70); font-size:13px; font-weight:500;">Browse Files</span>
+    <button id="file-browser-new" style="margin-left:auto; background:rgba(var(--accent-rgb),0.2); border:1px solid rgba(var(--accent-rgb),0.3); color:var(--ink-70); font-size:12px; cursor:pointer; padding:4px 10px; border-radius:6px; transition:all 0.15s;">+ New File</button>`;
   const { overlay, header, breadcrumbBar, contentArea, closeBrowser, addCleanup } = createBrowserOverlay('file-browser', headerHTML);
 
   // Attach keyboard nav to the overlay
@@ -805,8 +809,8 @@ export async function showFileBrowser(device, startPath = '~', placementPos, the
 
   // New File button handler
   const newFileBtn = header.querySelector('#file-browser-new');
-  newFileBtn.addEventListener('mouseenter', () => { newFileBtn.style.background = 'rgba(var(--accent-rgb),0.35)'; newFileBtn.style.color = '#fff'; });
-  newFileBtn.addEventListener('mouseleave', () => { newFileBtn.style.background = 'rgba(var(--accent-rgb),0.2)'; newFileBtn.style.color = 'rgba(255,255,255,0.7)'; });
+  newFileBtn.addEventListener('mouseenter', () => { newFileBtn.style.background = 'rgba(var(--accent-rgb),0.35)'; newFileBtn.style.color = 'var(--text-bright)'; });
+  newFileBtn.addEventListener('mouseleave', () => { newFileBtn.style.background = 'rgba(var(--accent-rgb),0.2)'; newFileBtn.style.color = 'var(--ink-70)'; });
   newFileBtn.addEventListener('click', () => {
     const existing = contentArea.querySelector('.new-file-input-row');
     if (existing) { existing.querySelector('input').focus(); return; }
@@ -822,19 +826,19 @@ export async function showFileBrowser(device, startPath = '~', placementPos, the
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = 'filename.txt';
-    input.style.cssText = 'flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(var(--accent-rgb),0.4); border-radius:4px; color:#fff; padding:5px 8px; font-size:12px; font-family:inherit; outline:none;';
+    input.style.cssText = 'flex:1; background:rgba(var(--sink-rgb), 0.3); border:1px solid rgba(var(--accent-rgb),0.4); border-radius:4px; color:var(--text-bright); padding:5px 8px; font-size:12px; font-family:inherit; outline:none;';
     input.addEventListener('focus', () => { input.style.borderColor = 'rgba(var(--accent-rgb),0.7)'; });
     input.addEventListener('blur', () => { input.style.borderColor = 'rgba(var(--accent-rgb),0.4)'; });
 
     const createBtn = document.createElement('button');
     createBtn.textContent = 'Create';
-    createBtn.style.cssText = 'background:rgba(var(--accent-rgb),0.4); border:none; color:#fff; font-size:11px; padding:5px 12px; border-radius:4px; cursor:pointer; transition:background 0.15s;';
+    createBtn.style.cssText = 'background:rgba(var(--accent-rgb),0.4); border:none; color:var(--text-bright); font-size:11px; padding:5px 12px; border-radius:4px; cursor:pointer; transition:background 0.15s;';
     createBtn.addEventListener('mouseenter', () => { createBtn.style.background = 'rgba(var(--accent-rgb),0.6)'; });
     createBtn.addEventListener('mouseleave', () => { createBtn.style.background = 'rgba(var(--accent-rgb),0.4)'; });
 
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = '\u00D7';
-    cancelBtn.style.cssText = 'background:none; border:none; color:rgba(255,255,255,0.4); font-size:16px; cursor:pointer; padding:2px 6px;';
+    cancelBtn.style.cssText = 'background:none; border:none; color:var(--ink-40); font-size:16px; cursor:pointer; padding:2px 6px;';
     cancelBtn.addEventListener('click', () => row.remove());
 
     async function doCreate() {
@@ -878,7 +882,7 @@ export async function showFileBrowser(device, startPath = '~', placementPos, the
   });
 
   async function navigateTo(path) {
-    contentArea.innerHTML = '<div style="padding:40px; text-align:center; color:rgba(255,255,255,0.4); font-size:13px;">Loading...</div>';
+    contentArea.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-40); font-size:13px;">Loading...</div>';
 
     try {
       const data = await agentRequest('GET', `/api/files/browse?path=${encodeURIComponent(path)}&device=${encodeURIComponent(device)}`, null, targetAgentId);
@@ -893,7 +897,7 @@ export async function showFileBrowser(device, startPath = '~', placementPos, the
       }
 
       if (data.entries.length === 0) {
-        contentArea.innerHTML = '<div style="padding:20px; text-align:center; color:rgba(255,255,255,0.3); font-size:12px;">Empty directory</div>';
+        contentArea.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ink-30); font-size:12px;">Empty directory</div>';
         nav.refresh();
         return;
       }
@@ -927,8 +931,8 @@ export async function showFileBrowser(device, startPath = '~', placementPos, the
     item.setAttribute('data-nav-item', '');
     item.style.cssText = 'display:flex; align-items:center; gap:10px; padding:7px 16px; cursor:pointer; transition:background 0.1s; font-size:13px;';
     const icon = name === '..' ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>' : type === 'dir' ? '\u{1F4C1}' : '\u{1F4C4}';
-    const sizeStr = type === 'file' && size !== null ? `<span style="color:rgba(255,255,255,0.3); font-size:11px; margin-left:auto;">${formatBytes(size)}</span>` : '';
-    item.innerHTML = `<span style="width:20px; text-align:center;">${icon}</span><span style="color:rgba(255,255,255,0.85); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(name)}</span>${sizeStr}`;
+    const sizeStr = type === 'file' && size !== null ? `<span style="color:var(--ink-30); font-size:11px; margin-left:auto;">${formatBytes(size)}</span>` : '';
+    item.innerHTML = `<span style="width:20px; text-align:center;">${icon}</span><span style="color:var(--ink-85); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(name)}</span>${sizeStr}`;
     item.addEventListener('click', onClick);
     item.addEventListener('mouseenter', () => { item.style.background = 'rgba(var(--accent-rgb),0.15)'; });
     item.addEventListener('mouseleave', () => { item.style.background = 'none'; });
@@ -1044,9 +1048,9 @@ export async function showGitRepoPickerWithDevice(placementPos) {
 export async function showGitRepoPicker(device, placementPos, thenPlace = false, targetAgentId) {
   const deviceLabel = device ? _ctx.deviceLabelHtml(device, 'font-size:11px; padding:2px 8px;') : '';
   const headerHTML = `
-    <svg viewBox="0 0 24 24" width="16" height="16" style="color:rgba(255,255,255,0.6);">${ICON_GIT_GRAPH}</svg>
+    <svg viewBox="0 0 24 24" width="16" height="16" style="color:var(--ink-60);">${ICON_GIT_GRAPH}</svg>
     ${deviceLabel}
-    <span style="color:rgba(255,255,255,0.7); font-size:13px; font-weight:500;">Choose Folder</span>`;
+    <span style="color:var(--ink-70); font-size:13px; font-weight:500;">Choose Folder</span>`;
 
   let masterOnly = true;
 
@@ -1064,19 +1068,19 @@ export async function showGitRepoPicker(device, placementPos, thenPlace = false,
 
       // Toggle bar (back + master/main filter)
       const toggleBar = document.createElement('div');
-      toggleBar.style.cssText = 'display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0;';
+      toggleBar.style.cssText = 'display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid var(--ink-06); flex-shrink:0;';
 
       const backBtn = document.createElement('button');
       backBtn.setAttribute('data-nav-item', '');
-      backBtn.style.cssText = 'background:none; border:none; color:rgba(255,255,255,0.5); cursor:pointer; font-size:12px; padding:2px 6px; border-radius:3px;';
+      backBtn.style.cssText = 'background:none; border:none; color:var(--ink-50); cursor:pointer; font-size:12px; padding:2px 6px; border-radius:3px;';
       backBtn.textContent = '\u2190 Back';
       backBtn.addEventListener('click', () => navigateFolder(folderPath));
-      backBtn.addEventListener('mouseenter', () => { backBtn.style.color = '#fff'; });
-      backBtn.addEventListener('mouseleave', () => { backBtn.style.color = 'rgba(255,255,255,0.5)'; });
+      backBtn.addEventListener('mouseenter', () => { backBtn.style.color = 'var(--text-bright)'; });
+      backBtn.addEventListener('mouseleave', () => { backBtn.style.color = 'var(--ink-50)'; });
       toggleBar.appendChild(backBtn);
 
       const scanStatus = document.createElement('span');
-      scanStatus.style.cssText = 'font-size:11px; color:rgba(255,255,255,0.3); margin-left:4px;';
+      scanStatus.style.cssText = 'font-size:11px; color:var(--ink-30); margin-left:4px;';
       scanStatus.textContent = 'Scanning...';
       toggleBar.appendChild(scanStatus);
 
@@ -1088,14 +1092,14 @@ export async function showGitRepoPicker(device, placementPos, thenPlace = false,
       toggleWrap.style.cssText = 'display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none;';
 
       const toggleTrack = document.createElement('div');
-      toggleTrack.style.cssText = `width:32px; height:18px; border-radius:9px; position:relative; transition:background 0.2s; ${masterOnly ? 'background:rgba(255,255,255,0.15);' : 'background:rgba(var(--accent-rgb),0.6);'}`;
+      toggleTrack.style.cssText = `width:32px; height:18px; border-radius:9px; position:relative; transition:background 0.2s; ${masterOnly ? 'background:var(--ink-15);' : 'background:rgba(var(--accent-rgb),0.6);'}`;
 
       const toggleThumb = document.createElement('div');
-      toggleThumb.style.cssText = `width:14px; height:14px; border-radius:50%; background:#fff; position:absolute; top:2px; transition:left 0.2s; ${masterOnly ? 'left:2px;' : 'left:16px;'}`;
+      toggleThumb.style.cssText = `width:14px; height:14px; border-radius:50%; background:var(--text-bright); position:absolute; top:2px; transition:left 0.2s; ${masterOnly ? 'left:2px;' : 'left:16px;'}`;
       toggleTrack.appendChild(toggleThumb);
 
       const toggleLabel = document.createElement('span');
-      toggleLabel.style.cssText = 'font-size:11px; color:rgba(255,255,255,0.5);';
+      toggleLabel.style.cssText = 'font-size:11px; color:var(--ink-50);';
       toggleLabel.textContent = masterOnly ? 'master/main only' : 'all branches';
 
       toggleWrap.appendChild(toggleTrack);
@@ -1103,7 +1107,7 @@ export async function showGitRepoPicker(device, placementPos, thenPlace = false,
       toggleWrap.addEventListener('click', (e) => {
         e.preventDefault();
         masterOnly = !masterOnly;
-        toggleTrack.style.background = masterOnly ? 'rgba(255,255,255,0.15)' : 'rgba(var(--accent-rgb),0.6)';
+        toggleTrack.style.background = masterOnly ? 'var(--ink-15)' : 'rgba(var(--accent-rgb),0.6)';
         toggleThumb.style.left = masterOnly ? '2px' : '16px';
         toggleLabel.textContent = masterOnly ? 'master/main only' : 'all branches';
         rebuildRepoList();
@@ -1119,11 +1123,11 @@ export async function showGitRepoPicker(device, placementPos, thenPlace = false,
         const item = document.createElement('div');
         item.setAttribute('data-nav-item', '');
         item.style.cssText = 'display:flex; align-items:center; gap:10px; padding:9px 16px; cursor:pointer; transition:background 0.1s; font-size:13px;';
-        const branchColor = (repo.branch === 'master' || repo.branch === 'main') ? '#4ec9b0' : '#b392f0';
+        const branchColor = (repo.branch === 'master' || repo.branch === 'main') ? 'var(--status-ok)' : '#b392f0';
         item.innerHTML = `
           <span style="color:#f97583; font-size:14px;">&#9679;</span>
           <span style="flex:1; overflow:hidden;">
-            <strong style="color:rgba(255,255,255,0.9);">${escapeHtml(repo.name)}</strong><br>
+            <strong style="color:var(--ink-90);">${escapeHtml(repo.name)}</strong><br>
             <span style="opacity:0.4; font-size:11px;">${escapeHtml(repo.path)}</span>
           </span>
           <span style="color:${branchColor}; font-size:11px; white-space:nowrap;">${escapeHtml(repo.branch)}</span>
@@ -1150,7 +1154,7 @@ export async function showGitRepoPicker(device, placementPos, thenPlace = false,
         const filtered = allRepos.filter(shouldShow);
         if (filtered.length === 0 && scanDone) {
           const empty = document.createElement('div');
-          empty.style.cssText = 'padding:20px; text-align:center; color:rgba(255,255,255,0.3); font-size:12px;';
+          empty.style.cssText = 'padding:20px; text-align:center; color:var(--ink-30); font-size:12px;';
           empty.textContent = masterOnly ? 'No repos on master/main in this folder' : 'No git repos found in this folder';
           repoListEl.appendChild(empty);
         }

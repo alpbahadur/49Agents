@@ -2,6 +2,8 @@ import { getDb } from './index.js';
 
 const DEFAULTS = {
   night_mode: 0,
+  app_theme: 'system',
+  starter_terminal_created: 0,
   terminal_theme: 'default',
   notification_sound: 1,
   auto_remove_done: 0,
@@ -30,10 +32,12 @@ export function getPreferences(userId) {
 export function savePreferences(userId, prefs) {
   const db = getDb();
   db.prepare(`
-    INSERT INTO user_preferences (user_id, night_mode, terminal_theme, notification_sound, auto_remove_done, canvas_bg, snooze_duration, terminal_font, hud_state, tutorials_completed, projects, focus_mode, teleport_animation, projects_sidebar_position, beads_button_enabled, pane_naming_enabled, pane_number_hotkeys_enabled, new_tab_button_enabled, pane_header_order, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO user_preferences (user_id, night_mode, app_theme, starter_terminal_created, terminal_theme, notification_sound, auto_remove_done, canvas_bg, snooze_duration, terminal_font, hud_state, tutorials_completed, projects, focus_mode, teleport_animation, projects_sidebar_position, beads_button_enabled, pane_naming_enabled, pane_number_hotkeys_enabled, new_tab_button_enabled, pane_header_order, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(user_id) DO UPDATE SET
       night_mode = excluded.night_mode,
+      app_theme = excluded.app_theme,
+      starter_terminal_created = excluded.starter_terminal_created,
       terminal_theme = excluded.terminal_theme,
       notification_sound = excluded.notification_sound,
       auto_remove_done = excluded.auto_remove_done,
@@ -55,6 +59,8 @@ export function savePreferences(userId, prefs) {
   `).run(
     userId,
     prefs.nightMode ? 1 : 0,
+    prefs.appTheme || 'system',
+    prefs.starterTerminalCreated ? 1 : 0,
     prefs.terminalTheme || 'default',
     prefs.notificationSound ? 1 : 0,
     prefs.autoRemoveDone ? 1 : 0,

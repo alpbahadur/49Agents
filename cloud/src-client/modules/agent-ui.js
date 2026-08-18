@@ -17,7 +17,7 @@ export function initAgentUiDeps(ctx) { _ctx = ctx; }
 // Simple notification for relay messages (tier limits, etc.)
 export function showRelayNotification(message, type, duration) {
   const el = document.createElement('div');
-  el.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:100001; background:${type === 'warning' ? '#b58900' : '#333'}; color:#fff; padding:10px 20px; border-radius:8px; font-size:13px; font-family:inherit; box-shadow:0 4px 20px rgba(0,0,0,0.4); pointer-events:auto;`;
+  el.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:100001; background:${type === 'warning' ? '#b58900' : '#333'}; color:var(--text-bright); padding:10px 20px; border-radius:8px; font-size:13px; font-family:inherit; box-shadow:0 4px 20px rgba(var(--sink-rgb), 0.4); pointer-events:auto;`;
   el.textContent = message;
   document.body.appendChild(el);
   setTimeout(() => { el.remove(); }, duration || 5000);
@@ -127,9 +127,9 @@ export function showUpdateProgressToast(agentId, hostname, status) {
     const btn = existingToast.querySelector('.update-now-btn');
     if (btn) btn.style.display = 'none';
     if (status === 'failed') {
-      existingToast.style.borderLeftColor = '#ef4444';
+      existingToast.style.borderLeftColor = 'var(--status-danger)';
       const icon = existingToast.querySelector('.notification-icon');
-      if (icon) { icon.textContent = '✗'; icon.style.color = '#ef4444'; }
+      if (icon) { icon.textContent = '✗'; icon.style.color = 'var(--status-danger)'; }
       setTimeout(() => {
         existingToast.classList.add('dismissing');
         setTimeout(() => existingToast.remove(), 300);
@@ -264,7 +264,7 @@ function injectPulseStyle() {
     }
     .add-machine-fleet-btn.pulsing {
       animation: addMachinePulse 2s ease-in-out infinite !important;
-      background: #4ec9b0 !important;
+      background: var(--status-ok) !important;
       border: 1px solid rgba(78, 201, 176, 0.6) !important;
       font-weight: 700 !important;
       transform: scale(1.02);
@@ -299,12 +299,12 @@ export function showAddMachineDialog() {
 
   overlay = document.createElement('div');
   overlay.id = 'add-machine-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100000;';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:100000;';
 
   const card = document.createElement('div');
-  card.style.cssText = 'background:#1a1a2e;border:1px solid #4ec9b0;border-radius:12px;padding:32px;max-width:560px;width:90%;color:#e0e0e0;font-family:monospace;';
+  card.style.cssText = 'background:var(--surface-solid);border:1px solid var(--status-ok);border-radius:12px;padding:32px;max-width:560px;width:90%;color:var(--text-primary);font-family:monospace;';
   card.innerHTML = `
-    <h3 style="margin:0 0 12px;color:#4ec9b0;">Add Machine</h3>
+    <h3 style="margin:0 0 12px;color:var(--status-ok);">Add Machine</h3>
     <p style="opacity:0.8;margin:0 0 10px;line-height:1.6;">
       Run a second agent on <em>another</em> computer — a desktop, a server, a VM — and its
       terminals, editors and git graphs appear on this same canvas, labelled with that
@@ -318,17 +318,17 @@ export function showAddMachineDialog() {
     <div style="margin-bottom:12px;">
       <label style="display:block;margin-bottom:4px;opacity:0.6;font-size:12px;">Platform</label>
       <div id="add-machine-platform" style="display:flex;gap:0;margin-bottom:12px;">
-        <button data-platform="linux" style="flex:1;padding:8px;background:#4ec9b0;color:#0a0a1a;border:1px solid #4ec9b0;border-radius:4px 0 0 4px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:bold;">Linux / macOS</button>
-        <button data-platform="windows" style="flex:1;padding:8px;background:transparent;color:#6a6a8a;border:1px solid #333;border-radius:0 4px 4px 0;cursor:pointer;font-family:monospace;font-size:12px;">Windows (WSL2)</button>
+        <button data-platform="linux" style="flex:1;padding:8px;background:var(--status-ok);color:var(--canvas);border:1px solid var(--status-ok);border-radius:4px 0 0 4px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:bold;">Linux / macOS</button>
+        <button data-platform="windows" style="flex:1;padding:8px;background:transparent;color:var(--text-muted);border:1px solid #333;border-radius:0 4px 4px 0;cursor:pointer;font-family:monospace;font-size:12px;">Windows (WSL2)</button>
       </div>
     </div>
     <div id="add-machine-cmd-box" style="margin-bottom:12px;">
       <label style="display:block;margin-bottom:4px;opacity:0.6;font-size:12px;">Install Command</label>
-      <code id="add-machine-cmd" style="display:block;padding:12px;background:#0a0a1a;border-radius:6px;word-break:break-all;font-size:11px;cursor:pointer;user-select:all;border:1px solid #333;opacity:0.5;">Generating...</code>
+      <code id="add-machine-cmd" style="display:block;padding:12px;background:var(--canvas);border-radius:6px;word-break:break-all;font-size:11px;cursor:pointer;user-select:all;border:1px solid #333;opacity:0.5;">Generating...</code>
     </div>
     <div style="display:flex;gap:12px;">
-      <button id="add-machine-copy" style="background:transparent;color:#4ec9b0;border:1px solid #4ec9b0;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:monospace;display:none;">Copy</button>
-      <button id="add-machine-close" style="background:transparent;color:#6a6a8a;border:1px solid #6a6a8a;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:monospace;margin-left:auto;">Close</button>
+      <button id="add-machine-copy" style="background:transparent;color:var(--status-ok);border:1px solid var(--status-ok);padding:10px 24px;border-radius:6px;cursor:pointer;font-family:monospace;display:none;">Copy</button>
+      <button id="add-machine-close" style="background:transparent;color:var(--text-muted);border:1px solid var(--text-muted);padding:10px 24px;border-radius:6px;cursor:pointer;font-family:monospace;margin-left:auto;">Close</button>
     </div>
   `;
   overlay.appendChild(card);
@@ -338,15 +338,15 @@ export function showAddMachineDialog() {
   const closeBtn = document.getElementById('add-machine-close');
 
   copyBtn.style.transition = 'background 0.15s, color 0.15s, transform 0.1s';
-  copyBtn.addEventListener('mouseenter', () => { copyBtn.style.background = '#4ec9b0'; copyBtn.style.color = '#0a0a1a'; copyBtn.style.transform = 'scale(1.03)'; });
+  copyBtn.addEventListener('mouseenter', () => { copyBtn.style.background = 'var(--status-ok)'; copyBtn.style.color = 'var(--canvas)'; copyBtn.style.transform = 'scale(1.03)'; });
   copyBtn.addEventListener('mouseleave', () => {
-    if (!copyBtn.dataset.copied) { copyBtn.style.background = 'transparent'; copyBtn.style.color = '#4ec9b0'; }
+    if (!copyBtn.dataset.copied) { copyBtn.style.background = 'transparent'; copyBtn.style.color = 'var(--status-ok)'; }
     copyBtn.style.transform = '';
   });
 
   closeBtn.style.transition = 'background 0.15s, color 0.15s, transform 0.1s';
-  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = '#6a6a8a'; closeBtn.style.color = '#0a0a1a'; closeBtn.style.transform = 'scale(1.03)'; });
-  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = 'transparent'; closeBtn.style.color = '#6a6a8a'; closeBtn.style.transform = ''; });
+  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = 'var(--text-muted)'; closeBtn.style.color = 'var(--canvas)'; closeBtn.style.transform = 'scale(1.03)'; });
+  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = 'transparent'; closeBtn.style.color = 'var(--text-muted)'; closeBtn.style.transform = ''; });
 
   closeBtn.addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
@@ -369,7 +369,7 @@ export function showAddMachineDialog() {
           box.style.color = '#e8c46a';
           box.innerHTML =
             `This server is only listening on this machine, so another computer cannot reach it yet.<br><br>` +
-            `Restart it with <code style="color:#fff;">HOST=0.0.0.0 ./49ctl start</code> — on a network you trust — ` +
+            `Restart it with <code style="color:var(--text-bright);">HOST=0.0.0.0 ./49ctl start</code> — on a network you trust — ` +
             `then reopen this dialog. Anyone who can reach the port can run commands on your machines, so avoid public Wi-Fi.`;
         } else if (net.lanAddress) {
           box.style.display = 'block';
@@ -377,7 +377,7 @@ export function showAddMachineDialog() {
           box.style.border = '1px solid rgba(78, 201, 176, 0.35)';
           box.style.color = '#9fdcd0';
           box.innerHTML =
-            `The other machine must be able to reach <code style="color:#fff;">${net.lanAddress}:${net.port}</code> — ` +
+            `The other machine must be able to reach <code style="color:var(--text-bright);">${net.lanAddress}:${net.port}</code> — ` +
             `same network, VPN, or Tailscale. The command below already points there.`;
         }
       })
@@ -409,9 +409,9 @@ export function showAddMachineDialog() {
       selectedPlatform = btn.dataset.platform;
       platformBtns.forEach(b => {
         if (b.dataset.platform === selectedPlatform) {
-          b.style.background = '#4ec9b0'; b.style.color = '#0a0a1a'; b.style.borderColor = '#4ec9b0'; b.style.fontWeight = 'bold';
+          b.style.background = 'var(--status-ok)'; b.style.color = 'var(--canvas)'; b.style.borderColor = 'var(--status-ok)'; b.style.fontWeight = 'bold';
         } else {
-          b.style.background = 'transparent'; b.style.color = '#6a6a8a'; b.style.borderColor = '#333'; b.style.fontWeight = 'normal';
+          b.style.background = 'transparent'; b.style.color = 'var(--text-muted)'; b.style.borderColor = '#333'; b.style.fontWeight = 'normal';
         }
       });
       dialogGenerateCmd();
@@ -427,7 +427,7 @@ export function showAddMachineDialog() {
       copyBtn.dataset.copied = '1';
       copyBtn.textContent = 'Copied!';
       copyBtn.style.background = '#10b981';
-      copyBtn.style.color = '#fff';
+      copyBtn.style.color = 'var(--text-bright)';
       copyBtn.style.borderColor = '#10b981';
       copyBtn.style.transform = 'scale(1.08)';
       setTimeout(() => { copyBtn.style.transform = ''; }, 150);
@@ -435,8 +435,8 @@ export function showAddMachineDialog() {
         delete copyBtn.dataset.copied;
         copyBtn.textContent = 'Copy';
         copyBtn.style.background = 'transparent';
-        copyBtn.style.color = '#4ec9b0';
-        copyBtn.style.borderColor = '#4ec9b0';
+        copyBtn.style.color = 'var(--status-ok)';
+        copyBtn.style.borderColor = 'var(--status-ok)';
       }, 2000);
     });
   });

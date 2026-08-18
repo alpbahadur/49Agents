@@ -48,7 +48,7 @@ export const CLAUDE_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox=
 
 export const RESET_ICON_SVG = '<svg class="usage-reset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
 
-export const WIFI_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+export const WIFI_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--ink-45)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
   <line x1="1" y1="1" x2="23" y2="23"/>
   <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
   <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
@@ -82,12 +82,24 @@ export const TERMINAL_FONTS = [
   'Overpass Mono', 'Noto Sans Mono', 'DM Mono', 'Red Hat Mono', 'monospace',
 ];
 
+// `themed: true` means the swatch follows the active theme's canvas token
+// instead of pinning a colour, so the default canvas turns pale in light mode
+// rather than staying near-black. The named dark shades stay literal: someone
+// who explicitly picked "Pure Black" asked for black in either theme.
 export const CANVAS_BACKGROUNDS = {
-  default:    { name: 'Deep Space',   color: '#050d18' },
+  default:    { name: 'Deep Space',   color: 'var(--canvas)', themed: true },
   black:      { name: 'Pure Black',   color: '#000000' },
-  midnight:   { name: 'Midnight',     color: '#0a0a1a' },
-  charcoal:   { name: 'Charcoal',     color: '#1a1a2e' },
-  grid:       { name: 'Grid',         color: '#050d18', grid: true },
+  midnight:   { name: 'Midnight',     color: 'var(--canvas)' },
+  charcoal:   { name: 'Charcoal',     color: 'var(--surface-solid)' },
+  grid:       { name: 'Grid',         color: 'var(--canvas)', grid: true, themed: true },
+};
+
+// Light / dark / follow-the-OS. Stored as a string pref; `system` resolves
+// through matchMedia at apply time and re-resolves when the OS flips.
+export const APP_THEMES = {
+  light:  { name: 'Light' },
+  dark:   { name: 'Dark' },
+  system: { name: 'System' },
 };
 
 // ── OS icons ──

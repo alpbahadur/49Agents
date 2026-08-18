@@ -5,6 +5,19 @@ let _ctx = null; // injected dependencies
 
 export function initMinimap(ctx) { _ctx = ctx; }
 
+/**
+ * Canvas2D cannot resolve CSS custom properties, so token-based colours have to
+ * be read off the document and substituted before they reach fillStyle.
+ * Re-read per draw so a theme switch is picked up immediately.
+ */
+function themeVar(name, fallback) {
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name).trim() || fallback;
+}
+const themeInk = (a) => `rgba(${themeVar('--ink-rgb', '255, 255, 255')}, ${a})`;
+const themeSink = (a) => `rgba(${themeVar('--sink-rgb', '0, 0, 0')}, ${a})`;
+const themeText = () => themeVar('--text-bright', '#ffffff');
+
 // ── State ──
 let minimapEnabled = window.innerWidth > 768; // disabled by default on phone
 let minimapVisible = false;
@@ -121,7 +134,7 @@ export function renderMinimap() {
 
   ctx.clearRect(0, 0, cvs.width, cvs.height);
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.fillStyle = themeSink(0.6);
   ctx.beginPath();
   ctx.roundRect(0, 0, cvs.width, cvs.height, 8);
   ctx.fill();
@@ -154,20 +167,20 @@ export function renderMinimap() {
     const isMoveTarget = moveModeActive && p.id === moveModePaneId;
 
     ctx.fillStyle = (isFocused || isMoveTarget)
-      ? (typeColorsActive[p.type] || 'rgba(255,255,255,0.9)')
-      : (typeColors[p.type] || 'rgba(255,255,255,0.4)');
+      ? (typeColorsActive[p.type] || themeInk(0.9))
+      : (typeColors[p.type] || themeInk(0.4));
     ctx.beginPath();
     ctx.roundRect(rx, ry, Math.max(rw, 2), Math.max(rh, 2), 2);
     ctx.fill();
 
     if (isFocused || isMoveTarget) {
-      ctx.strokeStyle = '#fff';
+      ctx.strokeStyle = themeText();
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
 
     if (p.shortcutNumber && rw > 10 && rh > 10) {
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillStyle = themeInk(0.9);
       ctx.font = `bold ${Math.min(Math.max(rh * 0.5, 8), 14)}px monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -185,7 +198,7 @@ export function renderMinimap() {
   const vrw = vpWidth * scale;
   const vrh = vpHeight * scale;
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.strokeStyle = themeInk(0.5);
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 3]);
   ctx.strokeRect(vrx, vry, vrw, vrh);

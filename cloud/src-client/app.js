@@ -7,7 +7,7 @@ import { APP_VERSION, PANE_DEFAULTS, PANE_ENDPOINT_MAP, ICON_BEADS, ICON_GIT_GRA
 import { initMinimap, startMinimapLoop, hideMinimap, renderMinimap, getCanvasBounds, calcPlacementPos, setMinimapEnabled, getMinimapEnabled } from './modules/minimap.js';
 import { initNotificationDeps, initNotifications, showPromoToasts, showToast, dismissToast, snoozeNotification, sendBrowserNotification, updateTabTitleBadge, handleStateTransition, previousClaudeStates, notifiedStates, activeToasts, snoozedNotifications, snoozeCount, getIsFirstClaudeStateUpdate, setIsFirstClaudeStateUpdate, getNotificationContainer, showAdminToast, dismissAdminToast } from './modules/notifications.js';
 import { initGitGraphDeps, renderGitGraphPane, fetchGitGraphData } from './modules/git-graph.js';
-import { initSettingsDeps, showSettingsModal, savePrefsToCloud, getAllPrefs, setCanvasBackground, setNightMode, getCurrentTerminalFont, setCurrentTerminalFont } from './modules/settings.js';
+import { initSettingsDeps, showSettingsModal, savePrefsToCloud, getAllPrefs, setCanvasBackground, setAppTheme, getCurrentTerminalFont, setCurrentTerminalFont } from './modules/settings.js';
 import { initShortcutsDeps, setupKeyboardShortcuts } from './modules/shortcuts.js';
 import { initWsTransportDeps, sendWs, agentRequest, pendingRequests, pendingScanCallbacks } from './modules/ws-transport.js';
 import { initAgentUiDeps, showRelayNotification, showUpdateToast, showUpdateProgressToast, showUpdateCompleteToast, updateAgentOverlay, showAddMachineDialog } from './modules/agent-ui.js';
@@ -82,6 +82,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   let focusMode = 'hover'; // 'hover' (default) or 'click' — how mouse selects panes
   let tabHeld = false; // Track Tab key state globally (used for Tab+scroll canvas pan, Tab+key chords)
   let tutorialsCompleted = {};
+  let starterTerminalCreated = false;
   let projectsSidebarVisible = false; // Tab+P toggles projects sidebar
   let projectsSidebarPosition = 'right'; // 'left' or 'right'
   let teleportAnimation = true; // false = instant teleport
@@ -1122,11 +1123,11 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       console.warn('[App] Auth check failed:', e);
     }
 
-    // Load cloud preferences (night mode, theme, sound)
+    // Load cloud preferences (theme, sound)
     let loadedPrefs = null;
     try {
       const prefs = await cloudFetch('GET', '/api/preferences');
-      if (prefs.nightMode) setNightMode(true);
+      setAppTheme(prefs.appTheme || 'system');
       if (prefs.terminalTheme && TERMINAL_THEMES[prefs.terminalTheme]) {
         currentTerminalTheme = prefs.terminalTheme;
       }
@@ -1157,6 +1158,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
         if (prefs.hudState.device_colors) setDeviceColorOverrides(prefs.hudState.device_colors);
         setHudHidden(!!prefs.hudState.hud_hidden);
       }
+      if (prefs.starterTerminalCreated) starterTerminalCreated = true;
       if (prefs.tutorialsCompleted) {
         tutorialsCompleted = prefs.tutorialsCompleted;
       }
@@ -1249,6 +1251,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       setPaneHeaderOrder: (v) => { paneHeaderOrder = normalizePaneHeaderOrder(v); applyPaneHeaderOrder(); },
       getHudExpanded, getAgentsHudExpanded, getHudHidden, getDeviceColorOverrides,
       getTutorialsCompleted: () => tutorialsCompleted,
+      getStarterTerminalCreated: () => starterTerminalCreated,
     });
     initShortcutsDeps({
       getState: () => state,
@@ -1285,6 +1288,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getWs: () => ws,
       getAgents: () => agents,
       getTutorialsCompleted: () => tutorialsCompleted,
+      getStarterTerminalCreated: () => starterTerminalCreated,
     });
     initWsTransportDeps({
       getWs: () => ws,
@@ -1487,6 +1491,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getLastFocusedPaneId: () => lastFocusedPaneId,
       getActiveAgentId: () => activeAgentId,
       getTutorialsCompleted: () => tutorialsCompleted,
+      getStarterTerminalCreated: () => starterTerminalCreated,
     });
 
     // Deferred from the preferences load above, which runs before the
@@ -1555,6 +1560,65 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     // Only now that the tutorial is known to be behind them.
     _onboarding.init();
     _hotkeyTip.show();
+    maybeCreateStarterTerminal();
+  }
+
+  // ── Starter terminal ──────────────────────────────────────────────────────
+  //
+  // A brand-new user lands on an empty canvas with nothing to act on. One
+  // terminal, created for them, turns that into a working surface.
+  //
+  // Deliberately gated four ways:
+  //  - once per account, tracked server-side, so a second device does not add
+  //    a second terminal and a later empty canvas stays empty;
+  //  - only when the canvas holds no terminal at all, including offline
+  //    placeholders for panes whose agent is currently disconnected — a
+  //    returning user whose machine is off has terminals, they just are not
+  //    reachable right now;
+  //  - only once an agent is actually online, since creating a terminal is a
+  //    request to that agent. Local installs start their own and connect a
+  //    moment after load; a hosted user without a machine gets nothing here,
+  //    which is correct — their next step is pairing one, and the HUD says so;
+  //  - failures stay silent, because this pane was never explicitly requested.
+  let starterTerminalPending = false;
+
+  function hasAnyTerminal() {
+    // Offline placeholders count: the terminal exists, its agent is just away.
+    return state.panes.some(p => p.type === 'terminal');
+  }
+
+  async function maybeCreateStarterTerminal() {
+    if (starterTerminalCreated || starterTerminalPending) return;
+    if (hasAnyTerminal()) return;
+
+    const onlineAgent = agents.find(a => a.online);
+    if (!onlineAgent) return; // retried when an agent comes online
+
+    starterTerminalPending = true;
+    try {
+      // Re-check after the await: pane loading for this agent may still have
+      // been in flight when the online event fired.
+      await new Promise(r => setTimeout(r, 0));
+      if (starterTerminalCreated || hasAnyTerminal()) return;
+
+      // Claim the slot before awaiting the create: the pane lands in
+      // state.panes partway through, but until it does another caller reaching
+      // here would see an empty canvas and start a second terminal.
+      starterTerminalCreated = true;
+
+      const ok = await createPane(undefined, null, onlineAgent.agentId, { silent: true });
+      if (!ok) {
+        starterTerminalCreated = false; // nothing was created; allow a retry
+        return;
+      }
+
+      // Immediate rather than debounced: a user who closes the tab right after
+      // the terminal appears must not be handed a second one next load.
+      savePrefsToCloud({ starterTerminalCreated: true }, { immediate: true });
+      telemetry.track('feature.starter_terminal_created');
+    } finally {
+      starterTerminalPending = false;
+    }
   }
 
   // CLAUDE_LOGO_SVG — imported from modules/constants.js
@@ -1764,7 +1828,9 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
         updateAgentsHud();
         // Load panes from ALL online agents
         if (agents.some(a => a.online)) {
-          loadTerminalsFromServer().catch(e => console.error('Failed to load panes:', e));
+          loadTerminalsFromServer()
+            .then(() => maybeCreateStarterTerminal())
+            .catch(e => console.error('Failed to load panes:', e));
         }
         // Re-attach all existing terminal panes (agent may have restarted, clearing its activeTerminals)
         for (const pane of state.panes) {
@@ -1826,7 +1892,12 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
             } catch (e) {
               console.error('Failed to load panes from new agent:', e);
             }
+            // Only after this agent's panes are on the canvas, so an existing
+            // terminal is never missed and duplicated.
+            maybeCreateStarterTerminal();
           })();
+        } else {
+          maybeCreateStarterTerminal();
         }
         // Remove offline styling and re-attach terminals for this agent's panes
         state.panes.filter(p => p.agentId === newAgentId).forEach(p => {
@@ -1980,18 +2051,18 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
     const overlay = document.createElement('div');
     overlay.id = 'upgrade-prompt';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100000;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:100000;';
 
     const dialog = document.createElement('div');
-    dialog.style.cssText = 'background:#1a1a2e;border:1px solid #4ec9b0;border-radius:12px;padding:32px;max-width:420px;text-align:center;color:#e0e0e0;font-family:monospace;';
+    dialog.style.cssText = 'background:var(--surface-solid);border:1px solid var(--status-ok);border-radius:12px;padding:32px;max-width:420px;text-align:center;color:var(--text-primary);font-family:monospace;';
 
     dialog.innerHTML = `
       <div style="font-size:24px;margin-bottom:8px;">&#x26A1;</div>
-      <h3 style="margin:0 0 12px;color:#4ec9b0;">Upgrade to Pro</h3>
+      <h3 style="margin:0 0 12px;color:var(--status-ok);">Upgrade to Pro</h3>
       <p style="margin:0 0 20px;opacity:0.8;line-height:1.5;">${message}</p>
       <div style="display:flex;gap:12px;justify-content:center;">
-        <button id="upgrade-checkout-btn" style="background:#4ec9b0;color:#0a0a1a;border:none;padding:10px 24px;border-radius:6px;cursor:pointer;font-weight:bold;font-family:monospace;">Upgrade — $8/mo</button>
-        <button id="upgrade-dismiss-btn" style="background:transparent;color:#6a6a8a;border:1px solid #6a6a8a;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:monospace;">Maybe later</button>
+        <button id="upgrade-checkout-btn" style="background:var(--status-ok);color:var(--canvas);border:none;padding:10px 24px;border-radius:6px;cursor:pointer;font-weight:bold;font-family:monospace;">Upgrade — $8/mo</button>
+        <button id="upgrade-dismiss-btn" style="background:transparent;color:var(--text-muted);border:1px solid var(--text-muted);padding:10px 24px;border-radius:6px;cursor:pointer;font-family:monospace;">Maybe later</button>
       </div>
     `;
 

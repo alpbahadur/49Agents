@@ -359,8 +359,8 @@ export function renderHud() {
   if (fleetEmpty) {
     // Empty fleet — show prominent "Add Machine" as the default view
     html += `<div style="text-align:center;padding:12px 8px 4px;">
-      <div style="color:rgba(255,255,255,0.4);font-size:11px;margin-bottom:10px;">No machines connected</div>
-      <button class="add-machine-fleet-btn" style="width:100%;padding:8px 12px;background:#4ec9b0;border:none;color:#0a0a1a;border-radius:4px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:600;transition:opacity 0.15s;">+ Add Machine</button>
+      <div style="color:var(--text-muted);font-size:11px;margin-bottom:10px;">No machines connected</div>
+      <button class="add-machine-fleet-btn" style="width:100%;padding:8px 12px;background:var(--status-ok);border:none;color:var(--on-accent);border-radius:4px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:600;transition:opacity 0.15s;">+ Add Machine</button>
     </div>`;
   } else {
     for (const device of active) {
@@ -375,7 +375,7 @@ export function renderHud() {
     }
 
     // Add "Add Machine" button at the bottom of the Machines HUD
-    html += `<button class="add-machine-fleet-btn" style="width:100%;margin-top:8px;padding:6px;background:transparent;border:1px solid #4ec9b0;color:#4ec9b0;border-radius:4px;cursor:pointer;font-family:monospace;font-size:11px;transition:background 0.15s,color 0.15s;">+ Add Machine</button>`;
+    html += `<button class="add-machine-fleet-btn" style="width:100%;margin-top:8px;padding:6px;background:transparent;border:1px solid var(--status-ok);color:var(--status-ok);border-radius:4px;cursor:pointer;font-family:monospace;font-size:11px;transition:background 0.15s,color 0.15s;">+ Add Machine</button>`;
   }
 
   // Self-hosted instances start their own agent, so an empty fleet there means
@@ -398,8 +398,8 @@ export function renderHud() {
       addBtn.addEventListener('mouseleave', () => { addBtn.style.opacity = '1'; });
     } else {
       // Outline button style when devices exist
-      addBtn.addEventListener('mouseenter', () => { addBtn.style.background = '#4ec9b0'; addBtn.style.color = '#0a0a1a'; });
-      addBtn.addEventListener('mouseleave', () => { addBtn.style.background = 'transparent'; addBtn.style.color = '#4ec9b0'; });
+      addBtn.addEventListener('mouseenter', () => { addBtn.style.background = 'var(--status-ok)'; addBtn.style.color = 'var(--on-accent)'; });
+      addBtn.addEventListener('mouseleave', () => { addBtn.style.background = 'transparent'; addBtn.style.color = 'var(--status-ok)'; });
     }
   }
 
@@ -414,7 +414,7 @@ export function renderHud() {
       swatch.style.cssText = `width:16px; height:16px; border-radius:4px; cursor:pointer; background:${c.bg}; border:2px solid ${c.border}; transition:transform 0.1s;`;
       // Highlight current selection
       const currentIdx = deviceColorOverrides[deviceName];
-      if (currentIdx === idx) swatch.style.outline = '2px solid rgba(255,255,255,0.6)';
+      if (currentIdx === idx) swatch.style.outline = '2px solid var(--ink-60)';
       swatch.addEventListener('mouseenter', () => { swatch.style.transform = 'scale(1.3)'; });
       swatch.addEventListener('mouseleave', () => { swatch.style.transform = 'scale(1)'; });
       swatch.addEventListener('click', (ev) => {
@@ -528,7 +528,7 @@ export function renderHud() {
       input.value = agentEntry.displayName || agentEntry.hostname || '';
       input.placeholder = agentEntry.hostname || 'Name';
       input.maxLength = 50;
-      input.style.cssText = 'background:rgba(255,255,255,0.1);border:1px solid rgba(255,235,150,0.5);color:#fff;font-size:11px;font-family:monospace;padding:1px 4px;border-radius:3px;width:100px;outline:none;';
+      input.style.cssText = 'background:var(--ink-10);border:1px solid rgba(255,235,150,0.5);color:var(--text-bright);font-size:11px;font-family:monospace;padding:1px 4px;border-radius:3px;width:100px;outline:none;';
 
       nameEl.style.display = 'none';
       nameEl.parentNode.insertBefore(input, nameEl.nextSibling);
@@ -651,7 +651,7 @@ export function createAgentsHud(container) {
     <div class="hud-header agents-hud-header">
       <span class="hud-title">Usage</span>
       <span class="agents-hud-pct" id="agents-hud-pct"></span>
-      <button id="agents-usage-refresh" title="Refresh usage" style="background:none;border:none;color:#6a6a8a;cursor:pointer;padding:0 2px;line-height:1;font-size:13px;margin-left:4px;opacity:0.7;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">&#x21bb;</button>
+      <button id="agents-usage-refresh" title="Refresh usage" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0 2px;line-height:1;font-size:13px;margin-left:4px;opacity:0.7;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">&#x21bb;</button>
     </div>
     <div class="agents-hud-content"></div>
   `;

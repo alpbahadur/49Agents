@@ -12,6 +12,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200&family=JetBrains+Mono:wght@400&family=Fira+Code:wght@400&family=Source+Code+Pro:wght@400&family=IBM+Plex+Mono:wght@400&family=Inconsolata:wght@400&family=Ubuntu+Mono:wght@400&family=Roboto+Mono:wght@400&family=Space+Mono:wght@400&family=Anonymous+Pro:wght@400&family=Cousine:wght@400&family=PT+Mono&family=Overpass+Mono:wght@400&family=Noto+Sans+Mono:wght@400&family=DM+Mono:wght@400&family=Red+Hat+Mono:wght@400&display=swap" rel="stylesheet">
+  <script>
+    // Paint the theme before first render. The authoritative preference lives
+    // server-side, but waiting for that fetch means a dark flash on every load
+    // for light-theme users, so the last known choice is mirrored into
+    // localStorage and replayed here synchronously.
+    (function () {
+      try {
+        var pref = localStorage.getItem('tc-app-theme') || 'system';
+        var dark = pref === 'dark' || (pref !== 'light' &&
+          window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="lib/xterm.css">
 </head>
