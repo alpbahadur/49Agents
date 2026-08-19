@@ -13,7 +13,11 @@ const DEFAULTS = {
   hud_state: '{}',
   tutorials_completed: '{}',
   projects: '[]',
-  focus_mode: 'hover',
+  // Null, not 'hover': a user with no row has never chosen, and the client
+  // picks a device-appropriate default for that case — click focus on a
+  // touch-primary device, where hover focus fires on every tap. Sending
+  // 'hover' here made that branch unreachable.
+  focus_mode: null,
   teleport_animation: 1,
   projects_sidebar_position: 'right',
   beads_button_enabled: 0,

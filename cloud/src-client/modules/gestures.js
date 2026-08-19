@@ -139,16 +139,24 @@ export function fitToBounds(bounds, viewport, padding = 24) {
   };
 }
 
-// Velocity in pixels per frame from recent pan samples. Samples older than
-// `maxAge` are treated as a pause rather than a fling, so lifting a finger
-// that has been resting still does not launch the canvas.
-export function computeMomentum(samples, maxAge = 200) {
+// Velocity in pixels per frame from recent pan samples. A sample window longer
+// than `maxAge` describes a slow drag rather than a flick, so it yields no
+// momentum.
+//
+// `releaseAt` is the moment the last finger left. It matters because a finger
+// that stops and rests fires no further touchmove, so the samples still
+// describe whatever movement preceded the pause however long ago it was. Judged
+// on the window alone, resting and then lifting flings the canvas — the one
+// gesture where the user has most clearly asked it to stop.
+export function computeMomentum(samples, maxAge = 200, releaseAt = null) {
   if (!samples || samples.length < 2) return null;
 
   const oldest = samples[0];
   const newest = samples[samples.length - 1];
   const dt = newest.t - oldest.t;
   if (dt <= 0 || dt > maxAge) return null;
+
+  if (releaseAt != null && releaseAt - newest.t > maxAge) return null;
 
   return {
     vx: (newest.x - oldest.x) / dt * 16,

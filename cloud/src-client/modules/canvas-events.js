@@ -347,7 +347,11 @@ function handleTouchEnd(e) {
 
   // touchcancel means the system took the gesture over. Flinging the canvas
   // after an interruption the user did not intend is worse than stopping.
-  const momentum = (wasPanning && e.type !== 'touchcancel') ? computeMomentum(samples) : null;
+  // e.timeStamp is the release: a finger that stopped and rested fires no
+  // further touchmove, so without it a long pause before lifting still flings.
+  const momentum = (wasPanning && e.type !== 'touchcancel')
+    ? computeMomentum(samples, undefined, e.timeStamp)
+    : null;
   if (!momentum) {
     _ctx.saveViewState();
     return;

@@ -235,3 +235,21 @@ test('computeMomentum needs at least two samples and a forward interval', () => 
   assert.equal(computeMomentum([{ x: 0, y: 0, t: 1 }]), null);
   assert.equal(computeMomentum([{ x: 0, y: 0, t: 5 }, { x: 9, y: 9, t: 5 }]), null);
 });
+
+test('a finger that rested before lifting yields no momentum', () => {
+  // A resting finger fires no touchmove, so the samples keep describing the
+  // movement before the pause. Judged on the window alone this looks like a
+  // brisk flick, and the canvas would fly off just as the user stopped it.
+  const samples = [{ x: 0, y: 0, t: 1000 }, { x: 40, y: 0, t: 1030 }];
+  assert.ok(computeMomentum(samples, 200, 1035), 'a prompt release still flings');
+  assert.equal(computeMomentum(samples, 200, 1400), null);
+});
+
+test('the release time is optional and does not change the window rule', () => {
+  const samples = [{ x: 0, y: 0, t: 1000 }, { x: 40, y: 0, t: 1030 }];
+  assert.ok(computeMomentum(samples, 200, null));
+  assert.ok(computeMomentum(samples));
+  // A window that is already too long stays refused whatever the release says.
+  const slow = [{ x: 0, y: 0, t: 1000 }, { x: 40, y: 0, t: 1500 }];
+  assert.equal(computeMomentum(slow, 200, 1505), null);
+});

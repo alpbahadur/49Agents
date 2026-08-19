@@ -17,7 +17,9 @@ export function setupPreferencesRoutes(app) {
       hudState:           prefs.hud_state ? JSON.parse(prefs.hud_state) : {},
       tutorialsCompleted: prefs.tutorials_completed ? JSON.parse(prefs.tutorials_completed) : {},
       projects:           prefs.projects ? JSON.parse(prefs.projects) : [],
-      focusMode:          prefs.focus_mode || 'hover',
+      // Passed through rather than defaulted: null means never chosen, which
+      // is what lets the client apply a device-appropriate default.
+      focusMode:          prefs.focus_mode || null,
       teleportAnimation:  prefs.teleport_animation === undefined ? true : !!prefs.teleport_animation,
       projectsSidebarPosition: prefs.projects_sidebar_position || 'right',
       beadsButtonEnabled: !!prefs.beads_button_enabled,
