@@ -16,6 +16,7 @@ import { getTerminalFontFamily } from './utils.js';
 import { getCurrentTerminalFont } from './settings.js';
 import { agentRequest, sendWs } from './ws-transport.js';
 import { checkImageBudget, describeImageRejection, fitsInRelay, jsonByteLength, formatBytes, RELAY_BUDGET_BYTES } from './payload-budget.js';
+import { chooseScrollAction } from './scroll-routing.js';
 
 const TERMINAL_THEMES = window.TERMINAL_THEMES || {};
 
@@ -738,9 +739,18 @@ export function initTerminal(paneEl, paneData) {
       return;
     }
 
+    const termRef = _ctx.terminals.get(paneData.id);
+    const action = chooseScrollAction({
+      mouseActive: !!xterm._core?.coreMouseService?.areMouseEventsActive,
+      alternateOn: !!termRef?._alternateOn,
+      foregroundCommand: termRef?._foregroundCommand,
+    });
+
     // TUI app has mouse reporting enabled (htop, opencode, vim with mouse=a)
-    // — re-dispatch to xterm's element so it sends mouse sequences to the app
-    if (xterm._core?.coreMouseService?.areMouseEventsActive) {
+    // — re-dispatch to xterm's element so it sends mouse sequences to the app.
+    // Checked first, and it is also how a nested tmux with `set -g mouse on`
+    // scrolls correctly.
+    if (action === 'mouse') {
       const xtermEl = container.querySelector('.xterm-screen');
       if (xtermEl) {
         const clone = new WheelEvent('wheel', e);
@@ -750,14 +760,22 @@ export function initTerminal(paneEl, paneData) {
       return;
     }
 
+    // An attached inner tmux or screen, with mouse reporting off. It is on the
+    // alternate screen like any TUI, so it used to take the arrow-key path
+    // below — but those arrows reach the inner session's shell, where readline
+    // reads Up as previous-command. Scrolling silently rewrote the line the
+    // user was typing (gh-20). There is nothing safe to do here: the inner
+    // multiplexer owns its own scrollback and xterm's alternate buffer has
+    // none to move, so the gesture is dropped.
+    if (action === 'none') return;
+
     const lines = e.deltaMode === 1
       ? Math.round(e.deltaY * 1.125)
       : Math.round(e.deltaY / 33) || (e.deltaY > 0 ? 1 : -1);
 
     // TUI app in alternate screen (tmux reports this via claude:states polling)
     // — send arrow keys so the app scrolls its content
-    const termRef = _ctx.terminals.get(paneData.id);
-    if (termRef?._alternateOn) {
+    if (action === 'arrows') {
       const count = Math.abs(lines);
       const arrow = e.deltaY > 0 ? '\x1b[B' : '\x1b[A';
       if (termRef._attached) {
