@@ -7591,3 +7591,163 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
   background: rgba(var(--accent-rgb), 0.25);
   border-color: rgba(var(--accent-rgb), 0.5);
 }
+
+/* ==========================================================================
+   List view
+   --------------------------------------------------------------------------
+   An alternative to the canvas rather than a layer over it: the canvas is
+   hidden outright, so nothing behind the list is laying out or repainting.
+   Pan and zoom are a poor way to find one pane among many on a screen a few
+   inches across, because they need you to remember where you left it. A list
+   does not.
+
+   The agent state column is the reason this view earns its place — the point
+   of checking a phone is to see which agent is waiting on you.
+   ========================================================================== */
+body.view-list #canvas-container {
+  display: none;
+}
+
+/* Zoom controls steer a canvas that is not on screen. The view switch itself
+   stays, since it is the way back. */
+body.view-list #zoom-in,
+body.view-list #zoom-out,
+body.view-list #zoom-fit,
+body.view-list #mobile-nav-btn {
+  display: none;
+}
+
+/* Hidden by preference, not by mode: desktop reaches list view through
+   Settings and Tab+X instead. */
+body.hide-view-mode-btn #view-mode-btn {
+  display: none;
+}
+
+#view-mode-btn[aria-pressed="true"] {
+  background: rgba(var(--accent-rgb), 0.2);
+  border-color: rgba(var(--accent-rgb), 0.6);
+}
+
+#pane-list {
+  display: none;
+}
+
+body.view-list #pane-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: fixed;
+  inset: 0;
+  /* Clears the add-pane button at the top and the keyboard at the bottom. */
+  padding:
+    calc(80px + var(--safe-top))
+    calc(16px + var(--safe-right))
+    calc(88px + var(--safe-bottom) + var(--keyboard-inset))
+    calc(16px + var(--safe-left));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--canvas-bg, var(--surface-solid));
+  z-index: 500;
+}
+
+.pane-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  /* Comfortably past the 44px minimum touch target. */
+  min-height: 56px;
+  padding: 12px 14px;
+  border: 1px solid var(--ink-10);
+  border-radius: 12px;
+  background: rgba(var(--surface-1), 0.9);
+  color: var(--ink-85);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.pane-list-item:active {
+  background: rgba(var(--accent-rgb), 0.15);
+  border-color: rgba(var(--accent-rgb), 0.4);
+}
+
+.pane-list-icon {
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.pane-list-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pane-list-label,
+.pane-list-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-list-meta {
+  font-size: 11px;
+  color: var(--ink-45);
+}
+
+/* One dot per row, coloured by what the agent is waiting on. The states that
+   need a human are warm and pulse; the ones that do not are quiet. */
+.pane-list-state {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink-25);
+}
+
+.pane-list-item[data-claude-state="claude-working"] .pane-list-state {
+  background: rgba(var(--accent-secondary-rgb), 0.9);
+}
+
+.pane-list-item[data-claude-state="claude-permission"] .pane-list-state,
+.pane-list-item[data-claude-state="claude-question"] .pane-list-state,
+.pane-list-item[data-claude-state="claude-input-needed"] .pane-list-state {
+  background: var(--accent-hex);
+  animation: paneListPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes paneListPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.pane-list-shortcut {
+  flex-shrink: 0;
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--ink-10);
+  color: var(--ink-45);
+  font-size: 11px;
+  text-align: center;
+}
+
+.pane-list-empty {
+  padding: 32px 16px;
+  color: var(--ink-45);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-list-item[data-claude-state] .pane-list-state {
+    animation: none;
+  }
+}

@@ -11,6 +11,7 @@
 import { isExternalInputFocused } from './utils.js';
 import { renderMinimap } from './minimap.js';
 import { getViewportRect } from './viewport.js';
+import { getViewMode, setViewMode } from './view-mode.js';
 import { activeToasts } from './notifications.js';
 import { showSettingsModal } from './settings.js';
 import { sendWs } from './ws-transport.js';
@@ -39,6 +40,10 @@ export function setupAddPaneMenu() {
 
   function triggerMenuItem(type) {
     addMenu.classList.add('hidden');
+    // Every pane type is created by placing a ghost on the canvas, so list
+    // view has to step aside first rather than leave the user placing a pane
+    // onto a surface they cannot see.
+    if (getViewMode() === 'list') setViewMode('canvas');
     if (type === 'terminal') {
       _ctx.showDevicePickerThenPlace();
     } else if (type === 'file') {
