@@ -11,6 +11,7 @@ import { setupPaneListeners } from './pane-interaction.js';
 import { initTerminal, setupFileEditorListeners } from './editors.js';
 import { getDeviceColorOverrides } from './hud.js';
 import { renderTabBar } from './tab-groups.js';
+import { loadMonaco } from './lazy-deps.js';
 
 let _ctx = null;
 
@@ -241,8 +242,8 @@ export async function initMonacoEditor(paneEl, paneData) {
   const container = paneEl.querySelector('.file-editor');
   if (!container) return;
 
-  // Wait for Monaco to be ready
-  const monaco = await window.monacoReady;
+  // Monaco is fetched on first use rather than at page load.
+  const monaco = await loadMonaco();
 
   const language = getLanguageFromFileName(paneData.fileName || paneData.filePath || '');
   const content = paneData.content || '';

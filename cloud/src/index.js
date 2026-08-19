@@ -76,7 +76,11 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          "'unsafe-inline'",  // Required for Monaco AMD loader config in index.html
+          // Required for the inline theme block that paints before first render.
+          // Monaco's AMD loader config used to be the reason; it now lives in
+          // modules/lazy-deps.js, but the CDN hosts are still needed there
+          // because the loader is injected at runtime rather than declared.
+          "'unsafe-inline'",
           "https://cdnjs.cloudflare.com",
           "https://cdn.jsdelivr.net",
         ],
