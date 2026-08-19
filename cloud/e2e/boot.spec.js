@@ -73,7 +73,18 @@ test('the fit-all-panes control is present and labelled', async ({ page }) => {
 
 test('the mobile pane drawer is available on a phone viewport', async ({ page }) => {
   await openApp(page);
-  // setupMobileNavDrawer only builds the button below 768px, which both device
-  // projects are.
+  // The stylesheet shows it below 768px, which both device projects are.
+  await expect(page.locator('#mobile-nav-btn')).toBeVisible();
+});
+
+test('the pane drawer button survives a resize into phone width', async ({ page }) => {
+  await openApp(page);
+
+  // Creation used to be gated on the width at load, so a session that started
+  // wide never got the button and rotating into portrait left no way in.
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await expect(page.locator('#mobile-nav-btn')).toBeHidden();
+
+  await page.setViewportSize({ width: 390, height: 700 });
   await expect(page.locator('#mobile-nav-btn')).toBeVisible();
 });

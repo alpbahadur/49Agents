@@ -211,9 +211,11 @@ export function autoArrangePanes() {
 
 // Mobile pane navigation drawer (bottom sheet)
 export function setupMobileNavDrawer() {
-  // Only create on mobile-width screens
-  if (window.innerWidth > 768) return;
-
+  // Built unconditionally. Gating creation on the width at load meant a
+  // session that started wide never got the button at all, so rotating a
+  // tablet into portrait, or dragging a window narrow, left no way to reach
+  // the drawer without a reload. #mobile-nav-btn is display:none outside the
+  // 768px media query, so the stylesheet already decides when it shows.
   const btn = document.createElement('button');
   btn.id = 'mobile-nav-btn';
   btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
