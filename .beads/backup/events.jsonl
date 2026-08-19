@@ -85,3 +85,35 @@
 {"actor":"MYRADhub","comment":"Added label: ux","created_at":"2026-08-17T11:46:09Z","event_type":"label_added","id":85,"issue_id":"bd_49Agents-4yp","new_value":null,"old_value":null}
 {"actor":"MYRADhub","comment":"Added label: onboarding","created_at":"2026-08-17T11:46:09Z","event_type":"label_added","id":86,"issue_id":"bd_49Agents-4yp","new_value":null,"old_value":null}
 {"actor":"MYRADhub","comment":null,"created_at":"2026-08-17T12:16:34Z","event_type":"status_changed","id":87,"issue_id":"bd_49Agents-4yp","new_value":"{\"status\":\"in_progress\"}","old_value":"{\"id\":\"bd_49Agents-4yp\",\"title\":\"Tutorial overhaul: cover new features, simplify flow\",\"description\":\"Rewrite the in-app tutorial. Current tutorial is too long/complicated and predates several features (pane types, mobile UX, multi-machine HUD, notes, git graph, beads pane, broadcast, move mode). Goals: demo the most important features with strong UI/UX, cut redundancy, reduce steps, make it skippable and replayable.\",\"status\":\"open\",\"priority\":1,\"issue_type\":\"feature\",\"owner\":\"myradism@gmail.com\",\"created_at\":\"2026-08-17T15:46:10Z\",\"created_by\":\"MYRADhub\",\"updated_at\":\"2026-08-17T15:46:10Z\"}"}
+{"actor":"MYRADhub","comment":null,"created_at":"2026-08-19T17:13:38Z","event_type":"created","id":88,"issue_id":"bd_49Agents-jt4.7","new_value":"","old_value":""}
+{"actor":"MYRADhub","comment":"Added label: frontend","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":89,"issue_id":"bd_49Agents-jt4.7","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: mobile","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":90,"issue_id":"bd_49Agents-jt4.7","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: ux","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":91,"issue_id":"bd_49Agents-jt4.7","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: bug","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":92,"issue_id":"bd_49Agents-jt4.7","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":null,"created_at":"2026-08-19T17:13:38Z","event_type":"created","id":93,"issue_id":"bd_49Agents-jt4.8","new_value":"","old_value":""}
+{"actor":"MYRADhub","comment":"Added label: frontend","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":94,"issue_id":"bd_49Agents-jt4.8","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: mobile","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":95,"issue_id":"bd_49Agents-jt4.8","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: ux","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":96,"issue_id":"bd_49Agents-jt4.8","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":null,"created_at":"2026-08-19T17:13:38Z","event_type":"created","id":97,"issue_id":"bd_49Agents-jt4.9","new_value":"","old_value":""}
+{"actor":"MYRADhub","comment":"Added label: frontend","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":98,"issue_id":"bd_49Agents-jt4.9","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: mobile","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":99,"issue_id":"bd_49Agents-jt4.9","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: ux","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":100,"issue_id":"bd_49Agents-jt4.9","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":null,"created_at":"2026-08-19T17:13:38Z","event_type":"created","id":101,"issue_id":"bd_49Agents-jt4.10","new_value":"","old_value":""}
+{"actor":"MYRADhub","comment":"Added label: frontend","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":102,"issue_id":"bd_49Agents-jt4.10","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: mobile","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":103,"issue_id":"bd_49Agents-jt4.10","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: ux","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":104,"issue_id":"bd_49Agents-jt4.10","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":null,"created_at":"2026-08-19T17:13:38Z","event_type":"created","id":105,"issue_id":"bd_49Agents-jt4.11","new_value":"","old_value":""}
+{"actor":"MYRADhub","comment":"Added label: frontend","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":106,"issue_id":"bd_49Agents-jt4.11","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: mobile","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":107,"issue_id":"bd_49Agents-jt4.11","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: performance","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":108,"issue_id":"bd_49Agents-jt4.11","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: ux","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":109,"issue_id":"bd_49Agents-jt4.11","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":null,"created_at":"2026-08-19T17:13:38Z","event_type":"created","id":110,"issue_id":"bd_49Agents-jt4.12","new_value":"","old_value":""}
+{"actor":"MYRADhub","comment":"Added label: frontend","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":111,"issue_id":"bd_49Agents-jt4.12","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: mobile","created_at":"2026-08-19T17:13:38Z","event_type":"label_added","id":112,"issue_id":"bd_49Agents-jt4.12","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: testing","created_at":"2026-08-19T17:13:39Z","event_type":"label_added","id":113,"issue_id":"bd_49Agents-jt4.12","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: ux","created_at":"2026-08-19T17:13:39Z","event_type":"label_added","id":114,"issue_id":"bd_49Agents-jt4.12","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":null,"created_at":"2026-08-19T17:31:34Z","event_type":"created","id":115,"issue_id":"bd_49Agents-jt4.13","new_value":"","old_value":""}
+{"actor":"MYRADhub","comment":"Added label: frontend","created_at":"2026-08-19T17:31:34Z","event_type":"label_added","id":116,"issue_id":"bd_49Agents-jt4.13","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: mobile","created_at":"2026-08-19T17:31:34Z","event_type":"label_added","id":117,"issue_id":"bd_49Agents-jt4.13","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: ux","created_at":"2026-08-19T17:31:34Z","event_type":"label_added","id":118,"issue_id":"bd_49Agents-jt4.13","new_value":null,"old_value":null}
+{"actor":"MYRADhub","comment":"Added label: bug","created_at":"2026-08-19T17:31:34Z","event_type":"label_added","id":119,"issue_id":"bd_49Agents-jt4.13","new_value":null,"old_value":null}
