@@ -165,7 +165,7 @@ export function handleMiddleMousePan(e) {
   _ctx.panState.startX = e.clientX - _ctx.state.panX;
   _ctx.panState.startY = e.clientY - _ctx.state.panY;
   document.body.style.cursor = 'grabbing';
-  _ctx.canvasContainer.classList.add('middle-panning');
+  _ctx.getCanvasContainer().classList.add('middle-panning');
   showIframeOverlays();
 
   const moveHandler = (moveE) => {
@@ -180,7 +180,7 @@ export function handleMiddleMousePan(e) {
     if (upE.button !== 1) return; // only release on middle mouse up
     _ctx.setIsPanning(false);
     document.body.style.cursor = '';
-    _ctx.canvasContainer.classList.remove('middle-panning');
+    _ctx.getCanvasContainer().classList.remove('middle-panning');
     hideIframeOverlays();
     _ctx.saveViewState();
     document.removeEventListener('mousemove', moveHandler);
@@ -298,9 +298,9 @@ export function handleTouchStart(e) {
 
   if (!touchSession) {
     touchSession = { mode: null, pan: null, pinch: null, samples: [] };
-    _ctx.canvasContainer.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
-    _ctx.canvasContainer.addEventListener('touchend', handleTouchEnd, { capture: true });
-    _ctx.canvasContainer.addEventListener('touchcancel', handleTouchEnd, { capture: true });
+    _ctx.getCanvasContainer().addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    _ctx.getCanvasContainer().addEventListener('touchend', handleTouchEnd, { capture: true });
+    _ctx.getCanvasContainer().addEventListener('touchcancel', handleTouchEnd, { capture: true });
     showIframeOverlays();
   }
 
@@ -380,9 +380,9 @@ function endTouchSession() {
   touchSession = null;
   _ctx.setIsPanning(false);
   hideIframeOverlays();
-  _ctx.canvasContainer.removeEventListener('touchmove', handleTouchMove, { capture: true });
-  _ctx.canvasContainer.removeEventListener('touchend', handleTouchEnd, { capture: true });
-  _ctx.canvasContainer.removeEventListener('touchcancel', handleTouchEnd, { capture: true });
+  _ctx.getCanvasContainer().removeEventListener('touchmove', handleTouchMove, { capture: true });
+  _ctx.getCanvasContainer().removeEventListener('touchend', handleTouchEnd, { capture: true });
+  _ctx.getCanvasContainer().removeEventListener('touchcancel', handleTouchEnd, { capture: true });
 }
 
 // Frame every pane. The escape hatch for a viewport panned away from all of
