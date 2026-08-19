@@ -66,6 +66,10 @@ export function updateClaudeStates(states) {
     const termInfo = _ctx.terminals.get(terminalId);
     if (termInfo && info) {
       termInfo._alternateOn = !!info.alternateOn;
+      // Needed to route scrolls: an attached tmux client is on the alternate
+      // screen like any TUI, but arrow keys reach its shell rather than
+      // scrolling anything.
+      termInfo._foregroundCommand = info.command || null;
     }
     // Track claude terminals for HUD counts
     if (info && info.isClaude) _ctx.claudeTerminalIds.add(terminalId);
