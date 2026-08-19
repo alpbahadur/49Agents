@@ -18,6 +18,28 @@
    Light values are warm neutrals so they sit with the orange accent.
    ========================================================================== */
 
+/* ==========================================================================
+   Viewport insets
+   --------------------------------------------------------------------------
+   env() has no JavaScript equivalent, so each safe-area inset is mirrored
+   onto a custom property that modules/viewport.js can read back through
+   getComputedStyle. Display cutouts and home indicators would otherwise sit
+   over the fixed controls, and the gesture clamping that keeps panes reachable
+   would frame against an area partly hidden by hardware.
+
+   --app-vh and --keyboard-inset are written from JS on every visual viewport
+   change. The soft keyboard never fires a window resize on iOS, so these are
+   the only reliable measure of what is still on screen while it is up.
+   ========================================================================== */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --app-vh: 100vh;
+  --keyboard-inset: 0px;
+}
+
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -259,8 +281,8 @@ html, body {
 /* Add pane button - top right */
 #add-pane-btn {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: calc(16px + var(--safe-top));
+  right: calc(16px + var(--safe-right));
   width: 50px;
   height: 50px;
   border-radius: 50%;
@@ -387,8 +409,8 @@ html, body {
 /* Zoom and pan controls - bottom right, above minimap when visible */
 #controls {
   position: fixed;
-  bottom: 182px;
-  right: 16px;
+  bottom: calc(182px + var(--safe-bottom));
+  right: calc(16px + var(--safe-right));
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -396,7 +418,7 @@ html, body {
   transition: bottom 0.2s ease;
 }
 body.minimap-hidden #controls {
-  bottom: 24px;
+  bottom: calc(24px + var(--safe-bottom));
 }
 
 #controls button {
@@ -429,8 +451,8 @@ body.minimap-hidden #controls {
 /* Settings button - bottom left */
 #settings-btn {
   position: fixed;
-  bottom: 24px;
-  left: 16px;
+  bottom: calc(24px + var(--safe-bottom));
+  left: calc(16px + var(--safe-left));
   width: 44px;
   height: 44px;
   border-radius: 12px;
@@ -1301,8 +1323,8 @@ body.hide-pane-new-tab .pane-new-tab {
   #mobile-nav-btn {
     display: flex;
     position: fixed;
-    bottom: 24px;
-    left: 16px;
+    bottom: calc(24px + var(--safe-bottom));
+    left: calc(16px + var(--safe-left));
     width: 48px;
     height: 48px;
     border-radius: 50%;
@@ -1341,7 +1363,7 @@ body.hide-pane-new-tab .pane-new-tab {
 
 .mobile-nav-sheet {
   position: fixed;
-  bottom: 0;
+  bottom: var(--keyboard-inset);
   left: 0;
   right: 0;
   max-height: 55vh;
@@ -1382,7 +1404,7 @@ body.hide-pane-new-tab .pane-new-tab {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   flex: 1;
-  padding: 0 8px 16px;
+  padding: 0 8px calc(16px + var(--safe-bottom));
 }
 
 .mobile-nav-item {
@@ -2451,10 +2473,13 @@ body.hide-pane-new-tab .pane-new-tab {
 /* Pane in expanded/fullscreen mode */
 .pane.expanded {
   position: fixed !important;
-  top: 20px !important;
-  left: 20px !important;
-  right: 20px !important;
-  bottom: 20px !important;
+  /* Expanded is the de facto mobile fullscreen view, so it has to clear the
+     notch and home indicator, and give way to the keyboard instead of leaving
+     the prompt behind it. */
+  top: calc(20px + var(--safe-top)) !important;
+  left: calc(20px + var(--safe-left)) !important;
+  right: calc(20px + var(--safe-right)) !important;
+  bottom: calc(20px + var(--safe-bottom) + var(--keyboard-inset)) !important;
   width: auto !important;
   height: auto !important;
   z-index: 9999 !important;
@@ -5867,8 +5892,8 @@ body.cursor-suppressed .pane { pointer-events: none !important; }
 
 #tutorial-btn {
   position: fixed;
-  bottom: 80px;
-  left: 16px;
+  bottom: calc(80px + var(--safe-bottom));
+  left: calc(16px + var(--safe-left));
   width: 44px;
   height: 44px;
   border-radius: 12px;

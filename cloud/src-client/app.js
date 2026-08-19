@@ -1052,8 +1052,6 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     lastX: 0, lastY: 0,
     momentumRaf: null,
     scrollLockTarget: null, // 'pane' | 'canvas' | null
-    initialPinchDistance: 0,
-    initialZoom: 1,
   };
 
   // Touch/drag state. Grouped into one object so it can be passed to
@@ -1365,6 +1363,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getIsPanning: () => isPanning,
       setIsPanning: (v) => { isPanning = v; },
       getExpandedPaneId: () => expandedPaneId,
+      getLastFocusedPaneId: () => lastFocusedPaneId,
       getMoveModeActive: () => moveModeActive,
       getQuickViewActive: () => quickViewActive,
       getTabHeld: () => tabHeld,

@@ -420,7 +420,11 @@ export function setupCanvasInteraction() {
   });
 
   canvasContainer.addEventListener('mousedown', _ctx.handleCanvasPanStart);
-  canvasContainer.addEventListener('touchstart', _ctx.handleTouchStart, { passive: false });
+  // Capture-phase: pane content stops touchstart from bubbling (terminals,
+  // editors, git graph), which used to swallow every two-finger pinch that
+  // began over a pane. Capture runs before those handlers, so the canvas sees
+  // the gesture first and decides for itself whether to claim it.
+  canvasContainer.addEventListener('touchstart', _ctx.handleTouchStart, { passive: false, capture: true });
   canvasContainer.addEventListener('wheel', _ctx.handleWheel, { passive: false });
   // Capture-phase: intercept Ctrl+Scroll and Tab+Scroll before any pane handler can stopPropagation
   canvasContainer.addEventListener('wheel', (e) => {
