@@ -10,6 +10,7 @@
 
 import { isExternalInputFocused } from './utils.js';
 import { renderMinimap } from './minimap.js';
+import { getViewportRect } from './viewport.js';
 import { activeToasts } from './notifications.js';
 import { showSettingsModal } from './settings.js';
 import { sendWs } from './ws-transport.js';
@@ -342,14 +343,24 @@ export function setupToolbarButtons() {
 
   setupTutorialMenu();
 
+  // Zoom about the centre of the usable area rather than the raw window, so
+  // repeated presses on a device with a cutout do not walk the view sideways.
+  const viewportCenter = () => {
+    const rect = getViewportRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  };
+
   document.getElementById('zoom-in').addEventListener('click', () => {
-    _ctx.setZoom(_ctx.state.zoom * 1.2, window.innerWidth / 2, window.innerHeight / 2);
+    const c = viewportCenter();
+    _ctx.setZoom(_ctx.state.zoom * 1.2, c.x, c.y);
   });
 
   document.getElementById('zoom-out').addEventListener('click', () => {
-    _ctx.setZoom(_ctx.state.zoom / 1.2, window.innerWidth / 2, window.innerHeight / 2);
+    const c = viewportCenter();
+    _ctx.setZoom(_ctx.state.zoom / 1.2, c.x, c.y);
   });
 
+  document.getElementById('zoom-fit').addEventListener('click', () => _ctx.zoomToFit());
 }
 
 export function setupCustomTooltips() {

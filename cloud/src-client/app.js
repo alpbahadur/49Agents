@@ -13,7 +13,7 @@ import { initWsTransportDeps, sendWs, agentRequest, pendingRequests, pendingScan
 import { initAgentUiDeps, showRelayNotification, showUpdateToast, showUpdateProgressToast, showUpdateCompleteToast, updateAgentOverlay, showAddMachineDialog } from './modules/agent-ui.js';
 import { initMenusDeps, setupAddPaneMenu, setupTutorialMenu, autoArrangePanes, setupMobileNavDrawer, setupToolbarButtons, setupCustomTooltips, setupCanvasInteraction, setupPasteHandlers, getTabCycleOrder, findPaneInDirection, calcMoveModeZoom } from './modules/menus.js';
 import { initClaudeStatesDeps, updateClaudeStates } from './modules/claude-states.js';
-import { initCanvasEventsDeps, setupEventListeners, handleCanvasPanStart, handleMiddleMousePan, handleRightMousePan, handleTouchStart, handleWheel, setZoom } from './modules/canvas-events.js';
+import { initCanvasEventsDeps, setupEventListeners, handleCanvasPanStart, handleMiddleMousePan, handleRightMousePan, handleTouchStart, handleWheel, setZoom, zoomToFit } from './modules/canvas-events.js';
 import { initMoveModeDeps, enterMoveMode, exitMoveMode, applyMoveModeVisuals, moveModeNavigate } from './modules/move-mode.js';
 import { initQuickViewDeps, addQuickViewOverlay, removeQuickViewOverlay, toggleQuickView, enterMentionMode, exitMentionMode } from './modules/quick-view.js';
 import { initTerminalLifecycleDeps, attachTerminal, reattachTerminal, renderPane, renderFilePane, getDeviceColor, claudeSessionBadgeHtml, beadsTagHtml, refreshBeadsTagStatus, deviceLabelHtml, applyDeviceHeaderColor } from './modules/terminal-lifecycle.js';
@@ -1537,7 +1537,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       showFolderPaneDevicePickerThenPlace, showConversationsDirPickerThenPlace,
       showRecentsOrBrowse,
       // Canvas and pane operations
-      setZoom, updateCanvasTransform, saveViewState, cloudSaveLayout,
+      setZoom, zoomToFit, updateCanvasTransform, saveViewState, cloudSaveLayout,
       jumpToPane, expandPane, exitMentionMode, showUpgradePrompt,
       // Canvas event handlers, attached by setupCanvasInteraction
       handleCanvasPanStart, handleTouchStart, handleWheel,
