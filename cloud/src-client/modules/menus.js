@@ -10,6 +10,8 @@
 
 import { isExternalInputFocused } from './utils.js';
 import { renderMinimap } from './minimap.js';
+import { getViewportRect } from './viewport.js';
+import { getViewMode, setViewMode } from './view-mode.js';
 import { activeToasts } from './notifications.js';
 import { showSettingsModal } from './settings.js';
 import { sendWs } from './ws-transport.js';
@@ -38,6 +40,10 @@ export function setupAddPaneMenu() {
 
   function triggerMenuItem(type) {
     addMenu.classList.add('hidden');
+    // Every pane type is created by placing a ghost on the canvas, so list
+    // view has to step aside first rather than leave the user placing a pane
+    // onto a surface they cannot see.
+    if (getViewMode() === 'list') setViewMode('canvas');
     if (type === 'terminal') {
       _ctx.showDevicePickerThenPlace();
     } else if (type === 'file') {
@@ -205,9 +211,11 @@ export function autoArrangePanes() {
 
 // Mobile pane navigation drawer (bottom sheet)
 export function setupMobileNavDrawer() {
-  // Only create on mobile-width screens
-  if (window.innerWidth > 768) return;
-
+  // Built unconditionally. Gating creation on the width at load meant a
+  // session that started wide never got the button at all, so rotating a
+  // tablet into portrait, or dragging a window narrow, left no way to reach
+  // the drawer without a reload. #mobile-nav-btn is display:none outside the
+  // 768px media query, so the stylesheet already decides when it shows.
   const btn = document.createElement('button');
   btn.id = 'mobile-nav-btn';
   btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
@@ -342,14 +350,24 @@ export function setupToolbarButtons() {
 
   setupTutorialMenu();
 
+  // Zoom about the centre of the usable area rather than the raw window, so
+  // repeated presses on a device with a cutout do not walk the view sideways.
+  const viewportCenter = () => {
+    const rect = getViewportRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  };
+
   document.getElementById('zoom-in').addEventListener('click', () => {
-    _ctx.setZoom(_ctx.state.zoom * 1.2, window.innerWidth / 2, window.innerHeight / 2);
+    const c = viewportCenter();
+    _ctx.setZoom(_ctx.state.zoom * 1.2, c.x, c.y);
   });
 
   document.getElementById('zoom-out').addEventListener('click', () => {
-    _ctx.setZoom(_ctx.state.zoom / 1.2, window.innerWidth / 2, window.innerHeight / 2);
+    const c = viewportCenter();
+    _ctx.setZoom(_ctx.state.zoom / 1.2, c.x, c.y);
   });
 
+  document.getElementById('zoom-fit').addEventListener('click', () => _ctx.zoomToFit());
 }
 
 export function setupCustomTooltips() {
@@ -420,7 +438,11 @@ export function setupCanvasInteraction() {
   });
 
   canvasContainer.addEventListener('mousedown', _ctx.handleCanvasPanStart);
-  canvasContainer.addEventListener('touchstart', _ctx.handleTouchStart, { passive: false });
+  // Capture-phase: pane content stops touchstart from bubbling (terminals,
+  // editors, git graph), which used to swallow every two-finger pinch that
+  // began over a pane. Capture runs before those handlers, so the canvas sees
+  // the gesture first and decides for itself whether to claim it.
+  canvasContainer.addEventListener('touchstart', _ctx.handleTouchStart, { passive: false, capture: true });
   canvasContainer.addEventListener('wheel', _ctx.handleWheel, { passive: false });
   // Capture-phase: intercept Ctrl+Scroll and Tab+Scroll before any pane handler can stopPropagation
   canvasContainer.addEventListener('wheel', (e) => {

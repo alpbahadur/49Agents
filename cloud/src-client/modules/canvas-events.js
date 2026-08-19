@@ -11,6 +11,11 @@ import { setupAddPaneMenu, setupToolbarButtons, setupCustomTooltips, setupCanvas
 import { setupKeyboardShortcuts } from './shortcuts.js';
 import { isPlacementActive } from './placement.js';
 import { showIframeOverlays, hideIframeOverlays } from './pane-renderers.js';
+import { getViewportRect, setupViewportTracking, onViewportResize } from './viewport.js';
+import {
+  clampZoom, pinchStart, applyPinch, panStart, applyPan, clampPan, fitToBounds,
+  computeMomentum, MOMENTUM_FRICTION, MOMENTUM_MIN_VELOCITY,
+} from './gestures.js';
 
 let _ctx = null;
 
@@ -25,6 +30,22 @@ export function setupEventListeners() {
   setupPasteHandlers();
   setupKeyboardShortcuts();
   setupMobileNavDrawer();
+
+  // The soft keyboard shrinks the visual viewport without resizing the window,
+  // so xterm keeps its old row count and the prompt ends up hidden behind the
+  // keyboard. Refit whatever is focused whenever that area changes.
+  onViewportResize(() => {
+    const paneId = _ctx.getExpandedPaneId?.() || _ctx.getLastFocusedPaneId?.();
+    const termInfo = paneId && _ctx.terminals?.get(paneId);
+    if (!termInfo) return;
+    try {
+      if (termInfo.safeFitAndSync) termInfo.safeFitAndSync();
+      else termInfo.fitAddon?.fit();
+    } catch (e) {
+      console.error('[Canvas] Terminal refit on viewport change failed:', e);
+    }
+  });
+  setupViewportTracking();
 
   // Prevent Safari's native pinch-to-zoom (bypasses touch-action: none)
   document.addEventListener('gesturestart', e => e.preventDefault());
@@ -144,7 +165,7 @@ export function handleMiddleMousePan(e) {
   _ctx.panState.startX = e.clientX - _ctx.state.panX;
   _ctx.panState.startY = e.clientY - _ctx.state.panY;
   document.body.style.cursor = 'grabbing';
-  _ctx.canvasContainer.classList.add('middle-panning');
+  _ctx.getCanvasContainer().classList.add('middle-panning');
   showIframeOverlays();
 
   const moveHandler = (moveE) => {
@@ -159,7 +180,7 @@ export function handleMiddleMousePan(e) {
     if (upE.button !== 1) return; // only release on middle mouse up
     _ctx.setIsPanning(false);
     document.body.style.cursor = '';
-    _ctx.canvasContainer.classList.remove('middle-panning');
+    _ctx.getCanvasContainer().classList.remove('middle-panning');
     hideIframeOverlays();
     _ctx.saveViewState();
     document.removeEventListener('mousemove', moveHandler);
@@ -214,102 +235,171 @@ export function handleRightMousePan(e) {
   document.addEventListener('mouseup', endHandler);
 }
 
-// Handle touch start for pan/pinch
-// Momentum state for touch pan inertia
+// ─── Touch gestures ───────────────────────────────────────────────────────
+// One gesture session spans the whole time fingers are down, and is
+// re-baselined whenever the finger count changes. Anchoring only at the
+// initial touchstart used to freeze the canvas the moment a pinch dropped to
+// one finger, because the pan origin still described a gesture that had
+// already ended.
 
-export function handleTouchStart(e) {
-  if (e.target !== _ctx.getCanvas() && e.target !== _ctx.getCanvasContainer()) return;
+let touchSession = null;
 
-  // Cancel any in-flight momentum animation
-  if (_ctx.panState.momentumRaf) { cancelAnimationFrame(_ctx.panState.momentumRaf); _ctx.panState.momentumRaf = null; }
-
-  if (e.touches.length === 1) {
-    e.preventDefault();
-    _ctx.setIsPanning(true);
-    _ctx.panState.startX = e.touches[0].clientX - _ctx.state.panX;
-    _ctx.panState.startY = e.touches[0].clientY - _ctx.state.panY;
-    _ctx.panState.lastX = _ctx.state.panX;
-    _ctx.panState.lastY = _ctx.state.panY;
-    showIframeOverlays();
-  } else if (e.touches.length === 2) {
-    e.preventDefault();
-    _ctx.setIsPanning(false);
-    _ctx.panState.initialPinchDistance = getPinchDistance(e.touches);
-    _ctx.panState.initialZoom = _ctx.state.zoom;
-  }
-
-  // Velocity tracking: store last 3 touch samples for momentum calculation
-  const samples = []; // { x, y, t }
-
-  const moveHandler = (moveE) => {
-    if (moveE.touches.length === 1 && _ctx.getIsPanning()) {
-      moveE.preventDefault();
-      _ctx.state.panX = moveE.touches[0].clientX - _ctx.panState.startX;
-      _ctx.state.panY = moveE.touches[0].clientY - _ctx.panState.startY;
-      _ctx.updateCanvasTransform();
-
-      const now = Date.now();
-      samples.push({ x: _ctx.state.panX, y: _ctx.state.panY, t: now });
-      if (samples.length > 3) samples.shift();
-    } else if (moveE.touches.length === 2) {
-      moveE.preventDefault();
-      const currentDistance = getPinchDistance(moveE.touches);
-      const scale = currentDistance / _ctx.panState.initialPinchDistance;
-      const newZoom = Math.max(0.05, Math.min(4, _ctx.panState.initialZoom * scale));
-
-      const centerX = (moveE.touches[0].clientX + moveE.touches[1].clientX) / 2;
-      const centerY = (moveE.touches[0].clientY + moveE.touches[1].clientY) / 2;
-
-      setZoom(newZoom, centerX, centerY);
-    }
-  };
-
-  const endHandler = () => {
-    _ctx.setIsPanning(false);
-    hideIframeOverlays();
-    _ctx.canvasContainer.removeEventListener('touchmove', moveHandler);
-    _ctx.canvasContainer.removeEventListener('touchend', endHandler);
-
-    // Compute velocity from recent samples and apply momentum
-    if (samples.length >= 2) {
-      const oldest = samples[0];
-      const newest = samples[samples.length - 1];
-      const dt = newest.t - oldest.t;
-      if (dt > 0 && dt < 200) { // Only if recent enough to be intentional
-        let vx = (newest.x - oldest.x) / dt * 16; // px per frame (~16ms)
-        let vy = (newest.y - oldest.y) / dt * 16;
-        const friction = 0.92;
-        const minV = 0.3;
-
-        const animate = () => {
-          vx *= friction;
-          vy *= friction;
-          if (Math.abs(vx) < minV && Math.abs(vy) < minV) {
-            _ctx.panState.momentumRaf = null;
-            _ctx.saveViewState();
-            return;
-          }
-          _ctx.state.panX += vx;
-          _ctx.state.panY += vy;
-          _ctx.updateCanvasTransform();
-          _ctx.panState.momentumRaf = requestAnimationFrame(animate);
-        };
-        _ctx.panState.momentumRaf = requestAnimationFrame(animate);
-        return; // saveViewState called when momentum ends
-      }
-    }
-    _ctx.saveViewState();
-  };
-
-  _ctx.canvasContainer.addEventListener('touchmove', moveHandler, { passive: false });
-  _ctx.canvasContainer.addEventListener('touchend', endHandler);
+function viewOf() {
+  return { panX: _ctx.state.panX, panY: _ctx.state.panY, zoom: _ctx.state.zoom };
 }
 
-// Get distance between two touch points
-export function getPinchDistance(touches) {
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.sqrt(dx * dx + dy * dy);
+// Commit a computed view, holding the content box within reach of the
+// viewport so a gesture cannot strand the user in empty space.
+function commitView(view) {
+  const bounded = clampPan(view, getCanvasBounds(), getViewportRect());
+  _ctx.state.panX = bounded.panX;
+  _ctx.state.panY = bounded.panY;
+  if (view.zoom !== undefined) _ctx.state.zoom = view.zoom;
+  _ctx.updateCanvasTransform();
+}
+
+// Re-anchor the session to the fingers currently down. Called on every change
+// in finger count, in either direction.
+function rebaseTouchSession(touches) {
+  if (!touchSession) return;
+  if (touches.length >= 2) {
+    touchSession.mode = 'pinch';
+    touchSession.pinch = pinchStart(viewOf(), touches);
+    touchSession.pan = null;
+  } else if (touches.length === 1) {
+    touchSession.mode = 'pan';
+    touchSession.pan = panStart(viewOf(), touches[0]);
+    touchSession.pinch = null;
+    touchSession.samples.length = 0;
+  }
+}
+
+export function handleTouchStart(e) {
+  if (isPlacementActive()) return;
+
+  const multiTouch = e.touches.length >= 2;
+
+  // A single finger still only pans from bare canvas: anywhere else it belongs
+  // to the pane under it, for scrolling, typing or dragging. Two fingers are
+  // unambiguous, so a pinch is honoured wherever it starts — including over a
+  // pane, which is most of the screen on a phone and where pinch previously
+  // did nothing at all.
+  if (!multiTouch && !touchSession) {
+    if (e.target !== _ctx.getCanvas() && e.target !== _ctx.getCanvasContainer()) return;
+  }
+
+  if (_ctx.panState.momentumRaf) {
+    cancelAnimationFrame(_ctx.panState.momentumRaf);
+    _ctx.panState.momentumRaf = null;
+  }
+
+  e.preventDefault();
+  if (multiTouch) e.stopPropagation();
+
+  if (!touchSession) {
+    touchSession = { mode: null, pan: null, pinch: null, samples: [] };
+    _ctx.getCanvasContainer().addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    _ctx.getCanvasContainer().addEventListener('touchend', handleTouchEnd, { capture: true });
+    _ctx.getCanvasContainer().addEventListener('touchcancel', handleTouchEnd, { capture: true });
+    showIframeOverlays();
+  }
+
+  rebaseTouchSession(e.touches);
+  _ctx.setIsPanning(touchSession.mode === 'pan');
+}
+
+function handleTouchMove(e) {
+  if (!touchSession) return;
+
+  // A finger can appear or vanish without a paired event reaching us, so the
+  // mode is reconciled against reality rather than trusted.
+  if (e.touches.length >= 2 && touchSession.mode !== 'pinch') rebaseTouchSession(e.touches);
+  else if (e.touches.length === 1 && touchSession.mode !== 'pan') rebaseTouchSession(e.touches);
+
+  if (touchSession.mode === 'pinch' && e.touches.length >= 2) {
+    e.preventDefault();
+    e.stopPropagation();
+    commitView(applyPinch(touchSession.pinch, e.touches));
+  } else if (touchSession.mode === 'pan' && e.touches.length === 1) {
+    e.preventDefault();
+    const panned = applyPan(touchSession.pan, e.touches[0]);
+    commitView({ ...panned, zoom: _ctx.state.zoom });
+
+    touchSession.samples.push({ x: _ctx.state.panX, y: _ctx.state.panY, t: e.timeStamp });
+    if (touchSession.samples.length > 3) touchSession.samples.shift();
+  }
+}
+
+function handleTouchEnd(e) {
+  if (!touchSession) return;
+
+  // Fingers remain: the gesture is changing shape, not ending. Re-anchor so a
+  // pinch degrades into a pan from the view it actually left behind.
+  if (e.touches.length > 0) {
+    rebaseTouchSession(e.touches);
+    _ctx.setIsPanning(touchSession.mode === 'pan');
+    return;
+  }
+
+  const samples = touchSession.samples;
+  const wasPanning = touchSession.mode === 'pan';
+  endTouchSession();
+
+  // touchcancel means the system took the gesture over. Flinging the canvas
+  // after an interruption the user did not intend is worse than stopping.
+  // e.timeStamp is the release: a finger that stopped and rested fires no
+  // further touchmove, so without it a long pause before lifting still flings.
+  const momentum = (wasPanning && e.type !== 'touchcancel')
+    ? computeMomentum(samples, undefined, e.timeStamp)
+    : null;
+  if (!momentum) {
+    _ctx.saveViewState();
+    return;
+  }
+
+  let { vx, vy } = momentum;
+  const animate = () => {
+    vx *= MOMENTUM_FRICTION;
+    vy *= MOMENTUM_FRICTION;
+    if (Math.abs(vx) < MOMENTUM_MIN_VELOCITY && Math.abs(vy) < MOMENTUM_MIN_VELOCITY) {
+      _ctx.panState.momentumRaf = null;
+      _ctx.saveViewState();
+      return;
+    }
+    const before = viewOf();
+    commitView({ panX: before.panX + vx, panY: before.panY + vy, zoom: before.zoom });
+    // Clamping absorbed the movement, so the fling has hit the edge.
+    if (_ctx.state.panX === before.panX && _ctx.state.panY === before.panY) {
+      _ctx.panState.momentumRaf = null;
+      _ctx.saveViewState();
+      return;
+    }
+    _ctx.panState.momentumRaf = requestAnimationFrame(animate);
+  };
+  _ctx.panState.momentumRaf = requestAnimationFrame(animate);
+}
+
+function endTouchSession() {
+  if (!touchSession) return;
+  touchSession = null;
+  _ctx.setIsPanning(false);
+  hideIframeOverlays();
+  _ctx.getCanvasContainer().removeEventListener('touchmove', handleTouchMove, { capture: true });
+  _ctx.getCanvasContainer().removeEventListener('touchend', handleTouchEnd, { capture: true });
+  _ctx.getCanvasContainer().removeEventListener('touchcancel', handleTouchEnd, { capture: true });
+}
+
+// Frame every pane. The escape hatch for a viewport panned away from all of
+// them, where zooming out bottoms out at MIN_ZOOM before anything reappears.
+export function zoomToFit() {
+  const fit = fitToBounds(getCanvasBounds(), getViewportRect());
+  if (!fit) return;
+  _ctx.state.panX = fit.panX;
+  _ctx.state.panY = fit.panY;
+  _ctx.state.zoom = fit.zoom;
+  _ctx.updateCanvasTransform();
+  _ctx.saveViewState();
+  renderMinimap();
 }
 
 // Scroll target lock: once a scroll gesture starts on a pane (or canvas),
@@ -366,11 +456,13 @@ export function handleWheel(e) {
 
 // Set zoom centered on a point
 export function setZoom(newZoom, centerX, centerY) {
-  newZoom = Math.max(0.05, Math.min(4, newZoom));
-  const zoomRatio = newZoom / _ctx.state.zoom;
+  // Shares clampZoom with the touch path so the wheel, the buttons and a
+  // pinch cannot disagree about the zoom range.
+  const zoom = clampZoom(newZoom);
+  const zoomRatio = zoom / _ctx.state.zoom;
   _ctx.state.panX = centerX - (centerX - _ctx.state.panX) * zoomRatio;
   _ctx.state.panY = centerY - (centerY - _ctx.state.panY) * zoomRatio;
-  _ctx.state.zoom = newZoom;
+  _ctx.state.zoom = zoom;
 
   _ctx.updateCanvasTransform();
   _ctx.saveViewState();

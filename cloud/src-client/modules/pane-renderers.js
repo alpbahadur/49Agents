@@ -16,6 +16,7 @@ import { setupPaneListeners } from './pane-interaction.js';
 import { setupImageButtonHandlers, setupTextOnlyToggle } from './editors.js';
 import { calcPlacementPos } from './minimap.js';
 import { clearPaneRefresh } from './pane-refresh.js';
+import { loadMonaco, loadMarkdown } from './lazy-deps.js';
 
 let _ctx = null;
 
@@ -246,7 +247,7 @@ export async function initNoteMonaco(paneEl, paneData) {
   const mountEl = paneEl.querySelector('.note-editor-mount');
   if (!mountEl) return;
 
-  const monaco = await window.monacoReady;
+  const monaco = await loadMonaco();
   const fontSize = paneData.fontSize || 14;
 
   const editor = monaco.editor.create(mountEl, {
@@ -379,12 +380,17 @@ export function refreshNoteImages(paneEl, paneData) {
 
 // Render markdown to HTML for preview mode (sanitized to prevent XSS)
 export async function renderMarkdownPreview(markdown) {
-  if (window.marked) {
-    const raw = await window.marked.parse(markdown || '', { breaks: true, gfm: true });
-    return window.DOMPurify ? window.DOMPurify.sanitize(raw) : raw;
+  try {
+    const { marked, DOMPurify } = await loadMarkdown();
+    const raw = await marked.parse(markdown || '', { breaks: true, gfm: true });
+    return DOMPurify.sanitize(raw);
+  } catch (e) {
+    // Offline, or the CDN is unreachable. Show the source escaped rather than
+    // rendering it: loadMarkdown only resolves with a sanitiser in hand, so
+    // reaching here means there is nothing safe to render HTML with.
+    console.error('[Renderers] Markdown libraries unavailable:', e);
+    return escapeHtml(markdown || '').replace(/\n/g, '<br>');
   }
-  // Fallback: escape HTML and convert newlines
-  return escapeHtml(markdown || '').replace(/\n/g, '<br>');
 }
 
 // Truncate URL for display in pane header

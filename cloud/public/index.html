@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <title>49Agents</title>
@@ -123,61 +123,13 @@
   <div id="controls">
     <button id="zoom-in" aria-label="Zoom in"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg></button>
     <button id="zoom-out" aria-label="Zoom out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg></button>
+    <button id="zoom-fit" data-tooltip="Fit all panes" aria-label="Fit all panes in view"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg></button>
   </div>
 
-  <!-- Monaco Editor from CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
-  <script>
-    // Configure Monaco AMD loader
-    require.config({
-      paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs' }
-    });
-
-    // Pre-load Monaco core so editors can be created instantly
-    window.monacoReady = new Promise((resolve) => {
-      require(['vs/editor/editor.main'], function (monaco) {
-        // Define a dark theme matching the app's aesthetic
-        monaco.editor.defineTheme('49agents-dark', {
-          base: 'vs-dark',
-          inherit: true,
-          rules: [
-            { token: 'comment', foreground: '6A9955' },
-            { token: 'keyword', foreground: 'C586C0' },
-            { token: 'string', foreground: 'CE9178' },
-            { token: 'number', foreground: 'B5CEA8' },
-            { token: 'type', foreground: '4EC9B0' },
-          ],
-          colors: {
-            'editor.background': '#00000000',
-            'editor.foreground': '#e0e0e0',
-            'editor.lineHighlightBackground': '#ffffff08',
-            'editor.selectionBackground': '#264f78',
-            'editorCursor.foreground': '#aeafad',
-            'editorLineNumber.foreground': '#ffffff30',
-            'editorLineNumber.activeForeground': '#ffffff60',
-            'editorWidget.background': '#1a1a2ecc',
-            'editorWidget.border': '#ffffff15',
-            'input.background': '#ffffff10',
-            'input.border': '#ffffff15',
-            'scrollbarSlider.background': '#ffffff20',
-            'scrollbarSlider.hoverBackground': '#ffffff30',
-            'scrollbarSlider.activeBackground': '#ffffff40',
-            'minimap.background': '#00000000',
-            'focusBorder': '#00000000',
-            'editor.border': '#00000000',
-          }
-        });
-        monaco.editor.setTheme('49agents-dark');
-        window.monaco = monaco;
-        resolve(monaco);
-      });
-    });
-  </script>
-
-  <!-- Marked.js for markdown preview in notes -->
-  <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
-  <!-- DOMPurify to sanitize rendered markdown and prevent XSS -->
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <!-- Monaco, marked and DOMPurify are fetched on first use by
+       modules/lazy-deps.js rather than here. Loading them eagerly cost over a
+       megabyte before the canvas painted, on every load, for panes most
+       sessions never open. -->
 
   <!-- Consent onboarding, shown after ten minutes of use in local mode -->
   <div class="onboarding" id="onboarding">

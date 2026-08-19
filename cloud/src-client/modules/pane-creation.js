@@ -14,6 +14,7 @@ import { clearTerminalNotificationState } from './notifications.js';
 import { renderGitGraphPane } from './git-graph.js';
 import { renderCheckpointPane, renderProjectRectangles, startProjectsSidebarRefresh } from './projects.js';
 import { collapsePane, createBeadsPane, createFolderPane, renderBeadsPane, renderFolderPane, renderIframePane, renderNotePane } from './pane-renderers.js';
+import { refreshPaneListIfVisible } from './view-mode.js';
 
 let _ctx = null;
 
@@ -1419,6 +1420,10 @@ export async function deletePane(paneId) {
 
     // Remove from cloud layout
     _ctx.cloudDeleteLayout(paneId);
+
+    // List view is built from state.panes, so a removal has to show at once
+    // rather than waiting for the next refresh tick.
+    refreshPaneListIfVisible();
 
   } catch (e) {
     console.error('[App] Error deleting pane:', e);

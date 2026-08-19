@@ -237,6 +237,22 @@ export function initDatabase() {
     db.prepare("ALTER TABLE user_preferences ADD COLUMN pane_header_order TEXT NOT NULL DEFAULT '[]'").run();
     console.log('[db] Migration: Added pane_header_order column to user_preferences');
   } catch (e) { /* already exists */ }
+  // View mode: the canvas, or a flat list of panes. Canvas is the default
+  // everywhere; the on-screen toggle defaults on, since it is only rendered
+  // on narrow viewports where the list is worth reaching for, and the Tab+X
+  // chord covers everyone else.
+  try {
+    db.prepare("ALTER TABLE user_preferences ADD COLUMN view_mode TEXT NOT NULL DEFAULT 'canvas'").run();
+    console.log('[db] Migration: Added view_mode column to user_preferences');
+  } catch (e) { /* already exists */ }
+  try {
+    db.prepare('ALTER TABLE user_preferences ADD COLUMN view_mode_hotkey_enabled INTEGER NOT NULL DEFAULT 1').run();
+    console.log('[db] Migration: Added view_mode_hotkey_enabled column to user_preferences');
+  } catch (e) { /* already exists */ }
+  try {
+    db.prepare('ALTER TABLE user_preferences ADD COLUMN view_mode_toggle_visible INTEGER NOT NULL DEFAULT 1').run();
+    console.log('[db] Migration: Added view_mode_toggle_visible column to user_preferences');
+  } catch (e) { /* already exists */ }
 
   // Migration: notifications tables
   try {

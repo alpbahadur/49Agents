@@ -13,7 +13,8 @@ import { initWsTransportDeps, sendWs, agentRequest, pendingRequests, pendingScan
 import { initAgentUiDeps, showRelayNotification, showUpdateToast, showUpdateProgressToast, showUpdateCompleteToast, updateAgentOverlay, showAddMachineDialog } from './modules/agent-ui.js';
 import { initMenusDeps, setupAddPaneMenu, setupTutorialMenu, autoArrangePanes, setupMobileNavDrawer, setupToolbarButtons, setupCustomTooltips, setupCanvasInteraction, setupPasteHandlers, getTabCycleOrder, findPaneInDirection, calcMoveModeZoom } from './modules/menus.js';
 import { initClaudeStatesDeps, updateClaudeStates } from './modules/claude-states.js';
-import { initCanvasEventsDeps, setupEventListeners, handleCanvasPanStart, handleMiddleMousePan, handleRightMousePan, handleTouchStart, handleWheel, setZoom } from './modules/canvas-events.js';
+import { initCanvasEventsDeps, setupEventListeners, handleCanvasPanStart, handleMiddleMousePan, handleRightMousePan, handleTouchStart, handleWheel, setZoom, zoomToFit } from './modules/canvas-events.js';
+import { initViewModeDeps, setupViewModeToggle, applyViewMode, toggleViewMode, refreshPaneListIfVisible, setViewMode as setViewModeModule } from './modules/view-mode.js';
 import { initMoveModeDeps, enterMoveMode, exitMoveMode, applyMoveModeVisuals, moveModeNavigate } from './modules/move-mode.js';
 import { initQuickViewDeps, addQuickViewOverlay, removeQuickViewOverlay, toggleQuickView, enterMentionMode, exitMentionMode } from './modules/quick-view.js';
 import { initTerminalLifecycleDeps, attachTerminal, reattachTerminal, renderPane, renderFilePane, getDeviceColor, claudeSessionBadgeHtml, beadsTagHtml, refreshBeadsTagStatus, deviceLabelHtml, applyDeviceHeaderColor } from './modules/terminal-lifecycle.js';
@@ -97,6 +98,15 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   let paneNumberHotkeysEnabled = false;
   let newTabButtonEnabled = false;
 
+  // View mode: 'canvas' or 'list'. Canvas everywhere by default. The
+  // on-screen toggle is only worth the corner it occupies on a narrow
+  // viewport, so it defaults visible there and hidden on desktop, where the
+  // Tab+X chord and Settings are the way in. A stored preference overrides
+  // that guess in either direction.
+  let viewMode = 'canvas';
+  let viewModeHotkeyEnabled = true;
+  let viewModeToggleVisible = window.innerWidth <= 768;
+
   // PANE_HEADER_CONTROLS and normalizePaneHeaderOrder live in modules/utils.js
   // so the reconciliation logic can be tested on its own.
   const PANE_CONTROL_SELECTORS = {
@@ -127,11 +137,18 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     styleEl.textContent = rules.join('\n');
   }
 
+  // Every route into a mode change — Settings, the corner button, Tab+X —
+  // funnels through the module, which applies it and calls back to persist.
+  function setViewModeFromUi(mode) {
+    setViewModeModule(mode);
+  }
+
   function applyPaneChromePrefs() {
     document.body.classList.toggle('hide-beads-btn', !beadsButtonEnabled);
     document.body.classList.toggle('hide-pane-naming', !paneNamingEnabled);
     document.body.classList.toggle('hide-pane-shortcuts', !paneNumberHotkeysEnabled);
     document.body.classList.toggle('hide-pane-new-tab', !newTabButtonEnabled);
+    document.body.classList.toggle('hide-view-mode-btn', !viewModeToggleVisible);
     applyPaneHeaderOrder();
   }
 
@@ -1052,8 +1069,6 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     lastX: 0, lastY: 0,
     momentumRaf: null,
     scrollLockTarget: null, // 'pane' | 'canvas' | null
-    initialPinchDistance: 0,
-    initialZoom: 1,
   };
 
   // Touch/drag state. Grouped into one object so it can be passed to
@@ -1241,6 +1256,15 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       if (prefs.newTabButtonEnabled !== undefined) {
         newTabButtonEnabled = prefs.newTabButtonEnabled;
       }
+      if (prefs.viewMode !== undefined) {
+        viewMode = prefs.viewMode === 'list' ? 'list' : 'canvas';
+      }
+      if (prefs.viewModeHotkeyEnabled !== undefined) {
+        viewModeHotkeyEnabled = prefs.viewModeHotkeyEnabled;
+      }
+      if (prefs.viewModeToggleVisible !== undefined) {
+        viewModeToggleVisible = prefs.viewModeToggleVisible;
+      }
       if (prefs.paneHeaderOrder) {
         paneHeaderOrder = normalizePaneHeaderOrder(prefs.paneHeaderOrder);
       }
@@ -1305,6 +1329,14 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       setPaneNamingEnabled: (v) => { paneNamingEnabled = v; applyPaneChromePrefs(); },
       getPaneNumberHotkeysEnabled: () => paneNumberHotkeysEnabled,
       setPaneNumberHotkeysEnabled: (v) => { paneNumberHotkeysEnabled = v; applyPaneChromePrefs(); },
+      // setViewMode is the module's, not a plain setter: switching mode has to
+      // rebuild the list and collapse any expanded pane, and persist.
+      getViewModePref: () => viewMode,
+      setViewMode: (v) => setViewModeFromUi(v),
+      getViewModeHotkeyEnabled: () => viewModeHotkeyEnabled,
+      setViewModeHotkeyEnabled: (v) => { viewModeHotkeyEnabled = v; },
+      getViewModeToggleVisible: () => viewModeToggleVisible,
+      setViewModeToggleVisible: (v) => { viewModeToggleVisible = v; applyPaneChromePrefs(); },
       getNewTabButtonEnabled: () => newTabButtonEnabled,
       setNewTabButtonEnabled: (v) => { newTabButtonEnabled = v; applyPaneChromePrefs(); },
       getPaneHeaderOrder: () => [...paneHeaderOrder],
@@ -1344,6 +1376,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getFeedbackHudExpanded, getHudHidden, setHudHidden,
       getFleetPaneHidden, setFleetPaneHidden, getAgentsPaneHidden, setAgentsPaneHidden,
       getPaneNumberHotkeysEnabled: () => paneNumberHotkeysEnabled,
+      getViewModeHotkeyEnabled: () => viewModeHotkeyEnabled,
+      toggleViewMode,
     });
     initAgentUiDeps({
       getWs: () => ws,
@@ -1365,6 +1399,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       getIsPanning: () => isPanning,
       setIsPanning: (v) => { isPanning = v; },
       getExpandedPaneId: () => expandedPaneId,
+      getLastFocusedPaneId: () => lastFocusedPaneId,
       getMoveModeActive: () => moveModeActive,
       getQuickViewActive: () => quickViewActive,
       getTabHeld: () => tabHeld,
@@ -1538,7 +1573,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       showFolderPaneDevicePickerThenPlace, showConversationsDirPickerThenPlace,
       showRecentsOrBrowse,
       // Canvas and pane operations
-      setZoom, updateCanvasTransform, saveViewState, cloudSaveLayout,
+      setZoom, zoomToFit, updateCanvasTransform, saveViewState, cloudSaveLayout,
       jumpToPane, expandPane, exitMentionMode, showUpgradePrompt,
       // Canvas event handlers, attached by setupCanvasInteraction
       handleCanvasPanStart, handleTouchStart, handleWheel,
@@ -1581,6 +1616,14 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
     updateCanvasTransform();
     setupEventListeners();
+    initViewModeDeps({
+      state,
+      getViewMode: () => viewMode,
+      setViewModePref: (v) => { viewMode = v; savePrefsToCloud({ viewMode: v }); },
+      getExpandedPaneId: () => expandedPaneId,
+      expandPane, collapsePane, jumpToPane,
+    });
+    setupViewModeToggle();
     initNotifications();
     showPromoToasts();
     connectWebSocket();

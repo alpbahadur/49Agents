@@ -54,6 +54,9 @@ export function getAllPrefs(overrides) {
     paneHeaderOrder: _ctx.getPaneHeaderOrder(),
     paneNamingEnabled: _ctx.getPaneNamingEnabled(),
     paneNumberHotkeysEnabled: _ctx.getPaneNumberHotkeysEnabled(),
+    viewMode: _ctx.getViewModePref(),
+    viewModeHotkeyEnabled: _ctx.getViewModeHotkeyEnabled(),
+    viewModeToggleVisible: _ctx.getViewModeToggleVisible(),
     ...overrides,
   };
 }
@@ -228,6 +231,9 @@ export function showSettingsModal() {
   const beadsButtonEnabled = _ctx.getBeadsButtonEnabled();
   const paneNamingEnabled = _ctx.getPaneNamingEnabled();
   const paneNumberHotkeysEnabled = _ctx.getPaneNumberHotkeysEnabled();
+  const viewModeIsList = _ctx.getViewModePref() === 'list';
+  const viewModeHotkeyEnabled = _ctx.getViewModeHotkeyEnabled();
+  const viewModeToggleVisible = _ctx.getViewModeToggleVisible();
   const newTabButtonEnabled = _ctx.getNewTabButtonEnabled();
   const paneHeaderOrder = _ctx.getPaneHeaderOrder();
   const projectsSidebarPosition = _ctx.getProjectsSidebarPosition();
@@ -348,6 +354,9 @@ ${toggleRowHtml('settings-pane-naming-toggle', 'Pane Names', 'Show the editable 
 ${toggleRowHtml('settings-pane-hotkeys-toggle', 'Pane Number Hotkeys', 'Number badges in headers, and Tab+1..9 to jump', paneNumberHotkeysEnabled)}
 ${toggleRowHtml('settings-new-tab-toggle', 'New Tab Button', 'Add a terminal tab to a pane from its header', newTabButtonEnabled)}
 ${toggleRowHtml('settings-beads-btn-toggle', 'Beads Issue Button', 'Tag panes with a beads issue from the header', beadsButtonEnabled)}
+${toggleRowHtml('settings-view-mode-toggle', 'List View', 'Show panes as a list instead of on the canvas', viewModeIsList)}
+${toggleRowHtml('settings-view-mode-hotkey-toggle', 'List View Hotkey', 'Tab+X switches between canvas and list', viewModeHotkeyEnabled)}
+${toggleRowHtml('settings-view-mode-btn-toggle', 'List View Button', 'Show the view switch beside the zoom controls', viewModeToggleVisible)}
 ${paneHeaderOrderHtml(paneHeaderOrder)}
 
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ink-06);">
@@ -542,6 +551,19 @@ ${paneHeaderOrderHtml(paneHeaderOrder)}
   bindToggleRow('settings-new-tab-toggle', (on) => {
     _ctx.setNewTabButtonEnabled(on);
     savePrefsToCloud({ newTabButtonEnabled: on });
+  });
+  // View mode. The mode itself is a toggle rather than a picker because there
+  // are only two, and the two rows below it govern how else it can be reached.
+  bindToggleRow('settings-view-mode-toggle', (on) => {
+    _ctx.setViewMode(on ? 'list' : 'canvas');
+  });
+  bindToggleRow('settings-view-mode-hotkey-toggle', (on) => {
+    _ctx.setViewModeHotkeyEnabled(on);
+    savePrefsToCloud({ viewModeHotkeyEnabled: on });
+  });
+  bindToggleRow('settings-view-mode-btn-toggle', (on) => {
+    _ctx.setViewModeToggleVisible(on);
+    savePrefsToCloud({ viewModeToggleVisible: on });
   });
   bindToggleRow('settings-beads-btn-toggle', (on) => {
     _ctx.setBeadsButtonEnabled(on);

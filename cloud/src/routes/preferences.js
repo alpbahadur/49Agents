@@ -17,7 +17,9 @@ export function setupPreferencesRoutes(app) {
       hudState:           prefs.hud_state ? JSON.parse(prefs.hud_state) : {},
       tutorialsCompleted: prefs.tutorials_completed ? JSON.parse(prefs.tutorials_completed) : {},
       projects:           prefs.projects ? JSON.parse(prefs.projects) : [],
-      focusMode:          prefs.focus_mode || 'hover',
+      // Passed through rather than defaulted: null means never chosen, which
+      // is what lets the client apply a device-appropriate default.
+      focusMode:          prefs.focus_mode || null,
       teleportAnimation:  prefs.teleport_animation === undefined ? true : !!prefs.teleport_animation,
       projectsSidebarPosition: prefs.projects_sidebar_position || 'right',
       beadsButtonEnabled: !!prefs.beads_button_enabled,
@@ -25,6 +27,11 @@ export function setupPreferencesRoutes(app) {
       paneNumberHotkeysEnabled: !!prefs.pane_number_hotkeys_enabled,
       newTabButtonEnabled: !!prefs.new_tab_button_enabled,
       paneHeaderOrder: prefs.pane_header_order ? JSON.parse(prefs.pane_header_order) : [],
+      viewMode:           prefs.view_mode === 'list' ? 'list' : 'canvas',
+      // Both default on for a row written before these columns existed, where
+      // the value comes back undefined rather than 1.
+      viewModeHotkeyEnabled: prefs.view_mode_hotkey_enabled === undefined ? true : !!prefs.view_mode_hotkey_enabled,
+      viewModeToggleVisible: prefs.view_mode_toggle_visible === undefined ? true : !!prefs.view_mode_toggle_visible,
     });
   });
 
@@ -35,6 +42,7 @@ export function setupPreferencesRoutes(app) {
       projects, focusMode, teleportAnimation, projectsSidebarPosition,
       beadsButtonEnabled, paneNamingEnabled, paneNumberHotkeysEnabled,
       newTabButtonEnabled, paneHeaderOrder,
+      viewMode, viewModeHotkeyEnabled, viewModeToggleVisible,
     } = req.body;
     savePreferences(req.user.id, {
       appTheme, starterTerminalCreated, terminalTheme, notificationSound, autoRemoveDone,
@@ -42,6 +50,7 @@ export function setupPreferencesRoutes(app) {
       projects, focusMode, teleportAnimation, projectsSidebarPosition,
       beadsButtonEnabled, paneNamingEnabled, paneNumberHotkeysEnabled,
       newTabButtonEnabled, paneHeaderOrder,
+      viewMode, viewModeHotkeyEnabled, viewModeToggleVisible,
     });
     res.json({ ok: true });
   });

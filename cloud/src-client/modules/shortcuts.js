@@ -1,5 +1,6 @@
 // ─── Keyboard Shortcuts ───────────────────────────────────────────────────
-// Tab chords (Tab+Q cycle, Tab+A add, Tab+D fleet, Tab+U usage, Tab+1-9 jump),
+// Tab chords (Tab+Q cycle, Tab+A add, Tab+D fleet, Tab+U usage, Tab+X view
+// mode, Tab+1-9 jump),
 // double-tap Tab for move mode, Escape handling, Ctrl +/-/0 zoom, Ctrl+S/W,
 // and auto-refocus when typing with nothing focused.
 //
@@ -236,6 +237,15 @@ export function setupKeyboardShortcuts() {
       } else {
         startMinimapLoop();
       }
+      return;
+    }
+    // Tab+X: switch between canvas and list view. Opt-out, since a chord that
+    // replaces the whole view is a surprise if you hit it by accident.
+    if (e.key === 'x' && tabHeld) {
+      tabChordUsed = true;
+      e.preventDefault();
+      e.stopPropagation();
+      if (_ctx.getViewModeHotkeyEnabled()) _ctx.toggleViewMode();
       return;
     }
     // Tab+P: toggle projects sidebar

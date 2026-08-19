@@ -245,6 +245,11 @@
             '<kbd>Tab</kbd>+<kbd>M</kbd> toggles a minimap of the whole canvas. <kbd>Tab</kbd>+<kbd>P</kbd> opens the projects sidebar to jump between areas and checkpoints.'],
           ms: 4600,
         },
+        {
+          say: [C, 'Or skip the map entirely',
+            '<kbd>Tab</kbd>+<kbd>X</kbd> swaps the canvas for a flat list of every pane, with what each agent is waiting on. Useful on a small screen, where hunting for a pane by panning is the slow way round.'],
+          ms: 4600,
+        },
       ],
     };
   }

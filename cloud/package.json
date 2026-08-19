@@ -8,7 +8,9 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "build": "node build.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "arctic": "^2.2.2",
@@ -25,6 +27,7 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "esbuild": "^0.27.4",
     "javascript-obfuscator": "^5.3.0",
     "terser": "^5.46.0"
