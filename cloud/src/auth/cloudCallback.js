@@ -17,7 +17,7 @@ import {
   getActiveMs, addActiveMs, getOnboardingStep, setOnboardingStep,
 } from './emailAuth.js';
 import { isLocalMode } from './localAuth.js';
-import { issueAccessToken, issueRefreshToken, setAuthCookies } from './github.js';
+import { issueAccessToken, issueRefreshToken, setAuthCookies } from './tokens.js';
 import { recordEvent } from '../db/events.js';
 import { refreshTelemetryState } from '../telemetry/localCollector.js';
 

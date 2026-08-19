@@ -101,10 +101,6 @@ function buildUserResponse(user, agents) {
       lastSeen: a.last_seen_at,
     })),
   };
-  if (user.is_guest) {
-    resp.isGuest = true;
-    resp.guestStartedAt = user.guest_started_at;
-  }
   return resp;
 }
 

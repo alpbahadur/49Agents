@@ -1,8 +1,8 @@
 import { jwtVerify } from 'jose';
-import { issueAccessToken, getSecretKey } from './github.js';
+import { issueAccessToken, getSecretKey } from './tokens.js';
 import { getUserById } from '../db/users.js';
 import { upsertUser } from '../db/users.js';
-import { getLocalAuth, isLocalMode } from './localAuth.js';
+import { getLocalAuth } from './localAuth.js';
 import { config } from '../config.js';
 
 const hasOAuth = !!(config.github.clientId || config.google.clientId);
@@ -10,18 +10,20 @@ const isProduction = config.nodeEnv === 'production';
 const devModeEnabled = !hasOAuth && !isProduction;
 
 /**
- * Express middleware that requires a valid JWT.
- *
- * When no OAuth provider is configured (local/dev mode), all requests are
- * automatically authenticated as a dev user — no login required.
- *
- * When OAuth is configured (production), the standard JWT cookie flow applies:
+ * Express middleware that requires a valid JWT cookie or bearer token.
+ * No OAuth provider exists anymore — every visitor is auto-authenticated as
+ * the shared instance identity by autoLocalSession before they ever reach a
+ * route guarded by requireAuth, so in practice this just verifies the
+ * session cookie autoLocalSession already set:
  * 1. Extract access token from tc_access cookie
  * 2. Verify it — if valid, attach user to req.user
  * 3. If expired, try the refresh token (tc_refresh cookie)
  *    - If refresh valid: issue new access token, set cookie, continue
  *    - If refresh also invalid: 401
- * 4. If no token at all: 401 or redirect to /login for HTML requests
+ * 4. If no token at all: 401 (API) or redirect to / (HTML)
+ *
+ * SKIP_CLOUD_AUTH remains as an escape hatch for contributors running
+ * without internet, bypassing even the cookie check.
  */
 export function requireAuth(req, res, next) {
   handleAuth(req, res, next).catch((err) => {
@@ -88,7 +90,7 @@ async function resolveOrCreateLocalSession(req, res, next) {
     avatarUrl: null,
   });
 
-  const { issueRefreshToken, setAuthCookies } = await import('./github.js');
+  const { issueRefreshToken, setAuthCookies } = await import('./tokens.js');
   const access = await issueAccessToken(user);
   const refresh = await issueRefreshToken(user);
   setAuthCookies(res, access, refresh);
@@ -102,35 +104,30 @@ async function resolveOrCreateLocalSession(req, res, next) {
 }
 
 async function handleAuth(req, res, next) {
-  // Dev/local mode: no OAuth configured AND not production
-  if (devModeEnabled) {
-    // Escape hatch for contributors running without internet
-    if (process.env.SKIP_CLOUD_AUTH) {
-      const devUser = upsertUser({
-        githubId: 'dev-0',
-        githubLogin: 'dev-user',
-        email: 'dev@localhost',
-        displayName: 'Dev User',
-        avatarUrl: null,
-      });
-      req.user = devUser;
-      return next();
-    }
+  if (devModeEnabled && process.env.SKIP_CLOUD_AUTH) {
+    const devUser = upsertUser({
+      githubId: 'dev-0',
+      githubLogin: 'dev-user',
+      email: 'dev@localhost',
+      displayName: 'Dev User',
+      avatarUrl: null,
+    });
+    req.user = devUser;
+    return next();
+  }
 
-    // Local mode: try cloud-authenticated identity first, then fall through
-    // to JWT cookie check (supports guest sessions and cloud-callback auth)
-    const localAuth = getLocalAuth();
-    if (localAuth) {
-      const user = getUserById(localAuth.cloudUserId) || upsertUser({
-        githubLogin: localAuth.githubLogin,
-        email: localAuth.email,
-        displayName: localAuth.displayName || 'Local User',
-        avatarUrl: localAuth.avatarUrl,
-      });
-      req.user = user;
-      return next();
-    }
-    // Fall through to JWT cookie check below (guest mode, etc.)
+  // A local instance that has authenticated against the external managed
+  // cloud (cloudCallback.js) carries that identity here too.
+  const localAuth = getLocalAuth();
+  if (localAuth) {
+    const user = getUserById(localAuth.cloudUserId) || upsertUser({
+      githubLogin: localAuth.githubLogin,
+      email: localAuth.email,
+      displayName: localAuth.displayName || 'Local User',
+      avatarUrl: localAuth.avatarUrl,
+    });
+    req.user = user;
+    return next();
   }
 
   // Check for Bearer token (local instance tokens proxying requests to cloud)
@@ -226,7 +223,7 @@ function sendUnauthorized(req, res) {
     return res.status(401).json({ error: 'Unauthorized', message: 'Please log in.' });
   }
 
-  // For browser/HTML requests, redirect to login. Local mode has no login page,
-  // so send them to the app, where a session is created on arrival.
-  return res.redirect(isLocalMode() ? '/' : '/login');
+  // For browser/HTML requests, send them to the app, where autoLocalSession
+  // creates a session on arrival — there is no separate login page.
+  return res.redirect('/');
 }
