@@ -12,7 +12,7 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import { jwtVerify } from 'jose';
-import { getSecretKey } from '../auth/github.js';
+import { getSecretKey } from '../auth/tokens.js';
 import { getUserById } from '../db/users.js';
 import { upsertUser } from '../db/users.js';
 import { getLocalAuth } from '../auth/localAuth.js';
@@ -112,39 +112,28 @@ export function setupWebSocketRelay(server, options = {}) {
       try {
         let userId;
 
-        // Dev/local mode: no OAuth configured AND not production
-        if (!config.github.clientId && !config.google.clientId && config.nodeEnv !== 'production') {
-          if (process.env.SKIP_CLOUD_AUTH) {
-            // Escape hatch: use dev user
-            const devUser = upsertUser({
-              githubId: 'dev-0',
-              githubLogin: 'dev-user',
-              email: 'dev@localhost',
-              displayName: 'Dev User',
-              avatarUrl: null,
-            });
-            userId = devUser.id;
-          } else {
-            // Local mode: try cloud auth first, then JWT cookies (guest sessions)
-            const localAuth = getLocalAuth();
-            if (localAuth) {
-              const user = getUserById(localAuth.cloudUserId);
-              if (user) {
-                userId = user.id;
-              }
-            }
-            // Fall through to JWT cookie auth if no cloud auth (supports guest mode)
-            if (!userId) {
-              userId = await authenticateBrowserUpgrade(request);
-            }
-            if (!userId) {
-              socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-              socket.destroy();
-              return;
-            }
-          }
+        if (process.env.SKIP_CLOUD_AUTH && config.nodeEnv !== 'production') {
+          // Escape hatch for contributors running without internet
+          const devUser = upsertUser({
+            githubId: 'dev-0',
+            githubLogin: 'dev-user',
+            email: 'dev@localhost',
+            displayName: 'Dev User',
+            avatarUrl: null,
+          });
+          userId = devUser.id;
         } else {
-          userId = await authenticateBrowserUpgrade(request);
+          // A local instance authenticated against the external managed cloud
+          // carries that identity here too; otherwise fall back to the JWT
+          // session cookie autoLocalSession set on first visit.
+          const localAuth = getLocalAuth();
+          if (localAuth) {
+            const user = getUserById(localAuth.cloudUserId);
+            if (user) userId = user.id;
+          }
+          if (!userId) {
+            userId = await authenticateBrowserUpgrade(request);
+          }
         }
 
         if (!userId) {

@@ -9,8 +9,6 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve, join } from 'path';
 import { existsSync } from 'fs';
 import { initDatabase } from './db/index.js';
-import { setupGitHubAuth } from './auth/github.js';
-import { setupGoogleAuth } from './auth/google.js';
 import { requireAuth, autoLocalSession } from './auth/middleware.js';
 import { setupApiRoutes } from './routes/api.js';
 import { setupLayoutRoutes } from './routes/layouts.js';
@@ -130,27 +128,19 @@ setupDownloadRoutes(app);
 // ---------------------------------------------------------------------------
 // Auth routes (public -- no requireAuth)
 // ---------------------------------------------------------------------------
-// OAuth exists only for the hosted instance. Local clones have no sign-in of
-// any kind, so the routes are not registered at all rather than being present
-// but unreachable.
-if (!isLocalMode()) {
-  setupGitHubAuth(app);
-  setupGoogleAuth(app);
-} else {
-  // Logout normally comes with the GitHub routes. Local mode still needs it to
-  // reset a session, and lands back in the app rather than a login page.
-  const localLogout = (req, res) => {
-    res.clearCookie('tc_access', { path: '/' });
-    res.clearCookie('tc_refresh', { path: '/' });
-    res.redirect('/');
-  };
-  app.post('/auth/logout', localLogout);
-  app.get('/auth/logout', localLogout);
-}
+// No OAuth, no guest mode, no login screen — every deployment (cloud-hosted
+// or local) auto-provisions a single shared identity via autoLocalSession
+// below. Logout just clears the session cookies and lands back in the app.
+const clearSessionCookies = (req, res) => {
+  res.clearCookie('tc_access', { path: '/' });
+  res.clearCookie('tc_refresh', { path: '/' });
+  res.redirect('/');
+};
+app.post('/auth/logout', clearSessionCookies);
+app.get('/auth/logout', clearSessionCookies);
+
 setupCloudCallbackRoutes(app);
-if (isLocalMode()) {
-  setupEmailAuthRoutes(app);
-}
+setupEmailAuthRoutes(app);
 
 // Telemetry ingest + admin export. Registered in every mode: on Railway these
 // receive from local instances, and a local instance pointed at itself (for
@@ -203,21 +193,17 @@ app.get('/api/network', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Login page (public).
-//
-// Local mode has no sign-in at all: the server issues an anonymous session on
-// first request and asks for consent inside the app later. Anyone arriving here
-// directly, or via a stale bookmark, goes straight through.
+// No sign-in of any kind: the server issues a shared anonymous session on
+// first request and asks for consent inside the app later (the onboarding
+// modal). Anyone hitting a stale /login bookmark goes straight through.
 // ---------------------------------------------------------------------------
-app.get('/login', (req, res) => {
-  if (isLocalMode()) return res.redirect('/');
-  res.sendFile('login.html', { root: publicDir });
-});
+app.get('/login', (req, res) => res.redirect('/'));
 
-// Telemetry consent page. Only reachable through the cloud-auth flow; local
-// mode asks inside the app instead.
+// Telemetry consent page, reachable only via the local-instance-to-cloud
+// relay flow in cloudCallback.js (a local machine authenticating against the
+// separately-hosted managed cloud) — unrelated to this deployment's own
+// visitor session, which never gates on OAuth.
 app.get('/consent', (req, res) => {
-  if (isLocalMode()) return res.redirect('/');
   res.sendFile('consent.html', { root: publicDir });
 });
 
@@ -291,21 +277,12 @@ if (isLocalMode()) {
 }
 
 // ---------------------------------------------------------------------------
-// Main app entry point (auth required in both cloud and local modes)
-// SKIP_CLOUD_AUTH env var bypasses auth for contributors in local dev
+// Main app entry point — every deployment opens straight into the app. A
+// fresh visitor gets a shared anonymous identity on first request (see
+// autoLocalSession) and meets the consent modal ten minutes later, rather
+// than being stopped at a login screen before doing anything.
 // ---------------------------------------------------------------------------
-const hasOAuth = config.github.clientId || config.google.clientId;
-const devModeEnabled = !hasOAuth && config.nodeEnv !== 'production';
-if (devModeEnabled && process.env.SKIP_CLOUD_AUTH) {
-  app.get('/', (req, res) => res.sendFile('index.html', { root: publicDir }));
-} else if (isLocalMode()) {
-  // Local mode opens straight into the app. A fresh clone gets an anonymous
-  // identity on first request and meets the consent modal ten minutes later,
-  // rather than being stopped at a login screen before it has done anything.
-  app.get('/', autoLocalSession, (req, res) => res.sendFile('index.html', { root: publicDir }));
-} else {
-  app.get('/', requireAuth, (req, res) => res.sendFile('index.html', { root: publicDir }));
-}
+app.get('/', autoLocalSession, (req, res) => res.sendFile('index.html', { root: publicDir }));
 
 // ---------------------------------------------------------------------------
 // Static assets (JS, CSS, fonts, lib/) -- served without auth.
@@ -359,14 +336,6 @@ async function start() {
     console.warn('[cloud] Could not read agent version from tarball:', err.message);
   }
 
-  // Warn if GitHub OAuth is not configured
-  if (!config.github.clientId || !config.github.clientSecret) {
-    console.warn('');
-    console.warn('  WARNING: GitHub OAuth credentials are not configured.');
-    console.warn('  Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables.');
-    console.warn('  The login page will be served, but OAuth login will not work.');
-    console.warn('');
-  }
 
   // Create HTTP server from Express app so we can handle WebSocket upgrades
   const server = createServer(app);

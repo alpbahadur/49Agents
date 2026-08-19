@@ -274,7 +274,7 @@ export function setupEmailAuthRoutes(app) {
       });
 
       // Issue local JWT cookies reusing the existing cookie mechanism
-      const { issueAccessToken, issueRefreshToken, setAuthCookies } = await import('./github.js');
+      const { issueAccessToken, issueRefreshToken, setAuthCookies } = await import('./tokens.js');
       const jwtAccess = await issueAccessToken(localUser);
       const jwtRefresh = await issueRefreshToken(localUser);
       setAuthCookies(res, jwtAccess, jwtRefresh);

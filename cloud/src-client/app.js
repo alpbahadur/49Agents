@@ -13,7 +13,6 @@ import { initWsTransportDeps, sendWs, agentRequest, pendingRequests, pendingScan
 import { initAgentUiDeps, showRelayNotification, showUpdateToast, showUpdateProgressToast, showUpdateCompleteToast, updateAgentOverlay, showAddMachineDialog } from './modules/agent-ui.js';
 import { initMenusDeps, setupAddPaneMenu, setupTutorialMenu, autoArrangePanes, setupMobileNavDrawer, setupToolbarButtons, setupCustomTooltips, setupCanvasInteraction, setupPasteHandlers, getTabCycleOrder, findPaneInDirection, calcMoveModeZoom } from './modules/menus.js';
 import { initClaudeStatesDeps, updateClaudeStates } from './modules/claude-states.js';
-import { initGuestDeps, showGuestRegisterModal, showGuestExpiryToast, initGuestNudge } from './modules/guest.js';
 import { initCanvasEventsDeps, setupEventListeners, handleCanvasPanStart, handleMiddleMousePan, handleRightMousePan, handleTouchStart, handleWheel, setZoom } from './modules/canvas-events.js';
 import { initMoveModeDeps, enterMoveMode, exitMoveMode, applyMoveModeVisuals, moveModeNavigate } from './modules/move-mode.js';
 import { initQuickViewDeps, addQuickViewOverlay, removeQuickViewOverlay, toggleQuickView, enterMentionMode, exitMentionMode } from './modules/quick-view.js';
@@ -304,6 +303,76 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
     },
   };
 
+  // Mandatory (consent-exempt) telemetry: `visit` and `telemetry_rejected`.
+  // See CONSENT_EXEMPT_EVENTS in cloud/src/telemetry/ingest.js — these two
+  // event types carry no user content and are recorded regardless of whether
+  // the visitor has answered (or ever answers) the onboarding consent step,
+  // so we can tell how many people tried the app apart from how many opted
+  // into full telemetry.
+  const _mandatoryTelemetry = {
+    _instanceIdKey: 'tc_mandatory_instance_id',
+    _visitKey: 'tc_last_visit_date',
+
+    _instanceId() {
+      try {
+        let id = localStorage.getItem(this._instanceIdKey);
+        if (!id) {
+          id = null; // let the server mint one on first contact
+        }
+        return id;
+      } catch {
+        return null;
+      }
+    },
+
+    _detectOs() {
+      const ua = navigator.userAgent || '';
+      const platform = navigator.platform || '';
+      if (/Win/i.test(platform) || /Windows/i.test(ua)) return 'windows';
+      if (/Mac/i.test(platform) || /Macintosh/i.test(ua)) return 'macos';
+      if (/Linux/i.test(platform) || /Linux/i.test(ua)) return 'linux';
+      return 'other';
+    },
+
+    async _send(eventType) {
+      try {
+        const res = await fetch('/api/telemetry/mandatory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventType,
+            instanceId: this._instanceId(),
+            os: this._detectOs(),
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (data?.instanceId) {
+          try { localStorage.setItem(this._instanceIdKey, data.instanceId); } catch {}
+        }
+      } catch {
+        // Best-effort; a dropped mandatory event just undercounts by one.
+      }
+    },
+
+    // Once per calendar day per browser, so a page left open and reloaded
+    // repeatedly doesn't inflate the count.
+    recordVisit() {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        if (localStorage.getItem(this._visitKey) === today) return;
+        localStorage.setItem(this._visitKey, today);
+      } catch {
+        // Storage unavailable — fall through and send anyway rather than
+        // silently never counting this visitor.
+      }
+      this._send('visit');
+    },
+
+    recordRejected() {
+      this._send('telemetry_rejected');
+    },
+  };
+
   const _onboarding = {
     _timer: null,
     _lastTick: null,
@@ -590,6 +659,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
           // Consent may have just been granted, so start the client tracker
           // rather than waiting for the next page load.
           if (consentInput.checked && !_telemetry._active) _telemetry.init();
+          else if (!consentInput.checked) _mandatoryTelemetry.recordRejected();
         } else {
           errorEl.textContent = data.error || 'Something went wrong. Try again.';
           errorEl.style.display = 'block';
@@ -1078,17 +1148,11 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
 
   // formatBytes, metricColorClass — imported from modules/utils.js
 
-  // SECTION 7: GUEST MODE & CLAUDE STATE TRACKING                [Lines ~1491-1942]
-  // Guest session nudges/expiry, init() bootstrap, Claude state badges,
-  // updateClaudeStates() notification integration
+  // SECTION 7: APP BOOTSTRAP & CLAUDE STATE TRACKING              [Lines ~1491-1942]
+  // init() bootstrap, Claude state badges, updateClaudeStates() notification
+  // integration
   // ============================================================================
 
-  // === Guest Mode: Nudge & Forced Registration ===
-  // GUEST_TOAST_ID -> modules/guest.js
-  // GUEST_HARD_LIMIT_MS, guestExpiryTimers -> modules/guest.js
-  let guestCountdownInterval = null;
-
-  // Guest mode nudges -> modules/guest.js
   async function init() {
 
     // Resolve local vs cloud before anything reads it. The telemetry bootstrap
@@ -1103,6 +1167,8 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       // default, since that is the mode where pairing is genuinely required.
     }
 
+    _mandatoryTelemetry.recordVisit();
+
     // Auth check
     try {
       const authRes = await fetch('/auth/me', { credentials: 'include' });
@@ -1113,11 +1179,6 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       const currentUser = await authRes.json();
       // Store user info for tier gating later
       window.__tcUser = currentUser;
-
-      // Start guest nudge timers if this is a guest session
-      if (currentUser.isGuest) {
-        initGuestNudge(currentUser);
-      }
     } catch (e) {
       // If auth check fails, continue anyway (might be local dev mode)
       console.warn('[App] Auth check failed:', e);
@@ -1296,7 +1357,6 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       telemetry: _telemetry,
     });
     initClaudeStatesDeps({ state, terminals, claudeTerminalIds });
-    initGuestDeps({ state });
     initCanvasEventsDeps({
       state, panState, selectedPaneIds, terminals,
       init, saveViewState, updateBroadcastIndicator, updateCanvasTransform,

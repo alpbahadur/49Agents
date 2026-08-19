@@ -490,32 +490,34 @@ test('an answered consent question is never asked again', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Local mode has no sign-in
+// No deployment has sign-in — cloud-hosted and local mode share one session
+// model, both auto-provisioning a single identity via autoLocalSession.
 // ---------------------------------------------------------------------------
 
-test('OAuth routes are registered only when not in local mode', () => {
+test('there is no OAuth setup left to register', () => {
   const src = readFileSync(join(here, '..', 'src', 'index.js'), 'utf-8');
 
-  // The hosted instance still needs GitHub and Google. Local clones must not
-  // register them at all, rather than shipping dead buttons.
-  assert.ok(
-    /if \(!isLocalMode\(\)\) \{\s*setupGitHubAuth\(app\);\s*setupGoogleAuth\(app\);/.test(src),
-    'OAuth setup is gated on cloud mode'
-  );
+  // OAuth and guest mode are gone entirely — no deployment shape gates entry
+  // behind a login screen anymore.
+  assert.ok(!/setupGitHubAuth|setupGoogleAuth/.test(src), 'no OAuth setup calls remain');
+  assert.ok(!/auth\/github\.js|auth\/google\.js/.test(src), 'no import of the deleted OAuth modules');
 
-  // Logout ships with the GitHub routes, so local mode has to provide its own.
-  assert.ok(/app\.post\('\/auth\/logout', localLogout\)/.test(src), 'local mode keeps logout');
+  // Every deployment uses the same auto-provisioned session on /.
+  assert.ok(/app\.get\('\/', autoLocalSession,/.test(src), '/ always uses autoLocalSession');
+
+  // Logout still works without the old GitHub-routes bundling.
+  assert.ok(/app\.post\('\/auth\/logout'/.test(src), 'logout route still registered');
 });
 
-test('local mode never sends anyone to a login page', () => {
+test('no deployment ever sends anyone to a login page', () => {
   const src = readFileSync(join(here, '..', 'src', 'index.js'), 'utf-8');
   const mw = readFileSync(join(here, '..', 'src', 'auth', 'middleware.js'), 'utf-8');
 
   // Every path that would have shown a login screen has to fall through to the
-  // app, where a session is created on arrival.
-  assert.ok(/isLocalMode\(\)\) return res\.redirect\('\/'\)/.test(src), '/login redirects to the app');
-  assert.ok(/res\.redirect\(isLocalMode\(\) \? '\/' : '\/login'\)/.test(src), 'catch-all redirects to the app');
-  assert.ok(/res\.redirect\(isLocalMode\(\) \? '\/' : '\/login'\)/.test(mw), 'auth failures redirect to the app');
+  // app, where a session is created on arrival — regardless of local vs cloud.
+  assert.ok(/app\.get\('\/login', \(req, res\) => res\.redirect\('\/'\)\)/.test(src), '/login redirects to the app');
+  assert.ok(/res\.redirect\('\/'\);\s*\}\);/.test(src) || /redirect\('\/'\)/.test(src), 'catch-all redirects to the app');
+  assert.ok(/return res\.redirect\('\/'\);/.test(mw), 'auth failures redirect to the app, not a login page');
 });
 
 // ---------------------------------------------------------------------------

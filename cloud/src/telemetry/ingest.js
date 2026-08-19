@@ -128,6 +128,13 @@ function normalizeEmail(raw) {
   return EMAIL_RE.test(trimmed) ? trimmed : null;
 }
 
+// Event types allowed to bypass the consent gate. These carry no user content —
+// only the fact that someone loaded the app, or that they were asked about
+// telemetry and said no — so we count them regardless of whether the visitor
+// has answered (or ever answers) the consent question. Every other event type
+// still requires an enrolled, consenting instance.
+const CONSENT_EXEMPT_EVENTS = new Set(['visit', 'telemetry_rejected']);
+
 export function setupTelemetryIngestRoutes(app) {
   // POST /api/local-email-signup is the first contact from a local instance.
   // Returns the instance id the instance must send on later telemetry posts.
@@ -150,6 +157,49 @@ export function setupTelemetryIngestRoutes(app) {
     } catch (err) {
       console.error('[telemetry-ingest] Signup error:', err);
       res.status(500).json({ error: 'Signup failed' });
+    }
+  });
+
+  // POST /api/telemetry/mandatory records the two consent-exempt event types
+  // (see CONSENT_EXEMPT_EVENTS) so we can tell how many people ever loaded the
+  // app apart from how many opted into full telemetry. No enrollment or
+  // consent is required — a bare instance row is created on first contact if
+  // one doesn't exist yet, same id space as the consent-gated flow so a
+  // visitor who later enrolls for real continues the same instance history.
+  app.post('/api/telemetry/mandatory', (req, res) => {
+    try {
+      const { eventType, instanceId, os } = req.body || {};
+      if (typeof eventType !== 'string' || !CONSENT_EXEMPT_EVENTS.has(eventType)) {
+        return res.status(400).json({ error: 'Unsupported event type' });
+      }
+
+      const db = getDb();
+      const id = typeof instanceId === 'string' && instanceId ? instanceId : `lei_${nanoid(16)}`;
+      const osValue = typeof os === 'string' ? os.slice(0, 64) : null;
+
+      const existing = db.prepare('SELECT instance_id FROM telemetry_instances WHERE instance_id = ?').get(id);
+      if (existing) {
+        db.prepare(`
+          UPDATE telemetry_instances
+          SET os = COALESCE(?, os), last_seen = datetime('now')
+          WHERE instance_id = ?
+        `).run(osValue, id);
+      } else {
+        db.prepare(`
+          INSERT INTO telemetry_instances (instance_id, os)
+          VALUES (?, ?)
+        `).run(id, osValue);
+      }
+
+      db.prepare(`
+        INSERT INTO telemetry_events (instance_id, event_type, metadata)
+        VALUES (?, ?, '{}')
+      `).run(id, eventType);
+
+      res.json({ ok: true, instanceId: id });
+    } catch (err) {
+      console.error('[telemetry-ingest] Mandatory event error:', err);
+      res.status(500).json({ error: 'Failed to record event' });
     }
   });
 

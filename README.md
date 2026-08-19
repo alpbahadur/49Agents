@@ -56,7 +56,9 @@ cd 49Agents
 
 Open `http://localhost:1071`. No account, no login, no token.
 
-Don't want to self-host? **[49agents.com](https://app.49agents.com)**
+We recommend self-hosting — it's free, your terminals and files never leave your
+machine, and setup is two commands. If you just want to try it first, the
+cloud-hosted version needs no install: **[49agents.com](https://app.49agents.com)**
 ![tutorial](https://github.com/user-attachments/assets/776a96c7-35ae-495a-8c15-ee847b3dcd57)
 
 
