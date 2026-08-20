@@ -40,7 +40,12 @@ export async function performUpdate(sendProgress) {
     sendProgress('downloading');
     mkdirSync(updateDir, { recursive: true });
     console.log(`[Updater] Downloading from ${downloadUrl}...`);
-    const result = spawnSync('curl', ['-fsSL', downloadUrl, '-o', tarballPath], {
+    const parsedDownloadUrl = new URL(downloadUrl);
+    const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(parsedDownloadUrl.hostname);
+    if (!isLocalhost && parsedDownloadUrl.protocol !== 'https:') {
+      throw new Error(`Update downloads require HTTPS for non-local servers; got: ${parsedDownloadUrl.protocol}`);
+    }
+    const result = spawnSync('curl', ['-fsS', '--max-redirs', '0', downloadUrl, '-o', tarballPath], {
       timeout: 60000,
     });
     if (result.status !== 0) {
