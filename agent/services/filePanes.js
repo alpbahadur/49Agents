@@ -4,6 +4,7 @@ import { join, basename, resolve } from 'path';
 import { homedir } from 'os';
 import { config } from '../src/config.js';
 import { validateWorkingDirectory } from './sanitize.js';
+import { readTextFileForTransport } from './fileRead.js';
 
 const DATA_DIR = config.dataDir;
 const FILE_PANES_FILE = join(DATA_DIR, 'file-panes.json');
@@ -39,10 +40,9 @@ function expandPath(filePath) {
  * Prevents path traversal attacks via file pane operations.
  */
 function expandAndValidatePath(filePath) {
-  const expandedPath = expandPath(filePath);
-  const resolved = resolve(expandedPath);
-  validateWorkingDirectory(resolved);
-  return resolved;
+  // The validator normalises, follows symlinks and returns the canonical path,
+  // so use what it returns rather than validating one path and reading another.
+  return validateWorkingDirectory(expandPath(filePath));
 }
 
 /**
@@ -53,7 +53,9 @@ function readFileContent(filePath) {
   if (!existsSync(expandedPath)) {
     throw new Error(`File not found: ${filePath}`);
   }
-  return readFileSync(expandedPath, 'utf-8');
+  // Refuses anything that could not be sent back over the relay, rather than
+  // reading it and closing the agent's socket on the way out.
+  return readTextFileForTransport(expandedPath);
 }
 
 /**

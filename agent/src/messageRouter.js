@@ -12,6 +12,7 @@ import { getLocalMetrics } from '../services/metrics.js';
 import { performUpdate } from './updater.js';
 import { validateWorkingDirectory } from '../services/sanitize.js';
 import { beginUpload, appendChunk, commitUpload, abortUpload, CHUNK_SIZE, MAX_UPLOAD_BYTES } from '../services/uploads.js';
+import { readTextFileForTransport } from '../services/fileRead.js';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync, unlinkSync, renameSync, rmdirSync, mkdirSync } from 'fs';
@@ -340,7 +341,16 @@ export function createMessageRouter(sendToRelay, options = {}) {
             return respond(400, { error: 'path parameter required' });
           }
           const resolvedPath = expandAndValidatePath(filePath);
-          const content = readFileSync(resolvedPath, 'utf-8');
+          let content;
+          try {
+            content = readTextFileForTransport(resolvedPath);
+          } catch (e) {
+            // A response over the relay cap does not fail the request, it
+            // closes the agent's own socket. Declining with a message keeps the
+            // agent online.
+            if (e.code === 'EFBIG') return respond(413, { error: e.message, code: 'EFBIG' });
+            throw e;
+          }
           const fileName = resolvedPath.split('/').pop() || basename(resolvedPath);
           return respond(200, { content, fileName, filePath: resolvedPath, device: localHostname });
         }
@@ -881,6 +891,13 @@ export function createMessageRouter(sendToRelay, options = {}) {
 
     } catch (error) {
       console.error(`[MessageRouter] Error handling ${method} ${path}:`, error);
+      // A file too large to send back is the caller asking for too much, not
+      // the agent failing. Reported as 413 wherever it surfaces — reading a
+      // file directly, or opening a file pane, which reads one on the way.
+      if (error.code === 'EFBIG') {
+        respond(413, { error: error.message, code: 'EFBIG' });
+        return;
+      }
       respond(500, { error: error.message || 'Internal server error' });
     }
   }
