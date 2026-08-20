@@ -17,6 +17,7 @@ import { setupImageButtonHandlers, setupTextOnlyToggle } from './editors.js';
 import { calcPlacementPos } from './minimap.js';
 import { clearPaneRefresh } from './pane-refresh.js';
 import { loadMonaco, loadMarkdown } from './lazy-deps.js';
+import { uploadFiles } from './file-upload.js';
 
 let _ctx = null;
 
@@ -673,6 +674,24 @@ export function renderBeadsPane(paneData) {
   fetchBeadsData(pane, paneData);
 }
 
+// Progress strip for an in-flight upload. Created on first use and kept on the
+// pane, so a tree refresh mid-upload cannot orphan the element the progress
+// callbacks are writing into.
+function ensureUploadStatus(pane) {
+  let status = pane.querySelector('.folder-upload-status');
+  if (status) return status;
+
+  status = document.createElement('div');
+  status.className = 'folder-upload-status';
+  status.innerHTML = `
+    <div class="folder-upload-label"></div>
+    <div class="folder-upload-bar"><div class="folder-upload-bar-fill"></div></div>
+    <button type="button" class="folder-upload-cancel" aria-label="Cancel upload">Cancel</button>
+  `;
+  pane.appendChild(status);
+  return status;
+}
+
 export function renderFolderPane(paneData) {
   // See renderGitGraphPane: re-render must stop the previous poll first.
   clearPaneRefresh(_ctx.folderPanes, paneData.id);
@@ -703,6 +722,9 @@ export function renderFolderPane(paneData) {
       ${_ctx.paneNameHtml(paneData)}
       <div class="pane-header-right">
         ${_ctx.shortcutBadgeHtml(paneData)}
+        <button class="folder-toolbar-btn folder-upload-btn" data-tooltip="Upload files">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </button>
         <button class="folder-toolbar-btn folder-new-file-btn" data-tooltip="New File">
           <svg viewBox="0 0 24 24" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="17" stroke="currentColor" stroke-width="2"/><line x1="9" y1="14" x2="15" y2="14" stroke="currentColor" stroke-width="2"/></svg>
         </button>
@@ -970,6 +992,125 @@ export function renderFolderPane(paneData) {
       _ctx.cloudSaveLayout(newPane);
     } catch (e) {
       alert('Failed to open file: ' + e.message);
+    }
+  }
+
+  // Toolbar: Upload. A hidden input rather than a visible one, so the button
+  // keeps the same shape as its neighbours.
+  const uploadInput = document.createElement('input');
+  uploadInput.type = 'file';
+  uploadInput.multiple = true;
+  uploadInput.style.display = 'none';
+  pane.appendChild(uploadInput);
+
+  pane.querySelector('.folder-upload-btn').addEventListener('click', () => uploadInput.click());
+  uploadInput.addEventListener('change', () => {
+    if (uploadInput.files?.length) startUpload(uploadInput.files);
+    // Cleared so choosing the same file twice in a row still fires change.
+    uploadInput.value = '';
+  });
+
+  // Drag and drop onto the pane. The canvas turns a dropped image into a note
+  // (modules/menus.js), so this claims the event rather than letting it bubble
+  // to a handler that would do something entirely different with it.
+  let dragDepth = 0;
+  const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
+
+  pane.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // dragenter fires again for every child element crossed, so nesting is
+    // counted rather than treating the first dragleave as leaving the pane.
+    dragDepth += 1;
+    pane.classList.add('folder-drop-active');
+  });
+
+  pane.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  pane.addEventListener('dragleave', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) pane.classList.remove('folder-drop-active');
+  });
+
+  pane.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth = 0;
+    pane.classList.remove('folder-drop-active');
+    if (e.dataTransfer.files?.length) startUpload(e.dataTransfer.files);
+  });
+
+  let uploadAbort = null;
+
+  async function startUpload(files) {
+    // One upload at a time per pane: a second batch would interleave progress
+    // reporting and race the refresh at the end.
+    if (uploadAbort) return;
+    uploadAbort = new AbortController();
+
+    const status = ensureUploadStatus(pane);
+    const label = status.querySelector('.folder-upload-label');
+    const bar = status.querySelector('.folder-upload-bar-fill');
+    const cancelBtn = status.querySelector('.folder-upload-cancel');
+
+    const total = Array.from(files).length;
+    let index = 0;
+    status.classList.add('visible');
+
+    const onCancel = () => uploadAbort?.abort();
+    cancelBtn.addEventListener('click', onCancel);
+
+    try {
+      const results = await uploadFiles({
+        files,
+        dir: paneData.folderPath,
+        agentId: paneData.agentId,
+        signal: uploadAbort.signal,
+        onProgress: ({ file, sent, total: bytes }) => {
+          const pct = bytes ? Math.round((sent / bytes) * 100) : 100;
+          label.textContent = total > 1
+            ? `${file.name} (${index + 1}/${total}) ${pct}%`
+            : `${file.name} ${pct}%`;
+          bar.style.width = `${pct}%`;
+        },
+        onCollision: (file) => {
+          // Matching the plain prompt/alert idiom the rest of this toolbar
+          // uses rather than introducing a dialog system for one question.
+          const answer = prompt(
+            `"${file.name}" already exists.\n\nType "overwrite" to replace it, "keep" to upload alongside it, or leave blank to skip.`,
+            'keep',
+          );
+          if (answer === null) return 'skip';
+          const choice = answer.trim().toLowerCase();
+          if (choice === 'overwrite') return 'overwrite';
+          if (choice === 'keep' || choice === 'keep-both') return 'keep-both';
+          return 'skip';
+        },
+        onFileDone: () => { index += 1; },
+      });
+
+      const failed = results.filter(r => r.status === 'failed');
+      if (failed.length) {
+        alert(`Upload failed:\n${failed.map(f => `${f.file.name}: ${f.error.message}`).join('\n')}`);
+      }
+    } finally {
+      cancelBtn.removeEventListener('click', onCancel);
+      uploadAbort = null;
+      status.classList.remove('visible');
+      bar.style.width = '0%';
+      // Refresh regardless: a cancelled or partly failed batch may still have
+      // landed earlier files.
+      await refreshTree();
     }
   }
 

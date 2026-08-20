@@ -7751,3 +7751,97 @@ body.view-list #pane-list {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   Folder pane upload
+   --------------------------------------------------------------------------
+   Uploads replace SFTP-ing in separately (gh-30). They are chunked over the
+   relay, so they take real time and need visible progress and a way out —
+   unlike every other file operation in this toolbar, which is a single request.
+   ========================================================================== */
+.folder-drop-active {
+  outline: 2px dashed rgba(var(--accent-rgb), 0.8);
+  outline-offset: -4px;
+}
+
+/* The overlay reads as a target for the drop, and its pointer-events:none
+   matters: without it the element under the cursor changes mid-drag and the
+   dragleave bookkeeping never settles. */
+.folder-drop-active::after {
+  content: 'Drop to upload';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent-text-strong);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.folder-upload-status {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: 8px;
+  background: rgba(var(--surface-1), 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 11px;
+  color: var(--ink-85);
+  z-index: 6;
+}
+
+.folder-upload-status.visible {
+  display: flex;
+}
+
+.folder-upload-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-upload-bar {
+  flex: 0 0 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ink-10);
+  overflow: hidden;
+}
+
+.folder-upload-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent-hex);
+  transition: width 0.15s linear;
+}
+
+.folder-upload-cancel {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--ink-15);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-70);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.folder-upload-cancel:hover {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  color: var(--accent-text-strong);
+}
