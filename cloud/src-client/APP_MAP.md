@@ -19,7 +19,7 @@
 | 12 | **Pane Creation & Type Registry** | ~3398-4700 | `PANE_TYPES[]`, `loadAgentPanes()`, `createPane()`, `deletePane()`, `createFilePane()`, `createNotePane()`, `createGitGraphPane()`, `createIframePane()`, `createFolderPane()`, `createBeadsPane()`, `createCustomSelect()`, device picker |
 | 13 | **Terminal Lifecycle & Pane Rendering** | ~4704-5086 | `attachTerminal()`, `reattachTerminal()`, `renderPane()`, `renderFilePane()`, `getDeviceColor()`, `beadsStatusIcon()`, `claudeSessionBadgeHtml()`, `deviceLabelHtml()` |
 | 14 | **Pane-Specific Renderers** | ~5087-6427 | `expandPane()`, `collapsePane()`, `renderNotePane()`, `renderIframePane()`, `renderBeadsPane()`, `renderFolderPane()`, `setupBeadsListeners()`, `setupIframeListeners()`, folder tree view |
-| 15 | **Editor & Input Setup** | ~6428-7203 | `setupNoteEditorListeners()`, `setupImageButtonHandlers()`, `setupTextOnlyToggle()`, `setupFileEditorListeners()`, `initTerminal()` (~320 lines) |
+| 15 | **Editor & Input Setup** | ~6428-7203 | `setupImageButtonHandlers()`, `setupTextOnlyToggle()`, `setupFileEditorListeners()`, `initTerminal()` (~320 lines) |
 | 16 | **Pane Interaction & Layout** | ~7204-8183 | `applyPaneZoom()`, `setupPaneListeners()` (~500 lines), `findSnapTargets()`, `startDrag()`, `startResizeHold()`, snap guides |
 | 17 | **Pane Focus & Canvas Navigation** | ~8185-8298 | `focusPane()`, `panToPane()`, `focusTerminalInput()`, `updateCanvasTransform()`, `getQuickViewInfo()` |
 | 18 | **Quick View & Mention Mode** | ~8299-8700 | `addQuickViewOverlay()`, `removeQuickViewOverlay()`, `enterMentionMode()`, `exitMentionMode()`, mention stage overlays |

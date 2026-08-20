@@ -478,13 +478,11 @@ export function setupPaneListeners(paneEl, paneData) {
     _ctx.focusPane(paneData);
     _ctx.focusTerminalInput(paneData.id);
 
-    // Focus note editor and place cursor at end
-    const noteEditor = paneEl.querySelector('.note-editor');
-    if (noteEditor) {
-      noteEditor.focus();
-      noteEditor.scrollTop = noteEditor.scrollHeight;
-      noteEditor.selectionStart = noteEditor.selectionEnd = noteEditor.value.length;
-    }
+    // A note's editor is not focused here. This used to reach for a
+    // .note-editor textarea, which no longer exists — notes render Monaco into
+    // .note-editor-mount — so the branch never ran. Focusing Monaco instead is
+    // a behaviour change in its own right, since it would start capturing
+    // keystrokes on every pane focus; tracked separately.
   });
 
   paneEl.addEventListener('mouseleave', (e) => {

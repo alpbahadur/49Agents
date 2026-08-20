@@ -1021,12 +1021,10 @@ export async function createNotePane(placementPos, initialContent, initialImages
     // Focus the new note pane
     _ctx.focusPane(pane);
     const noteInfo = _ctx.noteEditors.get(pane.id);
+    // The .note-editor fallback that used to sit here queried an element notes
+    // have not rendered since they moved to Monaco, so it never ran.
     if (noteInfo?.monacoEditor) {
       noteInfo.monacoEditor.focus();
-    } else {
-      const paneEl = document.getElementById(`pane-${pane.id}`);
-      const noteEditor = paneEl?.querySelector('.note-editor');
-      if (noteEditor) noteEditor.focus();
     }
 
     return pane;

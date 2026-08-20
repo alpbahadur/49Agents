@@ -475,10 +475,6 @@ export function setupKeyboardShortcuts() {
     _ctx.focusPane(paneData);
     if (paneData.type === 'terminal') {
       _ctx.focusTerminalInput(paneData.id);
-    } else if (paneData.type === 'note') {
-      const paneEl = document.getElementById(`pane-${paneData.id}`);
-      const noteEditor = paneEl?.querySelector('.note-editor');
-      if (noteEditor) noteEditor.focus();
     } else if (paneData.type === 'file') {
       const edInfo = _ctx.getFileEditors().get(paneData.id);
       if (edInfo?.monacoEditor) edInfo.monacoEditor.focus();
