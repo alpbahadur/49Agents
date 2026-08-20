@@ -14,8 +14,7 @@
 // where a real one is expected. Anything abandoned is swept on a timer.
 
 import { createWriteStream, existsSync, renameSync, statSync, unlinkSync } from 'fs';
-import { dirname, join, basename, extname, resolve } from 'path';
-import { homedir } from 'os';
+import { dirname, join, basename, extname } from 'path';
 import { randomBytes } from 'crypto';
 import { validateWorkingDirectory } from './sanitize.js';
 
@@ -69,19 +68,6 @@ export function nextAvailablePath(filePath) {
   throw new Error('Could not find an available filename');
 }
 
-// Resolve before validating, and use the resolved path thereafter.
-// validateWorkingDirectory prefix-matches the string it is given without
-// normalising it, so on its own it accepts '/tmp/../etc/shadow' — the prefix
-// matches even though the path escapes. The message router avoids this by
-// resolving first (expandAndValidatePath); a service that calls the validator
-// directly has to do the same, and upload is the worst place to get it wrong.
-function expandAndValidate(p) {
-  const expanded = p.startsWith('~') ? join(homedir(), p.slice(1)) : p;
-  const resolved = resolve(expanded);
-  validateWorkingDirectory(resolved);
-  return resolved;
-}
-
 /**
  * Open an upload. Validates the destination and resolves the collision policy
  * before a single byte is accepted, so a doomed upload fails immediately
@@ -105,8 +91,10 @@ export function beginUpload({ path: destPath, size, collision = 'error' } = {}) 
 
   // Same boundary as every other file operation: $HOME or /tmp. Upload is the
   // one operation that puts caller-chosen bytes on disk, so it gets no wider
-  // reach than reading and renaming already have.
-  const resolved = expandAndValidate(destPath);
+  // reach than reading and renaming already have. The validator normalises
+  // before checking and returns the resolved path, so a destination that
+  // climbs out of a permitted root is refused here rather than written to.
+  const resolved = validateWorkingDirectory(destPath);
 
   const dir = dirname(resolved);
   if (!existsSync(dir)) {

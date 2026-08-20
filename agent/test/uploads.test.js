@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, realpathSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import {
@@ -30,7 +30,10 @@ import {
 // test is still using it, which surfaces as ENOENT on the temp file rather than
 // as anything resembling the real cause.
 async function withDir(fn) {
-  const dir = mkdtempSync(join('/tmp', 'upload-test-'));
+  // Canonical, because validateWorkingDirectory now follows symlinks and
+  // returns the resolved path — and on macOS /tmp is a symlink to /private/tmp,
+  // so an uncanonicalised dir would not match what the paths come back as.
+  const dir = realpathSync(mkdtempSync(join('/tmp', 'upload-test-')));
   try {
     return await fn(dir);
   } finally {
