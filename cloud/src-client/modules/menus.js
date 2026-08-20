@@ -15,6 +15,7 @@ import { getViewMode, setViewMode } from './view-mode.js';
 import { activeToasts } from './notifications.js';
 import { showSettingsModal } from './settings.js';
 import { sendWs } from './ws-transport.js';
+import { checkImageBudget, describeImageRejection } from './payload-budget.js';
 
 let _ctx = null;
 
@@ -555,6 +556,14 @@ export function setupPasteHandlers() {
           reader.readAsDataURL(file);
         }))).then(dataUrls => {
           const validUrls = dataUrls.filter(Boolean);
+          // A new note, so nothing to add to — but the same cap applies, and
+          // creating a note whose first save cannot go out is worse than
+          // refusing it.
+          const check = checkImageBudget([], validUrls);
+          if (!check.ok) {
+            alert(describeImageRejection(check));
+            return;
+          }
           _ctx.createNotePane(cursorCanvasPos, text || '', validUrls);
         });
       } else {
