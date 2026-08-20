@@ -11,6 +11,7 @@ import { folderPaneService } from '../services/folderPanes.js';
 import { getLocalMetrics } from '../services/metrics.js';
 import { performUpdate } from './updater.js';
 import { validateWorkingDirectory } from '../services/sanitize.js';
+import { beginUpload, appendChunk, commitUpload, abortUpload, CHUNK_SIZE, MAX_UPLOAD_BYTES } from '../services/uploads.js';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync, unlinkSync, renameSync, rmdirSync, mkdirSync } from 'fs';
@@ -372,6 +373,40 @@ export function createMessageRouter(sendToRelay, options = {}) {
           const resolvedNew = expandAndValidatePath(newPath);
           renameSync(resolvedOld, resolvedNew);
           return respond(200, { success: true, newPath: resolvedNew });
+        }
+        // === File upload ===
+        // Chunked because it has to be: the relay caps a message at 1MB and
+        // chunks arrive base64-encoded, so a whole file in one request would
+        // top out well under that. See services/uploads.js.
+        case 'GET /api/files/upload/limits': {
+          return respond(200, { chunkSize: CHUNK_SIZE, maxBytes: MAX_UPLOAD_BYTES });
+        }
+        case 'POST /api/files/upload/begin': {
+          try {
+            return respond(200, beginUpload(body));
+          } catch (e) {
+            // A collision is an answerable question for the user, not a
+            // failure, so it gets its own status rather than a generic 400.
+            if (e.code === 'EEXIST') return respond(409, { error: e.message, code: 'EEXIST' });
+            return respond(400, { error: e.message });
+          }
+        }
+        case 'POST /api/files/upload/chunk': {
+          try {
+            return respond(200, appendChunk(body));
+          } catch (e) {
+            return respond(400, { error: e.message });
+          }
+        }
+        case 'POST /api/files/upload/commit': {
+          try {
+            return respond(200, await commitUpload(body));
+          } catch (e) {
+            return respond(400, { error: e.message });
+          }
+        }
+        case 'POST /api/files/upload/abort': {
+          return respond(200, abortUpload(body?.id));
         }
         case 'POST /api/files/mkdir': {
           const { path: dirPath } = body;
