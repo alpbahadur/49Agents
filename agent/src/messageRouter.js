@@ -11,6 +11,8 @@ import { folderPaneService } from '../services/folderPanes.js';
 import { getLocalMetrics } from '../services/metrics.js';
 import { performUpdate } from './updater.js';
 import { validateWorkingDirectory } from '../services/sanitize.js';
+import { beginUpload, appendChunk, commitUpload, abortUpload, CHUNK_SIZE, MAX_UPLOAD_BYTES } from '../services/uploads.js';
+import { readTextFileForTransport } from '../services/fileRead.js';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync, unlinkSync, renameSync, rmdirSync, mkdirSync } from 'fs';
@@ -339,7 +341,16 @@ export function createMessageRouter(sendToRelay, options = {}) {
             return respond(400, { error: 'path parameter required' });
           }
           const resolvedPath = expandAndValidatePath(filePath);
-          const content = readFileSync(resolvedPath, 'utf-8');
+          let content;
+          try {
+            content = readTextFileForTransport(resolvedPath);
+          } catch (e) {
+            // A response over the relay cap does not fail the request, it
+            // closes the agent's own socket. Declining with a message keeps the
+            // agent online.
+            if (e.code === 'EFBIG') return respond(413, { error: e.message, code: 'EFBIG' });
+            throw e;
+          }
           const fileName = resolvedPath.split('/').pop() || basename(resolvedPath);
           return respond(200, { content, fileName, filePath: resolvedPath, device: localHostname });
         }
@@ -372,6 +383,40 @@ export function createMessageRouter(sendToRelay, options = {}) {
           const resolvedNew = expandAndValidatePath(newPath);
           renameSync(resolvedOld, resolvedNew);
           return respond(200, { success: true, newPath: resolvedNew });
+        }
+        // === File upload ===
+        // Chunked because it has to be: the relay caps a message at 1MB and
+        // chunks arrive base64-encoded, so a whole file in one request would
+        // top out well under that. See services/uploads.js.
+        case 'GET /api/files/upload/limits': {
+          return respond(200, { chunkSize: CHUNK_SIZE, maxBytes: MAX_UPLOAD_BYTES });
+        }
+        case 'POST /api/files/upload/begin': {
+          try {
+            return respond(200, beginUpload(body));
+          } catch (e) {
+            // A collision is an answerable question for the user, not a
+            // failure, so it gets its own status rather than a generic 400.
+            if (e.code === 'EEXIST') return respond(409, { error: e.message, code: 'EEXIST' });
+            return respond(400, { error: e.message });
+          }
+        }
+        case 'POST /api/files/upload/chunk': {
+          try {
+            return respond(200, appendChunk(body));
+          } catch (e) {
+            return respond(400, { error: e.message });
+          }
+        }
+        case 'POST /api/files/upload/commit': {
+          try {
+            return respond(200, await commitUpload(body));
+          } catch (e) {
+            return respond(400, { error: e.message });
+          }
+        }
+        case 'POST /api/files/upload/abort': {
+          return respond(200, abortUpload(body?.id));
         }
         case 'POST /api/files/mkdir': {
           const { path: dirPath } = body;
@@ -846,6 +891,13 @@ export function createMessageRouter(sendToRelay, options = {}) {
 
     } catch (error) {
       console.error(`[MessageRouter] Error handling ${method} ${path}:`, error);
+      // A file too large to send back is the caller asking for too much, not
+      // the agent failing. Reported as 413 wherever it surfaces — reading a
+      // file directly, or opening a file pane, which reads one on the way.
+      if (error.code === 'EFBIG') {
+        respond(413, { error: error.message, code: 'EFBIG' });
+        return;
+      }
       respond(500, { error: error.message || 'Internal server error' });
     }
   }

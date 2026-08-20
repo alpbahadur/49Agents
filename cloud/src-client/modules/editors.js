@@ -15,6 +15,7 @@ import { WebLinksAddon } from './lib/addon-web-links.mjs';
 import { getTerminalFontFamily } from './utils.js';
 import { getCurrentTerminalFont } from './settings.js';
 import { agentRequest, sendWs } from './ws-transport.js';
+import { checkImageBudget, describeImageRejection, fitsInRelay, jsonByteLength, formatBytes, RELAY_BUDGET_BYTES } from './payload-budget.js';
 
 const TERMINAL_THEMES = window.TERMINAL_THEMES || {};
 
@@ -97,6 +98,18 @@ export function setupNoteEditorListeners(paneEl, paneData) {
     }))).then(dataUrls => {
       const validUrls = dataUrls.filter(Boolean);
       if (validUrls.length === 0) return;
+
+      // Saving a note sends every one of its images in one request, so the
+      // budget is the whole array's — three 400KB images breach a cap none of
+      // them approaches alone. The transport refuses an oversized message
+      // anyway; checking here is what turns that into an explanation instead
+      // of an image that silently fails to stick.
+      const check = checkImageBudget(paneData.images, validUrls);
+      if (!check.ok) {
+        alert(describeImageRejection(check));
+        return;
+      }
+
       paneData.images.push(...validUrls);
       refreshNoteImages();
       saveNoteImages();
@@ -600,11 +613,18 @@ export function initTerminal(paneEl, paneData) {
         }).catch(() => null);
         if (!base64) continue;
 
-        sendWs('terminal:pasteImage', {
-          terminalId: paneData.id,
-          imageData: base64,
-          mimeType: file.type,
-        }, paneData.agentId);
+        // sendWs refuses an oversized message rather than letting it close the
+        // relay, but a silent refusal looks like a dropped image. Check first
+        // so there is something to say.
+        const payload = { terminalId: paneData.id, imageData: base64, mimeType: file.type };
+        if (!fitsInRelay(payload)) {
+          alert(`"${file.name}" is ${formatBytes(jsonByteLength(payload))}, over the `
+            + `${formatBytes(RELAY_BUDGET_BYTES)} limit for pasting into a terminal. `
+            + 'Upload it to a folder pane instead.');
+          continue;
+        }
+
+        sendWs('terminal:pasteImage', payload, paneData.agentId);
 
         // Space each drop apart so the agent's temp-file writes and the
         // typed paths land in the pty in a sane order for multi-image drops.

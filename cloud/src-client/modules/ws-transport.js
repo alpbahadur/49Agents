@@ -10,6 +10,8 @@
 // pendingRequests and pendingScanCallbacks are exported because app.js
 // resolves them when responses arrive and clears them on disconnect.
 
+import { jsonByteLength, fitsInRelay, formatBytes, RELAY_BUDGET_BYTES } from './payload-budget.js';
+
 let _ctx = null;
 
 export function initWsTransportDeps(ctx) { _ctx = ctx; }
@@ -25,9 +27,25 @@ export const pendingScanCallbacks = new Map(); // id -> onPartial callback for s
 export function sendWs(type, payload, agentId) {
   const ws = _ctx.getWs();
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type, payload, agentId: agentId || _ctx.getActiveAgentId() }));
+    const message = { type, payload, agentId: agentId || _ctx.getActiveAgentId() };
+
+    // Oversized is not a failed send: the relay closes the socket, taking every
+    // pane with it. Dropping one message is strictly better than that, even
+    // for a fire-and-forget caller who will not notice.
+    const bytes = jsonByteLength(message);
+    if (bytes > RELAY_BUDGET_BYTES) {
+      console.error(
+        `[WS] Refusing to send ${formatBytes(bytes)} '${type}' message: over the `
+        + `${formatBytes(RELAY_BUDGET_BYTES)} relay limit, and sending it would close the connection.`,
+      );
+      return false;
+    }
+
+    ws.send(JSON.stringify(message));
     if (type === 'terminal:input') _ctx.telemetry._terminalInputCount++;
+    return true;
   }
+  return false;
 }
 
 // REST-over-WS: replaces fetch() for agent-proxied endpoints
@@ -48,7 +66,19 @@ export function agentRequest(method, path, body, agentId, options) {
     });
   }
 
-  // Relay mode: send through WebSocket
+  // Relay mode: send through WebSocket.
+  // Checked before anything is queued, because the failure mode for an
+  // oversized message is the socket closing rather than the request failing —
+  // so 'too big' has to become a rejected promise here or it becomes a dropped
+  // connection there. Chunk large payloads instead; see modules/file-upload.js.
+  const request = { type: 'request', agentId: resolvedAgentId, payload: { method, path, body } };
+  if (!fitsInRelay(request)) {
+    return Promise.reject(new Error(
+      `${method} ${path}: payload is ${formatBytes(jsonByteLength(request))}, over the `
+      + `${formatBytes(RELAY_BUDGET_BYTES)} relay limit`,
+    ));
+  }
+
   return new Promise((resolve, reject) => {
     const id = (crypto.randomUUID ? crypto.randomUUID() : 'req_' + Math.random().toString(36).slice(2) + Date.now().toString(36));
     const timeout = setTimeout(() => {
