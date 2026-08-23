@@ -716,7 +716,7 @@ export class TmuxService {
     for (const [id] of terminals) {
       const info = sessionInfo[id];
       if (!info) {
-        results[id] = { isClaude: false, state: null, cwd: null, alternateOn: false };
+        results[id] = { isClaude: false, state: null, command: null, cwd: null, alternateOn: false };
       } else if (!info.isClaude) {
         nonClaudeIds.push(id);
       }
@@ -753,7 +753,11 @@ export class TmuxService {
     for (const id of nonClaudeIds) {
       const info = sessionInfo[id];
       if (!info.isClaude) {
-        results[id] = { isClaude: false, state: null, cwd: info.cwd || null, alternateOn: info.alternateOn };
+        // command is carried through for non-Claude panes as well: the browser
+        // needs it to tell an attached tmux client (which draws on the
+        // alternate screen, and whose shell reads arrow keys as history)
+        // apart from a TUI that genuinely scrolls with arrows.
+        results[id] = { isClaude: false, state: null, command: info.command || null, cwd: info.cwd || null, alternateOn: info.alternateOn };
       }
     }
 
