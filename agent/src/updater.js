@@ -11,6 +11,47 @@ import { existsSync, mkdirSync, rmSync, renameSync, writeFileSync, unlinkSync } 
 import { join } from 'path';
 import { config } from './config.js';
 
+// Hostnames for which a plain-HTTP update download is acceptable.
+//
+// The HTTPS requirement below exists to stop a network attacker tampering with
+// the tarball in transit. On a private network there is no such transit to
+// attack, and plain HTTP is a first-class configuration here: the installer
+// emits ws:// for any non-secure request (cloud/src/routes/download.js), and
+// start.sh prompts for a cloud URL using ws://192.168.1.10:1071 as its example.
+// Requiring HTTPS for those would leave every LAN-hosted agent permanently
+// unable to update itself.
+export function isPrivateHost(hostname) {
+  if (!hostname) return false;
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+
+  // IPv6 loopback, unique-local (fc00::/7) and link-local (fe80::/10).
+  if (host === '::1') return true;
+  if (/^f[cd][0-9a-f]{2}:/.test(host)) return true;
+  if (/^fe[89ab][0-9a-f]:/.test(host)) return true;
+
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number);
+    if (a === 127) return true;                       // loopback
+    if (a === 10) return true;                        // 10.0.0.0/8
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true;          // 192.168.0.0/16
+    if (a === 169 && b === 254) return true;          // link-local
+    return false;
+  }
+
+  // mDNS and common private suffixes.
+  if (/\.(local|internal|lan|home\.arpa)$/.test(host)) return true;
+
+  // A single-label name has no public TLD to resolve against, so it can only
+  // be a name from local DNS or mDNS — 'ws://myserver:1071' and the like.
+  if (!host.includes('.')) return true;
+
+  return false;
+}
+
 /**
  * Perform the self-update.
  *
@@ -40,7 +81,18 @@ export async function performUpdate(sendProgress) {
     sendProgress('downloading');
     mkdirSync(updateDir, { recursive: true });
     console.log(`[Updater] Downloading from ${downloadUrl}...`);
-    const result = spawnSync('curl', ['-fsSL', downloadUrl, '-o', tarballPath], {
+    // Refuse to fetch the tarball over plain HTTP from a public host: it is
+    // extracted and executed, so a network attacker who can rewrite it owns the
+    // machine. Private and loopback hosts are exempt — see isPrivateHost.
+    const parsedDownloadUrl = new URL(downloadUrl);
+    if (parsedDownloadUrl.protocol !== 'https:' && !isPrivateHost(parsedDownloadUrl.hostname)) {
+      throw new Error(
+        `Update downloads require HTTPS for public servers; got ${parsedDownloadUrl.protocol}//${parsedDownloadUrl.host}`,
+      );
+    }
+    // No -L: the tarball is served directly by the cloud (res.sendFile), so a
+    // redirect would only ever be taking the download somewhere unintended.
+    const result = spawnSync('curl', ['-fsS', downloadUrl, '-o', tarballPath], {
       timeout: 60000,
     });
     if (result.status !== 0) {
