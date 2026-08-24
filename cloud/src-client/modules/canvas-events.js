@@ -14,7 +14,7 @@ import { showIframeOverlays, hideIframeOverlays } from './pane-renderers.js';
 import { getViewportRect, setupViewportTracking, onViewportResize } from './viewport.js';
 import {
   clampZoom, pinchStart, applyPinch, panStart, applyPan, clampPan, fitToBounds,
-  computeMomentum, MOMENTUM_FRICTION, MOMENTUM_MIN_VELOCITY,
+  computeMomentum, MOMENTUM_FRICTION, MOMENTUM_MIN_VELOCITY, wheelZoomFactor,
 } from './gestures.js';
 
 let _ctx = null;
@@ -412,8 +412,7 @@ export function handleWheel(e) {
   // Ctrl+Scroll anywhere = always canvas zoom
   if (e.ctrlKey) {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(_ctx.state.zoom * delta, e.clientX, e.clientY);
+    setZoom(_ctx.state.zoom * wheelZoomFactor(e.deltaY), e.clientX, e.clientY);
     return;
   }
 
