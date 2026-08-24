@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   MIN_ZOOM, MAX_ZOOM, clampZoom, pinchDistance, pinchCenter, applyZoomAt,
   pinchStart, applyPinch, panStart, applyPan, clampPan, fitToBounds,
-  computeMomentum,
+  computeMomentum, wheelZoomFactor,
 } from '../src-client/modules/gestures.js';
 
 /**
@@ -252,4 +252,33 @@ test('the release time is optional and does not change the window rule', () => {
   // A window that is already too long stays refused whatever the release says.
   const slow = [{ x: 0, y: 0, t: 1000 }, { x: 40, y: 0, t: 1500 }];
   assert.equal(computeMomentum(slow, 200, 1505), null);
+});
+
+/**
+ * Ctrl+Scroll zoom used a flat 0.9/1.1 factor per wheel event. A trackpad's
+ * momentum tail fires many events after the user lifts their fingers, and
+ * with a fixed ratio those compound multiplicatively (0.9^N), turning a
+ * light pinch into a runaway zoom the user never asked for.
+ */
+
+test('small deltas produce small, proportional zoom steps', () => {
+  const factorSmall = wheelZoomFactor(5);
+  const factorLarge = wheelZoomFactor(20);
+  assert.ok(factorSmall < 1, 'positive deltaY should zoom out');
+  assert.ok(factorLarge < factorSmall, 'larger delta should zoom out more');
+});
+
+test('zoom-out and zoom-in wheel factors are symmetric around 1', () => {
+  assert.equal(wheelZoomFactor(10), 2 - wheelZoomFactor(-10));
+});
+
+test('large momentum-tail deltas clamp to a fixed max wheel step', () => {
+  const capped = wheelZoomFactor(1000);
+  const alsoCapped = wheelZoomFactor(50);
+  assert.equal(capped, alsoCapped, 'deltas beyond the cap should clamp to the same factor');
+  assert.ok(capped >= 0.9 && capped < 1, 'clamped factor should stay within a small, steady range');
+});
+
+test('zero wheel delta is a no-op', () => {
+  assert.equal(wheelZoomFactor(0), 1);
 });

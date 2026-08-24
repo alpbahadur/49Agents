@@ -18,6 +18,20 @@ export function clampZoom(zoom) {
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
 }
 
+const WHEEL_ZOOM_SENSITIVITY = 0.008;
+const WHEEL_ZOOM_MAX_STEP = 0.05;
+
+// Trackpad pinch-to-zoom is delivered as ctrl+wheel with deltaY scaled to
+// gesture speed, so the zoom factor must scale with |deltaY| too — a flat
+// per-event ratio compounds multiplicatively across the many small events
+// a fling's momentum tail produces, turning a light pinch into a runaway
+// zoom. Clamping the per-event factor keeps any single wheel tick — real
+// or momentum — from moving the zoom by more than a small, steady amount.
+export function wheelZoomFactor(deltaY) {
+  const step = Math.max(-WHEEL_ZOOM_MAX_STEP, Math.min(WHEEL_ZOOM_MAX_STEP, -deltaY * WHEEL_ZOOM_SENSITIVITY));
+  return 1 + step;
+}
+
 export function pinchDistance(a, b) {
   const dx = a.clientX - b.clientX;
   const dy = a.clientY - b.clientY;
