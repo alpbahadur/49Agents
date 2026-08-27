@@ -1,10 +1,11 @@
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, realpathSync } from 'fs';
+import { existsSync, readdirSync, statSync, realpathSync } from 'fs';
 import { join, relative, resolve } from 'path';
 import { homedir } from 'os';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import { config } from '../src/config.js';
+import { createJsonStore } from './jsonStore.js';
 import { validateWorkingDirectory } from './sanitize.js';
 
 const execAsync = promisify(exec);
@@ -12,38 +13,14 @@ const execAsync = promisify(exec);
 const DATA_DIR = config.dataDir;
 const GIT_GRAPHS_FILE = join(DATA_DIR, 'git-graphs.json');
 
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
+const gitGraphsStore = createJsonStore({
+  file: GIT_GRAPHS_FILE,
+  key: 'gitGraphs',
+  loadError: '[GitGraph] Error loading git graphs:',
+  saveError: '[GitGraph] Error saving git graphs:',
+});
 
-function loadGitGraphs() {
-  try {
-    ensureDataDir();
-    if (!existsSync(GIT_GRAPHS_FILE)) {
-      return [];
-    }
-    const data = readFileSync(GIT_GRAPHS_FILE, 'utf-8');
-    const state = JSON.parse(data);
-    return state.gitGraphs || [];
-  } catch (error) {
-    console.error('[GitGraph] Error loading git graphs:', error);
-    return [];
-  }
-}
-
-function saveGitGraphs(gitGraphs) {
-  try {
-    ensureDataDir();
-    const state = { gitGraphs, version: 1 };
-    writeFileSync(GIT_GRAPHS_FILE, JSON.stringify(state, null, 2));
-  } catch (error) {
-    console.error('[GitGraph] Error saving git graphs:', error);
-  }
-}
-
-let gitGraphsCache = loadGitGraphs();
+let gitGraphsCache = gitGraphsStore.load();
 
 /**
  * Fetch structured git graph data for a local repository (async).
@@ -250,7 +227,7 @@ export const gitGraphService = {
     };
 
     gitGraphsCache.push(gitGraph);
-    saveGitGraphs(gitGraphsCache);
+    gitGraphsStore.save(gitGraphsCache);
     return gitGraph;
   },
 
@@ -269,7 +246,7 @@ export const gitGraphService = {
     }
 
     gitGraphsCache[index] = gitGraph;
-    saveGitGraphs(gitGraphsCache);
+    gitGraphsStore.save(gitGraphsCache);
     return gitGraph;
   },
 
@@ -277,7 +254,7 @@ export const gitGraphService = {
     const index = gitGraphsCache.findIndex(g => g.id === id);
     if (index !== -1) {
       gitGraphsCache.splice(index, 1);
-      saveGitGraphs(gitGraphsCache);
+      gitGraphsStore.save(gitGraphsCache);
     }
   },
 
