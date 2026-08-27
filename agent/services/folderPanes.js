@@ -1,46 +1,19 @@
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { config } from '../src/config.js';
+import { createJsonStore } from './jsonStore.js';
 
 const DATA_DIR = config.dataDir;
 const FOLDER_PANES_FILE = join(DATA_DIR, 'folder-panes.json');
 
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
+const folderPanesStore = createJsonStore({
+  file: FOLDER_PANES_FILE,
+  key: 'folderPanes',
+  loadError: '[FolderPanes] Error loading folder panes:',
+  saveError: '[FolderPanes] Error saving folder panes:',
+});
 
-function loadFolderPanes() {
-  try {
-    ensureDataDir();
-    if (!existsSync(FOLDER_PANES_FILE)) {
-      return [];
-    }
-    const data = readFileSync(FOLDER_PANES_FILE, 'utf-8');
-    const state = JSON.parse(data);
-    return state.folderPanes || [];
-  } catch (error) {
-    console.error('[FolderPanes] Error loading folder panes:', error);
-    return [];
-  }
-}
-
-function saveFolderPanes(folderPanes) {
-  try {
-    ensureDataDir();
-    const state = {
-      folderPanes,
-      version: 1,
-    };
-    writeFileSync(FOLDER_PANES_FILE, JSON.stringify(state, null, 2));
-  } catch (error) {
-    console.error('[FolderPanes] Error saving folder panes:', error);
-  }
-}
-
-let folderPanesCache = loadFolderPanes();
+let folderPanesCache = folderPanesStore.load();
 
 export const folderPaneService = {
   listFolderPanes() {
@@ -62,7 +35,7 @@ export const folderPaneService = {
     };
 
     folderPanesCache.push(folderPane);
-    saveFolderPanes(folderPanesCache);
+    folderPanesStore.save(folderPanesCache);
 
     return folderPane;
   },
@@ -80,7 +53,7 @@ export const folderPaneService = {
     }
 
     folderPanesCache[index] = folderPane;
-    saveFolderPanes(folderPanesCache);
+    folderPanesStore.save(folderPanesCache);
 
     return folderPane;
   },
@@ -89,7 +62,7 @@ export const folderPaneService = {
     const index = folderPanesCache.findIndex(f => f.id === id);
     if (index !== -1) {
       folderPanesCache.splice(index, 1);
-      saveFolderPanes(folderPanesCache);
+      folderPanesStore.save(folderPanesCache);
     }
   }
 };
