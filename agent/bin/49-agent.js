@@ -47,6 +47,12 @@ async function handleLogin() {
   const tokenArg = args[1];
 
   if (tokenArg) {
+    if (!isValidJwtShape(tokenArg)) {
+      console.error(`[49-agent] "${tokenArg}" doesn't look like a valid token (expected a JWT: three dot-separated base64url segments).`);
+      console.error('[49-agent] Usage: 49-agent login <YOUR_TOKEN>');
+      process.exitCode = 1;
+      return;
+    }
     saveToken(tokenArg);
     console.log('[49-agent] Token saved successfully.');
     return;
@@ -69,10 +75,19 @@ async function handleLogin() {
     }
     const token = Buffer.concat(chunks).toString().trim();
     if (token) {
+      if (!isValidJwtShape(token)) {
+        console.error(`[49-agent] Piped input doesn't look like a valid token (expected a JWT: three dot-separated base64url segments).`);
+        process.exitCode = 1;
+        return;
+      }
       saveToken(token);
       console.log('[49-agent] Token saved successfully.');
     }
   }
+}
+
+function isValidJwtShape(token) {
+  return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token);
 }
 
 /**
