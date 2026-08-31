@@ -100,13 +100,11 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
   let newTabButtonEnabled = false;
 
   // View mode: 'canvas' or 'list'. Canvas everywhere by default. The
-  // on-screen toggle is only worth the corner it occupies on a narrow
-  // viewport, so it defaults visible there and hidden on desktop, where the
-  // Tab+X chord and Settings are the way in. A stored preference overrides
-  // that guess in either direction.
+  // on-screen toggle is hidden by default everywhere; Tab+X and Settings
+  // are the way in. A stored preference overrides that in either direction.
   let viewMode = 'canvas';
   let viewModeHotkeyEnabled = true;
-  let viewModeToggleVisible = window.innerWidth <= 768;
+  let viewModeToggleVisible = false;
 
   // PANE_HEADER_CONTROLS and normalizePaneHeaderOrder live in modules/utils.js
   // so the reconciliation logic can be tested on its own.

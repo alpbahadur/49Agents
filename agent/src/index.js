@@ -170,6 +170,15 @@ export async function startAgent(options = {}) {
       // so telling the user to log in again would send them the wrong way.
       console.error('[Agent] Stop the other agent with "49-agent stop", or set');
       console.error('[Agent] TC_CLOUD_URL to a different server to run alongside it.');
+    } else if (/signature verification failed/i.test(payload?.reason || '')) {
+      // Each 49Agents instance (local dev server, a self-hosted deploy, the
+      // hosted cloud) signs agent tokens with its own secret. A token minted
+      // by one will never verify against another — this isn't a stale token,
+      // it's a token for the wrong instance.
+      console.error(`[Agent] The saved token isn't valid for ${cloudUrl} — it was likely issued`);
+      console.error('[Agent] by a different 49Agents instance (e.g. local vs. cloud-hosted).');
+      console.error('[Agent] Open the "Add Machine" dialog on that instance\'s dashboard and');
+      console.error('[Agent] run 49-agent login with the token it gives you.');
     } else {
       console.error('[Agent] Please re-run "49-agent login" to get a new token.');
     }
