@@ -19,6 +19,9 @@ import { setupWebSocketRelay } from './ws/relay.js';
 import { setupNotificationRoutes } from './routes/notifications.js';
 import { ensureAgentTarball } from './utils/agentTarball.js';
 import { setupCloudCallbackRoutes } from './auth/cloudCallback.js';
+import { setupGitHubAuth } from './auth/github.js';
+import { setupGoogleAuth } from './auth/google.js';
+import { setupLocalGrantRoutes } from './auth/localGrant.js';
 import { ensureLocalAuthTable, isLocalMode } from './auth/localAuth.js';
 import { ensureEmailAuthTable, setupEmailAuthRoutes, getEmailAuth, issueEmailInstanceToken } from './auth/emailAuth.js';
 import { ensureTelemetryTables, setupTelemetryIngestRoutes } from './telemetry/ingest.js';
@@ -132,16 +135,29 @@ setupDownloadRoutes(app);
 // ---------------------------------------------------------------------------
 // Auth routes (public -- no requireAuth)
 // ---------------------------------------------------------------------------
-// No OAuth, no guest mode, no login screen — every deployment (cloud-hosted
-// or local) auto-provisions a single shared identity via autoLocalSession
-// below. Logout just clears the session cookies and lands back in the app.
-const clearSessionCookies = (req, res) => {
-  res.clearCookie('tc_access', { path: '/' });
-  res.clearCookie('tc_refresh', { path: '/' });
-  res.redirect('/');
-};
-app.post('/auth/logout', clearSessionCookies);
-app.get('/auth/logout', clearSessionCookies);
+// Which door this deployment has depends on config.authMode (see config.js).
+//
+// 'oauth' — the hosted relay. GitHub, Google and guest sessions are all
+//   registered, and setupGitHubAuth owns /auth/logout (it sends the visitor
+//   back to the sign-in page, which is where they can act next).
+// 'open'  — local or self-hosted. There is no sign-in, so there are no
+//   provider routes and logout just drops the cookies and returns to the app,
+//   where autoLocalSession mints a fresh shared identity on the next request.
+if (config.authMode === 'oauth') {
+  setupGitHubAuth(app);
+  setupGoogleAuth(app);
+  // The cloud half of the local-instance bridge. Only a deployment with real
+  // accounts can grant one; an 'open' instance is the client of this flow.
+  setupLocalGrantRoutes(app);
+} else {
+  const clearSessionCookies = (req, res) => {
+    res.clearCookie('tc_access', { path: '/' });
+    res.clearCookie('tc_refresh', { path: '/' });
+    res.redirect('/');
+  };
+  app.post('/auth/logout', clearSessionCookies);
+  app.get('/auth/logout', clearSessionCookies);
+}
 
 setupCloudCallbackRoutes(app);
 setupEmailAuthRoutes(app);
@@ -197,11 +213,15 @@ app.get('/api/network', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// No sign-in of any kind: the server issues a shared anonymous session on
-// first request and asks for consent inside the app later (the onboarding
-// modal). Anyone hitting a stale /login bookmark goes straight through.
+// The sign-in page. Only 'oauth' deployments have one; an 'open' deployment
+// issues its shared session on first request and asks for consent inside the
+// app later, so a stale /login bookmark there goes straight through.
 // ---------------------------------------------------------------------------
-app.get('/login', (req, res) => res.redirect('/'));
+if (config.authMode === 'oauth') {
+  app.get('/login', (req, res) => res.sendFile('login.html', { root: publicDir }));
+} else {
+  app.get('/login', (req, res) => res.redirect('/'));
+}
 
 // Telemetry consent page, reachable only via the local-instance-to-cloud
 // relay flow in cloudCallback.js (a local machine authenticating against the
@@ -281,12 +301,19 @@ if (isLocalMode()) {
 }
 
 // ---------------------------------------------------------------------------
-// Main app entry point — every deployment opens straight into the app. A
-// fresh visitor gets a shared anonymous identity on first request (see
-// autoLocalSession) and meets the consent modal ten minutes later, rather
-// than being stopped at a login screen before doing anything.
+// Main app entry point.
+//
+// On an 'open' deployment a fresh visitor gets the shared identity on first
+// request (autoLocalSession) and meets the consent modal ten minutes later,
+// rather than being stopped at a sign-in screen before doing anything.
+//
+// On the hosted relay they must sign in first. This is not a policy choice:
+// the relay pairs browsers to agents by user id, so a visitor without a real
+// identity has no machines to be shown and no way to reach the ones they own
+// from a second device.
 // ---------------------------------------------------------------------------
-app.get('/', autoLocalSession, (req, res) => res.sendFile('index.html', { root: publicDir }));
+const appEntryGuard = config.authMode === 'oauth' ? requireAuth : autoLocalSession;
+app.get('/', appEntryGuard, (req, res) => res.sendFile('index.html', { root: publicDir }));
 
 // ---------------------------------------------------------------------------
 // Static assets (JS, CSS, fonts, lib/) -- served without auth.

@@ -101,6 +101,12 @@ function buildUserResponse(user, agents) {
       lastSeen: a.last_seen_at,
     })),
   };
+  // app.js starts the guest countdown off this, so a guest session that does
+  // not announce itself here silently never expires.
+  if (user.is_guest) {
+    resp.isGuest = true;
+    resp.guestStartedAt = user.guest_started_at;
+  }
   return resp;
 }
 

@@ -1,20 +1,30 @@
 import { jwtVerify } from 'jose';
 import { issueAccessToken, getSecretKey } from './tokens.js';
 import { getUserById } from '../db/users.js';
-import { upsertUser } from '../db/users.js';
+import { upsertUser, getOrCreateLocalSharedUser } from '../db/users.js';
 import { getLocalAuth } from './localAuth.js';
 import { config } from '../config.js';
 
-const hasOAuth = !!(config.github.clientId || config.google.clientId);
 const isProduction = config.nodeEnv === 'production';
-const devModeEnabled = !hasOAuth && !isProduction;
+const devModeEnabled = config.authMode === 'open' && !isProduction;
+
+/**
+ * The single-identity helpers (local_auth and local_email_auth both hold one
+ * row, CHECK id = 1) describe *this machine's* owner. On a hosted deployment
+ * that row is server-wide, so consulting it for identity would hand every
+ * visitor the same account and, with it, everyone else's machines. Only an
+ * 'open' deployment may resolve a visitor that way.
+ */
+const singleTenant = config.authMode === 'open';
 
 /**
  * Express middleware that requires a valid JWT cookie or bearer token.
- * No OAuth provider exists anymore — every visitor is auto-authenticated as
- * the shared instance identity by autoLocalSession before they ever reach a
- * route guarded by requireAuth, so in practice this just verifies the
- * session cookie autoLocalSession already set:
+ *
+ * On an 'oauth' deployment this is the real gate: no cookie means the visitor
+ * is sent to /login to sign in with GitHub, Google, or as a guest. On an
+ * 'open' deployment autoLocalSession has already minted the shared identity
+ * before any guarded route is reached, so this just verifies that cookie.
+ *
  * 1. Extract access token from tc_access cookie
  * 2. Verify it — if valid, attach user to req.user
  * 3. If expired, try the refresh token (tc_refresh cookie)
@@ -51,7 +61,7 @@ async function resolveOrCreateLocalSession(req, res, next) {
   // Reuse an existing identity when there is one. handleAuth() responds to the
   // request itself when auth fails, so it cannot be used here: we need to know
   // the outcome and then fall through, not send a 401.
-  const localAuth = getLocalAuth();
+  const localAuth = singleTenant ? getLocalAuth() : null;
   if (localAuth) {
     const user = getUserById(localAuth.cloudUserId) || upsertUser({
       githubLogin: localAuth.githubLogin,
@@ -81,13 +91,12 @@ async function resolveOrCreateLocalSession(req, res, next) {
   const { instanceId, created } = ensureLocalSession();
   const emailAuth = getEmailAuth();
 
-  const user = upsertUser({
-    githubId: null,
-    githubLogin: null,
-    googleId: null,
+  // Keyed on the instance id, so a second browser on this machine — or a
+  // crawler with no cookie — resolves to the same identity as the agent
+  // rather than creating a new user row on every request.
+  const user = getOrCreateLocalSharedUser(instanceId, {
     email: emailAuth?.email || null,
     displayName: emailAuth?.email ? emailAuth.email.split('@')[0] : 'Local User',
-    avatarUrl: null,
   });
 
   const { issueRefreshToken, setAuthCookies } = await import('./tokens.js');
@@ -118,7 +127,7 @@ async function handleAuth(req, res, next) {
 
   // A local instance that has authenticated against the external managed
   // cloud (cloudCallback.js) carries that identity here too.
-  const localAuth = getLocalAuth();
+  const localAuth = singleTenant ? getLocalAuth() : null;
   if (localAuth) {
     const user = getUserById(localAuth.cloudUserId) || upsertUser({
       githubLogin: localAuth.githubLogin,
@@ -210,20 +219,35 @@ async function handleAuth(req, res, next) {
 }
 
 /**
- * Send a 401 or redirect to /login depending on the request type.
+ * Send a 401 for API callers, or send a browser somewhere it can act: the
+ * sign-in page on an 'oauth' deployment, the app itself on an 'open' one
+ * (where autoLocalSession creates the session on arrival).
  */
 function sendUnauthorized(req, res) {
-  // For API/JSON requests, return 401
-  if (
-    req.path.startsWith('/api/') ||
-    req.path.startsWith('/auth/') ||
-    req.xhr ||
-    req.headers.accept?.includes('application/json')
-  ) {
+  // Only a browser navigating to a page can be sent somewhere useful; a fetch
+  // or an agent needs the status code. Path is the wrong thing to key on here:
+  // /auth/local-grant is a page the user walks to from their own machine, and
+  // answering that with 401 JSON strands them instead of offering a sign-in.
+  //
+  // /auth/me and friends are still 401s — fetch() sends Accept: */*, not
+  // text/html, so they never look like a navigation.
+  const isNavigation =
+    req.method === 'GET' &&
+    !req.xhr &&
+    req.headers.accept?.includes('text/html') &&
+    !req.path.startsWith('/api/');
+
+  if (!isNavigation) {
     return res.status(401).json({ error: 'Unauthorized', message: 'Please log in.' });
   }
 
-  // For browser/HTML requests, send them to the app, where autoLocalSession
-  // creates a session on arrival — there is no separate login page.
+  if (config.authMode === 'oauth') {
+    // Preserve where they were headed so sign-in returns them to it.
+    const next = req.originalUrl && req.originalUrl !== '/' ? req.originalUrl : null;
+    return res.redirect(next ? `/login?next=${encodeURIComponent(next)}` : '/login');
+  }
+
+  // On an 'open' deployment there is no login page: send them to the app,
+  // where autoLocalSession creates a session on arrival.
   return res.redirect('/');
 }

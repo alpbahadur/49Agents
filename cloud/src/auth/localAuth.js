@@ -10,14 +10,14 @@ import { getDb } from '../db/index.js';
 import { getUserById } from '../db/users.js';
 import { config } from '../config.js';
 
-const hasOAuth = !!(config.github.clientId || config.google.clientId);
-const isProduction = config.nodeEnv === 'production';
-
 /**
- * Returns true if the server is running in local mode (no OAuth, not production).
+ * Returns true if the server is running in local mode: no sign-in of its own,
+ * a single auto-provisioned identity. config.authMode is the authority (see
+ * config.js); SKIP_CLOUD_AUTH still opts a contributor's dev server out, since
+ * it grants a fixed dev user instead of the local shared one.
  */
 export function isLocalMode() {
-  return !hasOAuth && !isProduction && !process.env.SKIP_CLOUD_AUTH;
+  return config.authMode === 'open' && !process.env.SKIP_CLOUD_AUTH;
 }
 
 /**

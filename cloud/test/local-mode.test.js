@@ -38,9 +38,9 @@ test('local mode binds loopback by default', () => {
   assert.match(configJs, /const defaultHost = localMode \? '127\.0\.0\.1' : '0\.0\.0\.0';/);
   assert.match(configJs, /host: process\.env\.HOST \|\| defaultHost/);
 
-  // Same predicate as auth/localAuth.js isLocalMode(). It is recomputed rather
-  // than imported because localAuth imports config, which would be a cycle.
-  assert.match(configJs, /const localMode = !hasOAuth && !isProduction && !process\.env\.SKIP_CLOUD_AUTH;/);
+  // Same predicate as auth/localAuth.js isLocalMode(), which now reads
+  // config.authMode rather than recomputing the OAuth check itself.
+  assert.match(configJs, /const localMode = authMode === 'open' && !process\.env\.SKIP_CLOUD_AUTH;/);
   assert.match(configJs, /GITHUB_CLIENT_ID \|\| process\.env\.GOOGLE_CLIENT_ID/);
 });
 
@@ -153,4 +153,58 @@ test('loopback-only is called out before the command is copied', () => {
   assert.match(dialog, /HOST=0\.0\.0\.0 \.\/49ctl start/);
   // And the risk of opening it up is stated, not buried.
   assert.match(dialog, /can run commands on your machines/);
+});
+
+/**
+ * AUTH_MODE — the explicit split between the two deployment shapes.
+ *
+ * Before this was explicit, "is there a login screen" was a side effect of
+ * whether OAuth credentials happened to be present. That is a dangerous thing
+ * to leave implicit: a hosted deployment that loses its client id silently
+ * turns into an open one, and an open one is a shared identity that anybody
+ * who reaches it gets to be.
+ */
+test('the deployment shape is explicit, and its inference is unchanged', () => {
+  // Either mode may be stated outright.
+  assert.match(configJs, /const authModeEnv = \(process\.env\.AUTH_MODE \|\| ''\)/);
+  assert.match(configJs, /AUTH_MODE must be 'oauth' or 'open'/);
+
+  // Unset, it infers exactly what used to be implied, so deployments that
+  // never set it keep the behaviour they already had.
+  assert.match(configJs, /const authMode = authModeEnv \|\| \(\(hasOAuth \|\| isProduction\) \? 'oauth' : 'open'\)/);
+});
+
+test('a hosted deployment refuses to start with a sign-in page it cannot serve', () => {
+  // A login screen with no providers behind it locks everyone out for good,
+  // and guest mode must not become the only way into a hosted instance.
+  assert.match(configJs, /if \(authMode === 'oauth' && isProduction && !hasOAuth\)/);
+  assert.match(configJs, /Refusing to start with a sign-in page that has no providers/);
+});
+
+test('the single-identity shortcut is confined to open deployments', () => {
+  const middleware = read('src/auth/middleware.js');
+  const relay = read('src/ws/relay.js');
+
+  // local_auth and local_email_auth each hold one row (CHECK id = 1): they
+  // describe this machine's owner. On a hosted deployment that row is
+  // server-wide, so resolving a visitor through it would handof every visitor
+  // the same account — and with it everyone else's machines.
+  assert.match(middleware, /const singleTenant = config\.authMode === 'open';/);
+  assert.match(middleware, /const localAuth = singleTenant \? getLocalAuth\(\) : null;/);
+  assert.match(relay, /const localAuth = config\.authMode === 'open' \? getLocalAuth\(\) : null;/);
+});
+
+test('an open deployment reuses one identity instead of minting one per request', () => {
+  const middleware = read('src/auth/middleware.js');
+  const users = read('src/db/users.js');
+
+  // upsertUser matches on github_id, google_id, then email. A local instance
+  // has none of the three until its owner enters an email, so every cookieless
+  // request used to fall through to the INSERT: a second browser never landed
+  // on the same identity as the agent, and the users table grew without bound.
+  assert.match(middleware, /getOrCreateLocalSharedUser\(instanceId, \{/);
+  assert.match(users, /export function getOrCreateLocalSharedUser/);
+
+  // Derived from the persisted instance id, so it is stable across restarts.
+  assert.match(users, /createHash\('sha256'\)\.update\(`local:\$\{instanceId\}`\)/);
 });

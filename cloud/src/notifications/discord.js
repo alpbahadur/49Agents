@@ -52,3 +52,47 @@ export async function notifyNewUser(user) {
   }
 }
 
+/**
+ * Send a Discord webhook notification for a new guest session.
+ */
+export async function notifyGuestUser(user) {
+  const webhookUrl = config.discord.webhookUrl;
+  if (!webhookUrl) return;
+
+  const embed = {
+    title: 'New Guest Session',
+    color: 0xf59e0b, // amber
+    fields: [
+      {
+        name: 'Name',
+        value: user.display_name || 'Guest',
+        inline: true,
+      },
+      {
+        name: 'User ID',
+        value: `\`${user.id}\``,
+        inline: true,
+      },
+      {
+        name: 'Tier',
+        value: user.tier || 'free',
+        inline: true,
+      },
+    ],
+    timestamp: new Date().toISOString(),
+    footer: { text: '49Agents — Guest Mode' },
+  };
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [embed] }),
+    });
+    if (!res.ok) {
+      console.warn(`[discord] Webhook failed: ${res.status} ${res.statusText}`);
+    }
+  } catch (err) {
+    console.warn(`[discord] Webhook error: ${err.message}`);
+  }
+}

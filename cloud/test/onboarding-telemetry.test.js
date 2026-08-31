@@ -490,34 +490,62 @@ test('an answered consent question is never asked again', () => {
 });
 
 // ---------------------------------------------------------------------------
-// No deployment has sign-in — cloud-hosted and local mode share one session
-// model, both auto-provisioning a single identity via autoLocalSession.
+// Sign-in belongs to the hosted relay, and only to it.
+//
+// The relay pairs browsers to agents by user id, so a hosted visitor with no
+// real identity has no machines to be shown and no way to reach the ones they
+// own from a second device — which is exactly the phone-to-desktop case. A
+// self-hosted instance has the opposite problem: one owner, nobody to tell
+// apart, and a login screen would only be in the way.
 // ---------------------------------------------------------------------------
 
-test('there is no OAuth setup left to register', () => {
+test('OAuth is registered for hosted deployments and withheld from open ones', () => {
   const src = readFileSync(join(here, '..', 'src', 'index.js'), 'utf-8');
 
-  // OAuth and guest mode are gone entirely — no deployment shape gates entry
-  // behind a login screen anymore.
-  assert.ok(!/setupGitHubAuth|setupGoogleAuth/.test(src), 'no OAuth setup calls remain');
-  assert.ok(!/auth\/github\.js|auth\/google\.js/.test(src), 'no import of the deleted OAuth modules');
+  assert.ok(/setupGitHubAuth\(app\);/.test(src), 'GitHub OAuth is registered');
+  assert.ok(/setupGoogleAuth\(app\);/.test(src), 'Google OAuth is registered');
 
-  // Every deployment uses the same auto-provisioned session on /.
-  assert.ok(/app\.get\('\/', autoLocalSession,/.test(src), '/ always uses autoLocalSession');
-
-  // Logout still works without the old GitHub-routes bundling.
-  assert.ok(/app\.post\('\/auth\/logout'/.test(src), 'logout route still registered');
+  // Both sit behind the mode check — an open instance registers neither, and
+  // so has no provider routes and no guest endpoint to reach.
+  const guarded = src.slice(src.indexOf("if (config.authMode === 'oauth') {"));
+  const providerIdx = guarded.indexOf('setupGitHubAuth(app);');
+  const elseIdx = guarded.indexOf('} else {');
+  assert.ok(providerIdx > -1 && providerIdx < elseIdx, 'providers are inside the oauth branch');
 });
 
-test('no deployment ever sends anyone to a login page', () => {
+test('the app entry point gates on the deployment shape', () => {
+  const src = readFileSync(join(here, '..', 'src', 'index.js'), 'utf-8');
+
+  // Hosted: sign in first. Open: the shared session is minted on arrival.
+  assert.ok(
+    /const appEntryGuard = config\.authMode === 'oauth' \? requireAuth : autoLocalSession;/.test(src),
+    '/ picks its guard from the auth mode'
+  );
+  assert.ok(/app\.get\('\/', appEntryGuard,/.test(src), '/ uses that guard');
+});
+
+test('only a hosted deployment has a login page to send anyone to', () => {
   const src = readFileSync(join(here, '..', 'src', 'index.js'), 'utf-8');
   const mw = readFileSync(join(here, '..', 'src', 'auth', 'middleware.js'), 'utf-8');
 
-  // Every path that would have shown a login screen has to fall through to the
-  // app, where a session is created on arrival — regardless of local vs cloud.
-  assert.ok(/app\.get\('\/login', \(req, res\) => res\.redirect\('\/'\)\)/.test(src), '/login redirects to the app');
-  assert.ok(/res\.redirect\('\/'\);\s*\}\);/.test(src) || /redirect\('\/'\)/.test(src), 'catch-all redirects to the app');
-  assert.ok(/return res\.redirect\('\/'\);/.test(mw), 'auth failures redirect to the app, not a login page');
+  // Hosted serves the real page; open still falls through to the app, where a
+  // session is created on arrival, so a stale /login bookmark keeps working.
+  assert.ok(/res\.sendFile\('login\.html'/.test(src), 'hosted serves the sign-in page');
+  assert.ok(/app\.get\('\/login', \(req, res\) => res\.redirect\('\/'\)\)/.test(src), 'open redirects /login to the app');
+
+  // And the middleware makes the same split when it turns someone away.
+  assert.ok(/return res\.redirect\(next \? `\/login\?next=\$\{encodeURIComponent\(next\)\}` : '\/login'\);/.test(mw), 'hosted auth failures reach sign-in, keeping their destination');
+  assert.ok(/return res\.redirect\('\/'\);/.test(mw), 'open auth failures fall through to the app');
+});
+
+test('guest sessions exist only where there is a sign-in to skip', () => {
+  const gh = readFileSync(join(here, '..', 'src', 'auth', 'github.js'), 'utf-8');
+
+  // An open deployment has no account to defer creating, so a guest session
+  // there would just be a second name for the identity the visitor already has.
+  const guest = gh.slice(gh.indexOf("app.post('/auth/guest'"));
+  assert.ok(/if \(config\.authMode !== 'oauth'\)/.test(guest), 'guest mode is gated on the hosted shape');
+  assert.ok(/Guest mode not available/.test(guest), 'and refused otherwise');
 });
 
 // ---------------------------------------------------------------------------

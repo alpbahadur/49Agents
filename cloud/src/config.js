@@ -29,12 +29,43 @@ const defaultDbPath = port === 1071 ? './data/tc.db' : `./data/tc-${port}.db`;
 // condition is recomputed here rather than creating a cycle. Setting HOST
 // explicitly still wins, for anyone deliberately serving a LAN or a tunnel.
 const hasOAuth = !!(process.env.GITHUB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID);
-const localMode = !hasOAuth && !isProduction && !process.env.SKIP_CLOUD_AUTH;
+
+// How this deployment authenticates its own visitors. Two shapes, and they are
+// genuinely different products rather than two settings of one:
+//
+//   'oauth' — the hosted relay. Every visitor signs in (GitHub, Google, or a
+//             guest session) and gets their own identity. Required, because
+//             the relay routes agents and browsers by user id: a phone and a
+//             desktop only meet if they resolve to the same user.
+//   'open'  — a local or self-hosted instance. No sign-in at all; one shared
+//             identity is auto-provisioned on first request. The machine's
+//             owner is the only visitor, so there is nobody to tell apart.
+//
+// Left unset this is inferred exactly as it used to be implied — by whether
+// OAuth credentials exist and whether we are in production — so deployments
+// that never set it keep the behaviour they already had.
+const authModeEnv = (process.env.AUTH_MODE || '').trim().toLowerCase();
+if (authModeEnv && authModeEnv !== 'oauth' && authModeEnv !== 'open') {
+  throw new Error(`FATAL: AUTH_MODE must be 'oauth' or 'open', got '${authModeEnv}'.`);
+}
+const authMode = authModeEnv || ((hasOAuth || isProduction) ? 'oauth' : 'open');
+
+// A login screen with no providers behind it locks everyone out permanently,
+// and guest mode is not an acceptable only door to a hosted deployment.
+if (authMode === 'oauth' && isProduction && !hasOAuth) {
+  throw new Error(
+    'FATAL: AUTH_MODE=oauth in production requires GITHUB_CLIENT_ID or GOOGLE_CLIENT_ID. Refusing to start with a sign-in page that has no providers.'
+  );
+}
+
+const localMode = authMode === 'open' && !process.env.SKIP_CLOUD_AUTH;
 const defaultHost = localMode ? '127.0.0.1' : '0.0.0.0';
 
 export const config = {
   port,
   host: process.env.HOST || defaultHost,
+  authMode,
+  hasOAuth,
   dbPath: process.env.DATABASE_PATH || defaultDbPath,
   github: {
     clientId: process.env.GITHUB_CLIENT_ID || '',
