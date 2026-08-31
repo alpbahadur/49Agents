@@ -13,9 +13,10 @@ import { upsertDevAgent } from '../db/agents.js';
 import { getLocalAuth } from './localAuth.js';
 import { hostname as osHostname } from 'os';
 
-const hasOAuth = !!(config.github.clientId || config.google.clientId);
+// The literal 'dev' token is accepted without a signature check, so it may
+// only ever be honoured by a deployment with no accounts to impersonate.
 const isProduction = config.nodeEnv === 'production';
-const devModeEnabled = !hasOAuth && !isProduction;
+const devModeEnabled = config.authMode === 'open' && !isProduction;
 
 function encodeSecret(secret) {
   return new TextEncoder().encode(secret);

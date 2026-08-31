@@ -20,12 +20,15 @@ const pairStatusRequests = new Map(); // ip -> { count, windowStart }
 const PAIR_RATE_WINDOW_MS = 10_000;
 const PAIR_RATE_MAX = 5;
 
-setInterval(() => {
+// Sweepers, both of them: they tidy in-memory maps and must never be the
+// reason a closed server's process stays alive.
+const rateLimitSweep = setInterval(() => {
   const cutoff = Date.now() - PAIR_RATE_WINDOW_MS * 2;
   for (const [ip, entry] of pairStatusRequests) {
     if (entry.windowStart < cutoff) pairStatusRequests.delete(ip);
   }
 }, 60_000);
+rateLimitSweep.unref?.();
 
 function checkPairRateLimit(ip) {
   const now = Date.now();
@@ -64,7 +67,8 @@ function cleanExpiredPairings() {
 }
 
 // Run cleanup every 2 minutes
-setInterval(cleanExpiredPairings, 2 * 60 * 1000);
+const pairingSweep = setInterval(cleanExpiredPairings, 2 * 60 * 1000);
+pairingSweep.unref?.();
 
 /**
  * Derive feature limits from the user's subscription tier.
