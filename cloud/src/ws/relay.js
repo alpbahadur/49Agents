@@ -125,8 +125,13 @@ export function setupWebSocketRelay(server, options = {}) {
         } else {
           // A local instance authenticated against the external managed cloud
           // carries that identity here too; otherwise fall back to the JWT
-          // session cookie autoLocalSession set on first visit.
-          const localAuth = getLocalAuth();
+          // session cookie the visitor's sign-in (or autoLocalSession) set.
+          //
+          // That single-row identity is per-machine. On a hosted deployment it
+          // is server-wide, so honouring it would attach every browser to one
+          // account and pipe them into each other's terminals — the cookie is
+          // the only acceptable answer there.
+          const localAuth = config.authMode === 'open' ? getLocalAuth() : null;
           if (localAuth) {
             const user = getUserById(localAuth.cloudUserId);
             if (user) userId = user.id;

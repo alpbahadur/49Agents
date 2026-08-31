@@ -19,7 +19,9 @@ import { getUndismissedNotifications } from '../db/notifications.js';
 
 // Batch relay message counts — flush to DB every 60 seconds
 const relayCounters = new Map(); // userId -> count
-setInterval(() => {
+// Housekeeping only: the listening socket is what keeps the server alive, so
+// this must not be the thing preventing a closed one from exiting.
+const relayFlushInterval = setInterval(() => {
   for (const [userId, count] of relayCounters) {
     if (count > 0) {
       recordEvent('ws.relay', userId, { count });
@@ -27,6 +29,7 @@ setInterval(() => {
   }
   relayCounters.clear();
 }, 60000);
+relayFlushInterval.unref?.();
 
 /**
  * Handle a newly connected browser WebSocket.

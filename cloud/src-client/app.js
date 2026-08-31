@@ -13,6 +13,7 @@ import { initWsTransportDeps, sendWs, agentRequest, pendingRequests, pendingScan
 import { initAgentUiDeps, showRelayNotification, showUpdateToast, showUpdateProgressToast, showUpdateCompleteToast, updateAgentOverlay, showAddMachineDialog } from './modules/agent-ui.js';
 import { initMenusDeps, setupAddPaneMenu, setupTutorialMenu, autoArrangePanes, setupMobileNavDrawer, setupToolbarButtons, setupCustomTooltips, setupCanvasInteraction, setupPasteHandlers, getTabCycleOrder, findPaneInDirection, calcMoveModeZoom } from './modules/menus.js';
 import { initClaudeStatesDeps, updateClaudeStates } from './modules/claude-states.js';
+import { initGuestDeps, initGuestNudge } from './modules/guest.js';
 import { initCanvasEventsDeps, setupEventListeners, handleCanvasPanStart, handleMiddleMousePan, handleRightMousePan, handleTouchStart, handleWheel, setZoom, zoomToFit } from './modules/canvas-events.js';
 import { initViewModeDeps, setupViewModeToggle, applyViewMode, toggleViewMode, refreshPaneListIfVisible, setViewMode as setViewModeModule } from './modules/view-mode.js';
 import { initMoveModeDeps, enterMoveMode, exitMoveMode, applyMoveModeVisuals, moveModeNavigate } from './modules/move-mode.js';
@@ -1194,6 +1195,11 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       const currentUser = await authRes.json();
       // Store user info for tier gating later
       window.__tcUser = currentUser;
+
+      // Start guest nudge timers if this is a guest session
+      if (currentUser.isGuest) {
+        initGuestNudge(currentUser);
+      }
     } catch (e) {
       // If auth check fails, continue anyway (might be local dev mode)
       console.warn('[App] Auth check failed:', e);
@@ -1391,6 +1397,7 @@ import { initProjectsDeps, navigateToProject, navigateToCheckpointPane, renderPr
       telemetry: _telemetry,
     });
     initClaudeStatesDeps({ state, terminals, claudeTerminalIds });
+    initGuestDeps({ state });
     initCanvasEventsDeps({
       state, panState, selectedPaneIds, terminals,
       init, saveViewState, updateBroadcastIndicator, updateCanvasTransform,
