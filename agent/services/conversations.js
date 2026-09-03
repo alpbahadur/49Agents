@@ -2,8 +2,8 @@ import { homedir } from 'os';
 import { join, basename } from 'path';
 import { readdir, stat, open as fsOpen, readFile as readFileAsync } from 'fs/promises';
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { config } from '../src/config.js';
+import { createJsonStore } from './jsonStore.js';
 
 const CLAUDE_PROJECTS_DIR = join(homedir(), '.claude', 'projects');
 const DATA_DIR = config.dataDir;
@@ -475,35 +475,14 @@ async function extractConversation(dirPath, sessionId, format) {
 
 // --- Pane state persistence (same pattern as beads.js) ---
 
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
+const convosPanesStore = createJsonStore({
+  file: CONVOS_PANES_FILE,
+  key: 'conversationsPanes',
+  loadError: '[Conversations] Error loading panes:',
+  saveError: '[Conversations] Error saving panes:',
+});
 
-function loadConvosPanes() {
-  try {
-    ensureDataDir();
-    if (!existsSync(CONVOS_PANES_FILE)) return [];
-    const data = readFileSync(CONVOS_PANES_FILE, 'utf-8');
-    const state = JSON.parse(data);
-    return state.conversationsPanes || [];
-  } catch (error) {
-    console.error('[Conversations] Error loading panes:', error);
-    return [];
-  }
-}
-
-function saveConvosPanes(panes) {
-  try {
-    ensureDataDir();
-    writeFileSync(CONVOS_PANES_FILE, JSON.stringify({ conversationsPanes: panes, version: 1 }, null, 2));
-  } catch (error) {
-    console.error('[Conversations] Error saving panes:', error);
-  }
-}
-
-let convosPanesCache = loadConvosPanes();
+let convosPanesCache = convosPanesStore.load();
 
 export const conversationsService = {
   listConversationsPanes() {
@@ -525,7 +504,7 @@ export const conversationsService = {
       createdAt: new Date().toISOString(),
     };
     convosPanesCache.push(pane);
-    saveConvosPanes(convosPanesCache);
+    convosPanesStore.save(convosPanesCache);
     return pane;
   },
 
@@ -535,7 +514,7 @@ export const conversationsService = {
     const pane = convosPanesCache[index];
     if (updates.dirPath) pane.dirPath = updates.dirPath;
     convosPanesCache[index] = pane;
-    saveConvosPanes(convosPanesCache);
+    convosPanesStore.save(convosPanesCache);
     return pane;
   },
 
@@ -543,7 +522,7 @@ export const conversationsService = {
     const index = convosPanesCache.findIndex(p => p.id === id);
     if (index !== -1) {
       convosPanesCache.splice(index, 1);
-      saveConvosPanes(convosPanesCache);
+      convosPanesStore.save(convosPanesCache);
     }
   },
 

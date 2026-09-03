@@ -1,53 +1,20 @@
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { config } from '../src/config.js';
+import { createJsonStore } from './jsonStore.js';
 
 const DATA_DIR = config.dataDir;
 const NOTES_FILE = join(DATA_DIR, 'notes.json');
 
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-/**
- * Load notes from disk
- */
-function loadNotes() {
-  try {
-    ensureDataDir();
-    if (!existsSync(NOTES_FILE)) {
-      return [];
-    }
-    const data = readFileSync(NOTES_FILE, 'utf-8');
-    const state = JSON.parse(data);
-    return state.notes || [];
-  } catch (error) {
-    console.error('[Notes] Error loading notes:', error);
-    return [];
-  }
-}
-
-/**
- * Save notes to disk
- */
-function saveNotes(notes) {
-  try {
-    ensureDataDir();
-    const state = {
-      notes,
-      version: 1,
-    };
-    writeFileSync(NOTES_FILE, JSON.stringify(state, null, 2));
-  } catch (error) {
-    console.error('[Notes] Error saving notes:', error);
-  }
-}
+const notesStore = createJsonStore({
+  file: NOTES_FILE,
+  key: 'notes',
+  loadError: '[Notes] Error loading notes:',
+  saveError: '[Notes] Error saving notes:',
+});
 
 // In-memory cache
-let notesCache = loadNotes();
+let notesCache = notesStore.load();
 
 export const noteService = {
   /**
@@ -79,7 +46,7 @@ export const noteService = {
     };
 
     notesCache.push(note);
-    saveNotes(notesCache);
+    notesStore.save(notesCache);
 
     return note;
   },
@@ -107,7 +74,7 @@ export const noteService = {
     }
 
     notesCache[index] = note;
-    saveNotes(notesCache);
+    notesStore.save(notesCache);
 
     return note;
   },
@@ -119,7 +86,7 @@ export const noteService = {
     const index = notesCache.findIndex(n => n.id === id);
     if (index !== -1) {
       notesCache.splice(index, 1);
-      saveNotes(notesCache);
+      notesStore.save(notesCache);
     }
   }
 };

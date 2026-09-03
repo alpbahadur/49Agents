@@ -1,8 +1,9 @@
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { writeFileSync, existsSync } from 'fs';
 import { join, basename, resolve } from 'path';
 import { homedir } from 'os';
 import { config } from '../src/config.js';
+import { createJsonStore } from './jsonStore.js';
 import { validateWorkingDirectory } from './sanitize.js';
 import { readTextFileForTransport } from './fileRead.js';
 
@@ -15,12 +16,6 @@ try {
   const { execSync } = await import('child_process');
   localHostname = execSync('hostname', { encoding: 'utf-8' }).trim();
 } catch {}
-
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
 
 /**
  * Expand ~ to home directory
@@ -66,42 +61,15 @@ function writeFileContent(filePath, content) {
   writeFileSync(expandedPath, content, 'utf-8');
 }
 
-/**
- * Load file panes from disk
- */
-function loadFilePanes() {
-  try {
-    ensureDataDir();
-    if (!existsSync(FILE_PANES_FILE)) {
-      return [];
-    }
-    const data = readFileSync(FILE_PANES_FILE, 'utf-8');
-    const state = JSON.parse(data);
-    return state.filePanes || [];
-  } catch (error) {
-    console.error('[FilePanes] Error loading file panes:', error);
-    return [];
-  }
-}
-
-/**
- * Save file panes to disk
- */
-function saveFilePanes(filePanes) {
-  try {
-    ensureDataDir();
-    const state = {
-      filePanes,
-      version: 1,
-    };
-    writeFileSync(FILE_PANES_FILE, JSON.stringify(state, null, 2));
-  } catch (error) {
-    console.error('[FilePanes] Error saving file panes:', error);
-  }
-}
+const filePanesStore = createJsonStore({
+  file: FILE_PANES_FILE,
+  key: 'filePanes',
+  loadError: '[FilePanes] Error loading file panes:',
+  saveError: '[FilePanes] Error saving file panes:',
+});
 
 // In-memory cache
-let filePanesCache = loadFilePanes();
+let filePanesCache = filePanesStore.load();
 
 export const filePaneService = {
   /**
@@ -184,7 +152,7 @@ export const filePaneService = {
     };
 
     filePanesCache.push(filePane);
-    saveFilePanes(filePanesCache);
+    filePanesStore.save(filePanesCache);
 
     return { ...filePane, content };
   },
@@ -212,7 +180,7 @@ export const filePaneService = {
     }
 
     filePanesCache[index] = filePane;
-    saveFilePanes(filePanesCache);
+    filePanesStore.save(filePanesCache);
 
     return filePane;
   },
@@ -224,7 +192,7 @@ export const filePaneService = {
     const index = filePanesCache.findIndex(fp => fp.id === id);
     if (index !== -1) {
       filePanesCache.splice(index, 1);
-      saveFilePanes(filePanesCache);
+      filePanesStore.save(filePanesCache);
     }
   }
 };

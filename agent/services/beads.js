@@ -1,10 +1,11 @@
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { homedir } from 'os';
 import { config } from '../src/config.js';
+import { createJsonStore } from './jsonStore.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -21,38 +22,14 @@ const BEADS_PANES_FILE = join(DATA_DIR, 'beads-panes.json');
 // Allowed status filter values
 const VALID_STATUSES = ['open', 'in_progress', 'closed'];
 
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
+const beadsPanesStore = createJsonStore({
+  file: BEADS_PANES_FILE,
+  key: 'beadsPanes',
+  loadError: '[Beads] Error loading beads panes:',
+  saveError: '[Beads] Error saving beads panes:',
+});
 
-function loadBeadsPanes() {
-  try {
-    ensureDataDir();
-    if (!existsSync(BEADS_PANES_FILE)) {
-      return [];
-    }
-    const data = readFileSync(BEADS_PANES_FILE, 'utf-8');
-    const state = JSON.parse(data);
-    return state.beadsPanes || [];
-  } catch (error) {
-    console.error('[Beads] Error loading beads panes:', error);
-    return [];
-  }
-}
-
-function saveBeadsPanes(beadsPanes) {
-  try {
-    ensureDataDir();
-    const state = { beadsPanes, version: 1 };
-    writeFileSync(BEADS_PANES_FILE, JSON.stringify(state, null, 2));
-  } catch (error) {
-    console.error('[Beads] Error saving beads panes:', error);
-  }
-}
-
-let beadsPanesCache = loadBeadsPanes();
+let beadsPanesCache = beadsPanesStore.load();
 
 /**
  * Find the beads project root by looking for .beads/ directory
@@ -218,7 +195,7 @@ export const beadsService = {
     };
 
     beadsPanesCache.push(beadsPane);
-    saveBeadsPanes(beadsPanesCache);
+    beadsPanesStore.save(beadsPanesCache);
     return beadsPane;
   },
 
@@ -233,7 +210,7 @@ export const beadsService = {
     if (updates.projectPath) pane.projectPath = updates.projectPath;
 
     beadsPanesCache[index] = pane;
-    saveBeadsPanes(beadsPanesCache);
+    beadsPanesStore.save(beadsPanesCache);
     return pane;
   },
 
@@ -241,7 +218,7 @@ export const beadsService = {
     const index = beadsPanesCache.findIndex(p => p.id === id);
     if (index !== -1) {
       beadsPanesCache.splice(index, 1);
-      saveBeadsPanes(beadsPanesCache);
+      beadsPanesStore.save(beadsPanesCache);
     }
   },
 
